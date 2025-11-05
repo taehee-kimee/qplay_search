@@ -377,6 +377,48 @@
         let allSheetNames = [];
         let selectedSheets = new Set();
 
+        // JSON 데이터 처리 함수
+        function processJsonData(jsonData, sourceName) {
+            try {
+                questionsData = jsonData.data || [];
+                allSheetNames = jsonData.metadata?.sheets || [];
+                
+                // 시트 이름 추출 (데이터에서 고유한 시트 이름 찾기)
+                if (allSheetNames.length === 0) {
+                    const uniqueSheets = new Set(jsonData.data.map(item => item.sheet));
+                    allSheetNames = Array.from(uniqueSheets);
+                }
+                
+                // 초기화: 모든 시트 선택
+                selectedSheets = new Set(allSheetNames);
+                
+                // 시트 정보 표시
+                const sheetsInfoDiv = document.getElementById('sheetsInfo');
+                sheetsInfoDiv.style.display = 'block';
+                sheetsInfoDiv.innerHTML = `📋 읽은 시트 (${allSheetNames.length}개): ${allSheetNames.join(', ')}`;
+                
+                // 카테고리 선택 UI 생성
+                createCategoryFilters();
+                
+                document.getElementById('statusInfo').textContent = 
+                    `성공적으로 로드되었습니다. 총 ${questionsData.length}개의 문제가 있습니다.`;
+                document.getElementById('searchInput').disabled = false;
+                document.getElementById('results').innerHTML = 
+                    `<div class="results-count">총 ${questionsData.length}개의 문제가 로드되었습니다. (${allSheetNames.length}개 시트) 검색어를 입력하여 검색해보세요.</div>`;
+                
+                if (sourceName) {
+                    document.getElementById('fileName').textContent = `로드된 파일: ${sourceName}`;
+                }
+            } catch (error) {
+                document.getElementById('statusInfo').textContent = '';
+                document.getElementById('sheetsInfo').style.display = 'none';
+                document.getElementById('categorySection').classList.remove('active');
+                document.getElementById('results').innerHTML = 
+                    `<div class="error">데이터를 읽는 중 오류가 발생했습니다: ${error.message}</div>`;
+                document.getElementById('searchInput').disabled = true;
+            }
+        }
+
         // Excel 파일 처리 함수
         function processExcelFile(fileData, fileName) {
             try {
@@ -447,36 +489,52 @@
             reader.readAsArrayBuffer(file);
         });
 
-        // 기본 Excel 파일 자동 로드 함수
-        function loadDefaultExcelFile() {
+        // 기본 데이터 자동 로드 함수 (JSON 우선, Excel fallback)
+        function loadDefaultData() {
             document.getElementById('statusInfo').style.display = 'block';
-            document.getElementById('statusInfo').textContent = '기본 파일을 로드하는 중...';
-            document.getElementById('results').innerHTML = '<div class="loading">기본 파일을 로드하는 중...</div>';
+            document.getElementById('statusInfo').textContent = '데이터를 로드하는 중...';
+            document.getElementById('results').innerHTML = '<div class="loading">데이터를 로드하는 중...</div>';
             document.getElementById('searchInput').disabled = true;
             
-            // Excel 파일을 fetch로 가져오기
-            fetch('큐플족보_251021.xlsx')
+            // 먼저 JSON 파일을 시도
+            fetch('data.json')
                 .then(response => {
                     if (!response.ok) {
-                        throw new Error('파일을 찾을 수 없습니다.');
+                        throw new Error('JSON 파일을 찾을 수 없습니다.');
                     }
-                    return response.arrayBuffer();
+                    return response.json();
                 })
-                .then(data => {
-                    processExcelFile(data, '큐플족보_251021.xlsx');
+                .then(jsonData => {
+                    processJsonData(jsonData, 'data.json');
+                    document.getElementById('statusInfo').textContent = 'JSON 파일에서 데이터를 성공적으로 로드했습니다.';
                 })
-                .catch(error => {
-                    console.log('자동 로드 실패:', error);
-                    // 파일을 찾을 수 없으면 파일 업로드 안내
-                    document.getElementById('statusInfo').textContent = '';
-                    document.getElementById('results').innerHTML = 
-                        `<div class="status-info" style="text-align: center; padding: 40px;">
-                            <h3 style="margin-bottom: 20px; color: #667eea;">📚 문제 검색 시스템에 오신 것을 환영합니다!</h3>
-                            <p style="font-size: 1.1em; margin-bottom: 15px;">Excel 파일을 업로드하여 검색을 시작하세요.</p>
-                            <p style="color: #666;">기본 파일(<strong>큐플족보_251021.xlsx</strong>)을 사용하려면<br>"📁 Excel 파일 선택" 버튼을 클릭하여 파일을 선택해주세요.</p>
-                            <p style="color: #999; font-size: 0.9em; margin-top: 20px;">💡 자동 로드를 원하시면 로컬 웹 서버를 사용해주세요.</p>
-                        </div>`;
-                    document.getElementById('searchInput').disabled = true;
+                .catch(jsonError => {
+                    console.log('JSON 로드 실패, Excel 파일 시도:', jsonError);
+                    // JSON 파일이 없으면 Excel 파일 시도
+                    return fetch('큐플족보_251021.xlsx')
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error('Excel 파일을 찾을 수 없습니다.');
+                            }
+                            return response.arrayBuffer();
+                        })
+                        .then(data => {
+                            processExcelFile(data, '큐플족보_251021.xlsx');
+                            document.getElementById('statusInfo').textContent = 'Excel 파일에서 데이터를 성공적으로 로드했습니다.';
+                        })
+                        .catch(excelError => {
+                            console.log('자동 로드 실패:', excelError);
+                            // 파일을 찾을 수 없으면 파일 업로드 안내
+                            document.getElementById('statusInfo').textContent = '';
+                            document.getElementById('results').innerHTML = 
+                                `<div class="status-info" style="text-align: center; padding: 40px;">
+                                    <h3 style="margin-bottom: 20px; color: #667eea;">📚 문제 검색 시스템에 오신 것을 환영합니다!</h3>
+                                    <p style="font-size: 1.1em; margin-bottom: 15px;">Excel 파일을 업로드하여 검색을 시작하세요.</p>
+                                    <p style="color: #666;">기본 파일(<strong>큐플족보_251021.xlsx</strong>)을 사용하려면<br>"📁 Excel 파일 선택" 버튼을 클릭하여 파일을 선택해주세요.</p>
+                                    <p style="color: #999; font-size: 0.9em; margin-top: 20px;">💡 자동 로드를 원하시면 로컬 웹 서버를 사용하거나 JSON 파일을 생성해주세요.</p>
+                                </div>`;
+                            document.getElementById('searchInput').disabled = true;
+                        });
                 });
         }
 
@@ -484,8 +542,8 @@
         window.addEventListener('DOMContentLoaded', function() {
             // 로컬 서버 환경인지 확인 (http:// 또는 https://로 시작하는지)
             if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
-                // 웹 서버 환경에서는 자동 로드 시도
-                loadDefaultExcelFile();
+                // 웹 서버 환경에서는 자동 로드 시도 (JSON 우선, Excel fallback)
+                loadDefaultData();
             } else {
                 // file:// 프로토콜인 경우 파일 업로드 안내
                 document.getElementById('results').innerHTML = 
@@ -493,7 +551,7 @@
                         <h3 style="margin-bottom: 20px; color: #667eea;">📚 문제 검색 시스템에 오신 것을 환영합니다!</h3>
                         <p style="font-size: 1.1em; margin-bottom: 15px;">Excel 파일을 업로드하여 검색을 시작하세요.</p>
                         <p style="color: #666;">기본 파일(<strong>큐플족보_251021.xlsx</strong>)을 사용하려면<br>"📁 Excel 파일 선택" 버튼을 클릭하여 파일을 선택해주세요.</p>
-                        <p style="color: #999; font-size: 0.9em; margin-top: 20px;">💡 자동 로드를 원하시면 로컬 웹 서버를 사용해주세요.</p>
+                        <p style="color: #999; font-size: 0.9em; margin-top: 20px;">💡 자동 로드를 원하시면 로컬 웹 서버를 사용하거나 JSON 파일을 생성해주세요.</p>
                     </div>`;
             }
         });
