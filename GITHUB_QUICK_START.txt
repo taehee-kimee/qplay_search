@@ -1,0 +1,31 @@
+========================================
+GitHub 연동 빠른 가이드
+========================================
+
+⚠️ Git이 설치되어 있지 않습니다!
+
+1단계: Git 설치
+   - https://git-scm.com/download/win 방문
+   - 다운로드 후 설치
+   - 설치 후 터미널을 다시 시작하세요
+
+2단계: GitHub 리포지토리 생성
+   - https://github.com 접속 및 로그인
+   - 우측 상단 "+" 버튼 → "New repository"
+   - Repository name: qplay-search (원하는 이름)
+   - Public 또는 Private 선택
+   - "Create repository" 클릭
+   - 생성된 URL 복사
+
+3단계: setup_github.bat 실행
+   - setup_github.bat 파일을 더블클릭
+   - GitHub 리포지토리 URL 입력
+   - 자동으로 업로드됩니다!
+
+또는 GitHub Desktop 사용 (더 쉬움):
+   - https://desktop.github.com 다운로드
+   - GitHub Desktop에서 리포지토리 생성 및 업로드
+   - 모든 파일을 드래그 앤 드롭
+   - Commit & Push!
+
+========================================

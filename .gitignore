@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Excel 임시 파일만 제외 (실제 Excel 파일은 포함)
+~$*.xlsx
+*.xlsx~
+~$*.xls
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 로그
+*.log
+
+# 환경 변수
+.env
+.env.local
+
+# 변환된 파일 (선택사항)
+# excel_data.js
+# excel_data.json
+
+# Excel 파일은 포함됨 (주석 해제하여 제외 가능)
+# *.xlsx
+# *.xls
