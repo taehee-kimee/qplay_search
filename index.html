@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>문제 검색 시스템</title>
+    <title>Qplay 족보</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         * {
@@ -47,49 +47,6 @@
 
         .content {
             padding: 40px;
-        }
-
-        .upload-section {
-            margin-bottom: 40px;
-            padding: 30px;
-            background: #f8f9fa;
-            border-radius: 12px;
-            border: 2px dashed #667eea;
-            text-align: center;
-        }
-
-        .file-input-wrapper {
-            position: relative;
-            display: inline-block;
-            margin-top: 20px;
-        }
-
-        .file-input-wrapper input[type=file] {
-            position: absolute;
-            left: -9999px;
-        }
-
-        .file-input-label {
-            display: inline-block;
-            padding: 15px 30px;
-            background: #667eea;
-            color: white;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 1.1em;
-            transition: all 0.3s ease;
-        }
-
-        .file-input-label:hover {
-            background: #5568d3;
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-        }
-
-        .file-name {
-            margin-top: 15px;
-            color: #667eea;
-            font-weight: 600;
         }
 
         .search-section {
@@ -306,7 +263,7 @@
             color: white;
         }
 
-        .category-item input[type="checkbox"] {
+        .category-item input[type="radio"] {
             width: 18px;
             height: 18px;
             margin-right: 10px;
@@ -323,34 +280,17 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>📚 문제 검색 시스템</h1>
-            <p>Excel 파일을 업로드하고 문제를 검색해보세요</p>
+            <h1>📚 Qplay 족보</h1>
+            <p>문제를 검색해보세요</p>
         </div>
 
         <div class="content">
-            <div class="upload-section">
-                <h2>Excel 파일 업로드</h2>
-                <div class="file-input-wrapper">
-                    <input type="file" id="excelFile" accept=".xlsx,.xls" />
-                    <label for="excelFile" class="file-input-label">
-                        📁 Excel 파일 선택
-                    </label>
-                </div>
-                <div style="margin-top: 15px; color: #666; font-size: 0.9em;">
-                    💡 <strong>큐플족보_251021.xlsx</strong> 파일을 선택하면 모든 문제를 검색할 수 있습니다.
-                </div>
-                <div id="fileName" class="file-name"></div>
-                <div id="statusInfo" class="status-info" style="display: none;"></div>
-                <div id="sheetsInfo" class="sheets-info" style="display: none;"></div>
-            </div>
+            <div id="statusInfo" class="status-info" style="display: none;"></div>
+            <div id="sheetsInfo" class="sheets-info" style="display: none;"></div>
 
             <div class="category-section" id="categorySection">
                 <div class="category-header">
                     <h3>📂 카테고리 선택</h3>
-                    <div class="category-controls">
-                        <button class="category-btn" onclick="selectAllCategories()">전체 선택</button>
-                        <button class="category-btn secondary" onclick="deselectAllCategories()">전체 해제</button>
-                    </div>
                 </div>
                 <div class="category-list" id="categoryList"></div>
             </div>
@@ -375,10 +315,10 @@
         let questionsData = [];
         let currentSearchTerm = '';
         let allSheetNames = [];
-        let selectedSheets = new Set();
+        let selectedSheet = null; // 단일 선택으로 변경
 
         // JSON 데이터 처리 함수
-        function processJsonData(jsonData, sourceName) {
+        function processJsonData(jsonData) {
             try {
                 questionsData = jsonData.data || [];
                 allSheetNames = jsonData.metadata?.sheets || [];
@@ -389,8 +329,8 @@
                     allSheetNames = Array.from(uniqueSheets);
                 }
                 
-                // 초기화: 모든 시트 선택
-                selectedSheets = new Set(allSheetNames);
+                // 초기화: 첫 번째 시트 선택
+                selectedSheet = allSheetNames.length > 0 ? allSheetNames[0] : null;
                 
                 // 시트 정보 표시
                 const sheetsInfoDiv = document.getElementById('sheetsInfo');
@@ -403,12 +343,11 @@
                 document.getElementById('statusInfo').textContent = 
                     `성공적으로 로드되었습니다. 총 ${questionsData.length}개의 문제가 있습니다.`;
                 document.getElementById('searchInput').disabled = false;
+                const totalCount = selectedSheet 
+                    ? questionsData.filter(item => item.sheet === selectedSheet).length 
+                    : questionsData.length;
                 document.getElementById('results').innerHTML = 
-                    `<div class="results-count">총 ${questionsData.length}개의 문제가 로드되었습니다. (${allSheetNames.length}개 시트) 검색어를 입력하여 검색해보세요.</div>`;
-                
-                if (sourceName) {
-                    document.getElementById('fileName').textContent = `로드된 파일: ${sourceName}`;
-                }
+                    `<div class="results-count">총 ${totalCount}개의 문제가 로드되었습니다. ${selectedSheet ? `(카테고리: ${selectedSheet})` : ''} 검색어를 입력하여 검색해보세요.</div>`;
             } catch (error) {
                 document.getElementById('statusInfo').textContent = '';
                 document.getElementById('sheetsInfo').style.display = 'none';
@@ -420,7 +359,7 @@
         }
 
         // Excel 파일 처리 함수
-        function processExcelFile(fileData, fileName) {
+        function processExcelFile(fileData) {
             try {
                 const data = new Uint8Array(fileData);
                 const workbook = XLSX.read(data, { type: 'array' });
@@ -439,8 +378,8 @@
                     questionsData = questionsData.concat(sheetData);
                 });
                 
-                // 초기화: 모든 시트 선택
-                selectedSheets = new Set(allSheetNames);
+                // 초기화: 첫 번째 시트 선택
+                selectedSheet = allSheetNames.length > 0 ? allSheetNames[0] : null;
                 
                 // 시트 정보 표시
                 const sheetsInfoDiv = document.getElementById('sheetsInfo');
@@ -453,12 +392,11 @@
                 document.getElementById('statusInfo').textContent = 
                     `성공적으로 로드되었습니다. 총 ${questionsData.length}개의 문제가 있습니다.`;
                 document.getElementById('searchInput').disabled = false;
+                const totalCount = selectedSheet 
+                    ? questionsData.filter(item => item.sheet === selectedSheet).length 
+                    : questionsData.length;
                 document.getElementById('results').innerHTML = 
-                    `<div class="results-count">총 ${questionsData.length}개의 문제가 로드되었습니다. (${allSheetNames.length}개 시트) 검색어를 입력하여 검색해보세요.</div>`;
-                
-                if (fileName) {
-                    document.getElementById('fileName').textContent = `로드된 파일: ${fileName}`;
-                }
+                    `<div class="results-count">총 ${totalCount}개의 문제가 로드되었습니다. ${selectedSheet ? `(카테고리: ${selectedSheet})` : ''} 검색어를 입력하여 검색해보세요.</div>`;
             } catch (error) {
                 document.getElementById('statusInfo').textContent = '';
                 document.getElementById('sheetsInfo').style.display = 'none';
@@ -470,26 +408,7 @@
         }
 
 
-        // 파일 업로드 이벤트
-        document.getElementById('excelFile').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            document.getElementById('fileName').textContent = `선택된 파일: ${file.name}`;
-            document.getElementById('statusInfo').style.display = 'block';
-            document.getElementById('statusInfo').textContent = '파일을 읽는 중...';
-            document.getElementById('results').innerHTML = '<div class="loading">파일을 읽는 중...</div>';
-            document.getElementById('searchInput').disabled = true;
-
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                processExcelFile(e.target.result, file.name);
-            };
-            
-            reader.readAsArrayBuffer(file);
-        });
-
-        // 기본 데이터 자동 로드 함수 (JSON 우선, Excel fallback)
+        // 기본 데이터 자동 로드 함수 (JSON)
         function loadDefaultData() {
             document.getElementById('statusInfo').style.display = 'block';
             document.getElementById('statusInfo').textContent = '데이터를 로드하는 중...';
@@ -505,36 +424,19 @@
                     return response.json();
                 })
                 .then(jsonData => {
-                    processJsonData(jsonData, 'data.json');
-                    document.getElementById('statusInfo').textContent = 'JSON 파일에서 데이터를 성공적으로 로드했습니다.';
+                    processJsonData(jsonData);
+                    document.getElementById('statusInfo').textContent = '데이터를 성공적으로 로드했습니다.';
                 })
                 .catch(jsonError => {
-                    console.log('JSON 로드 실패, Excel 파일 시도:', jsonError);
-                    // JSON 파일이 없으면 Excel 파일 시도
-                    return fetch('큐플족보_251021.xlsx')
-                        .then(response => {
-                            if (!response.ok) {
-                                throw new Error('Excel 파일을 찾을 수 없습니다.');
-                            }
-                            return response.arrayBuffer();
-                        })
-                        .then(data => {
-                            processExcelFile(data, '큐플족보_251021.xlsx');
-                            document.getElementById('statusInfo').textContent = 'Excel 파일에서 데이터를 성공적으로 로드했습니다.';
-                        })
-                        .catch(excelError => {
-                            console.log('자동 로드 실패:', excelError);
-                            // 파일을 찾을 수 없으면 파일 업로드 안내
-                            document.getElementById('statusInfo').textContent = '';
-                            document.getElementById('results').innerHTML = 
-                                `<div class="status-info" style="text-align: center; padding: 40px;">
-                                    <h3 style="margin-bottom: 20px; color: #667eea;">📚 문제 검색 시스템에 오신 것을 환영합니다!</h3>
-                                    <p style="font-size: 1.1em; margin-bottom: 15px;">Excel 파일을 업로드하여 검색을 시작하세요.</p>
-                                    <p style="color: #666;">기본 파일(<strong>큐플족보_251021.xlsx</strong>)을 사용하려면<br>"📁 Excel 파일 선택" 버튼을 클릭하여 파일을 선택해주세요.</p>
-                                    <p style="color: #999; font-size: 0.9em; margin-top: 20px;">💡 자동 로드를 원하시면 로컬 웹 서버를 사용하거나 JSON 파일을 생성해주세요.</p>
-                                </div>`;
-                            document.getElementById('searchInput').disabled = true;
-                        });
+                    console.log('JSON 로드 실패:', jsonError);
+                    document.getElementById('statusInfo').textContent = '';
+                    document.getElementById('results').innerHTML = 
+                        `<div class="status-info" style="text-align: center; padding: 40px;">
+                            <h3 style="margin-bottom: 20px; color: #667eea;">📚 Qplay 족보에 오신 것을 환영합니다!</h3>
+                            <p style="font-size: 1.1em; margin-bottom: 15px;">데이터 파일을 찾을 수 없습니다.</p>
+                            <p style="color: #666;">data.json 파일이 필요한 위치에 있는지 확인해주세요.</p>
+                        </div>`;
+                    document.getElementById('searchInput').disabled = true;
                 });
         }
 
@@ -542,16 +444,16 @@
         window.addEventListener('DOMContentLoaded', function() {
             // 로컬 서버 환경인지 확인 (http:// 또는 https://로 시작하는지)
             if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
-                // 웹 서버 환경에서는 자동 로드 시도 (JSON 우선, Excel fallback)
+                // 웹 서버 환경에서는 자동 로드 시도 (JSON)
                 loadDefaultData();
             } else {
-                // file:// 프로토콜인 경우 파일 업로드 안내
+                // file:// 프로토콜인 경우 안내
                 document.getElementById('results').innerHTML = 
                     `<div class="status-info" style="text-align: center; padding: 40px;">
-                        <h3 style="margin-bottom: 20px; color: #667eea;">📚 문제 검색 시스템에 오신 것을 환영합니다!</h3>
-                        <p style="font-size: 1.1em; margin-bottom: 15px;">Excel 파일을 업로드하여 검색을 시작하세요.</p>
-                        <p style="color: #666;">기본 파일(<strong>큐플족보_251021.xlsx</strong>)을 사용하려면<br>"📁 Excel 파일 선택" 버튼을 클릭하여 파일을 선택해주세요.</p>
-                        <p style="color: #999; font-size: 0.9em; margin-top: 20px;">💡 자동 로드를 원하시면 로컬 웹 서버를 사용하거나 JSON 파일을 생성해주세요.</p>
+                        <h3 style="margin-bottom: 20px; color: #667eea;">📚 Qplay 족보에 오신 것을 환영합니다!</h3>
+                        <p style="font-size: 1.1em; margin-bottom: 15px;">데이터를 로드하려면 로컬 웹 서버를 사용해주세요.</p>
+                        <p style="color: #666;">로컬 서버를 실행하려면 터미널에서 다음 명령어를 실행하세요:</p>
+                        <p style="color: #999; font-size: 0.9em; margin-top: 20px;">💡 <code style="background: #f0f0f0; padding: 2px 6px; border-radius: 4px;">python -m http.server 8000</code></p>
                     </div>`;
             }
         });
@@ -626,19 +528,17 @@
             const resultsDiv = document.getElementById('results');
             
             if (!currentSearchTerm) {
-                const totalCount = selectedSheets.size > 0 
-                    ? questionsData.filter(item => selectedSheets.has(item.sheet)).length 
+                const totalCount = selectedSheet 
+                    ? questionsData.filter(item => item.sheet === selectedSheet).length 
                     : questionsData.length;
-                const selectedCount = selectedSheets.size;
-                const totalSheets = allSheetNames.length;
                 
                 resultsDiv.innerHTML = 
-                    `<div class="results-count">총 ${totalCount}개의 문제가 로드되었습니다. (${selectedCount}/${totalSheets}개 시트 선택됨) 검색어를 입력하여 검색해보세요.</div>`;
+                    `<div class="results-count">총 ${totalCount}개의 문제가 로드되었습니다. ${selectedSheet ? `(카테고리: ${selectedSheet})` : ''} 검색어를 입력하여 검색해보세요.</div>`;
                 return;
             }
 
             if (questionsData.length === 0) {
-                resultsDiv.innerHTML = '<div class="no-results">먼저 Excel 파일을 업로드해주세요.</div>';
+                resultsDiv.innerHTML = '<div class="no-results">데이터가 로드되지 않았습니다.</div>';
                 return;
             }
 
@@ -646,7 +546,7 @@
             const searchTerm = currentSearchTerm.toLowerCase();
             const filtered = questionsData.filter(item => {
                 // 선택된 시트인지 확인
-                if (selectedSheets.size > 0 && !selectedSheets.has(item.sheet)) {
+                if (selectedSheet && item.sheet !== selectedSheet) {
                     return false;
                 }
                 // 검색어 매칭
@@ -661,8 +561,8 @@
 
             // 결과 표시
             let html = `<div class="results-count">검색 결과: ${filtered.length}개`;
-            if (selectedSheets.size < allSheetNames.length) {
-                html += ` (${selectedSheets.size}/${allSheetNames.length}개 카테고리 선택됨)`;
+            if (selectedSheet) {
+                html += ` (카테고리: ${selectedSheet})`;
             }
             html += `</div>`;
             
@@ -711,36 +611,43 @@
             
             categoryList.innerHTML = '';
             
+            // 기본 선택값이 없으면 첫 번째 시트 선택
+            if (!selectedSheet && allSheetNames.length > 0) {
+                selectedSheet = allSheetNames[0];
+            }
+            
             allSheetNames.forEach(sheetName => {
                 const categoryItem = document.createElement('div');
-                categoryItem.className = 'category-item selected';
+                const isSelected = selectedSheet === sheetName;
+                categoryItem.className = isSelected ? 'category-item selected' : 'category-item';
                 
                 // ID는 안전하게 만들기 (특수문자 제거)
                 const safeId = 'category-' + sheetName.replace(/[^a-zA-Z0-9가-힣]/g, '-');
                 
-                const checkbox = document.createElement('input');
-                checkbox.type = 'checkbox';
-                checkbox.id = safeId;
-                checkbox.value = sheetName;
-                checkbox.checked = true;
-                checkbox.onchange = function(e) {
+                const radio = document.createElement('input');
+                radio.type = 'radio';
+                radio.name = 'category-select'; // 같은 name으로 그룹화하여 단일 선택 보장
+                radio.id = safeId;
+                radio.value = sheetName;
+                radio.checked = isSelected;
+                radio.onchange = function(e) {
                     e.stopPropagation();
-                    toggleCategory(sheetName);
+                    selectCategory(sheetName);
                 };
                 
                 const label = document.createElement('label');
                 label.htmlFor = safeId;
                 label.textContent = sheetName;
                 
-                // 카테고리 항목 클릭 시 토글
+                // 카테고리 항목 클릭 시 선택
                 categoryItem.onclick = function(e) {
-                    if (e.target !== checkbox && e.target !== label) {
-                        checkbox.checked = !checkbox.checked;
-                        toggleCategory(sheetName);
+                    if (e.target !== radio && e.target !== label) {
+                        radio.checked = true;
+                        selectCategory(sheetName);
                     }
                 };
                 
-                categoryItem.appendChild(checkbox);
+                categoryItem.appendChild(radio);
                 categoryItem.appendChild(label);
                 categoryList.appendChild(categoryItem);
             });
@@ -748,52 +655,26 @@
             categorySection.classList.add('active');
         }
 
-        // 카테고리 선택/해제
-        function toggleCategory(sheetName) {
-            // 안전한 ID로 찾기
+        // 카테고리 선택 (단일 선택)
+        function selectCategory(sheetName) {
+            // 이전 선택 해제
+            if (selectedSheet) {
+                const prevSafeId = 'category-' + selectedSheet.replace(/[^a-zA-Z0-9가-힣]/g, '-');
+                const prevRadio = document.getElementById(prevSafeId);
+                if (prevRadio) {
+                    prevRadio.closest('.category-item')?.classList.remove('selected');
+                }
+            }
+            
+            // 새 선택
+            selectedSheet = sheetName;
             const safeId = 'category-' + sheetName.replace(/[^a-zA-Z0-9가-힣]/g, '-');
-            const checkbox = document.getElementById(safeId);
-            if (!checkbox) return;
-            
-            const categoryItem = checkbox.closest('.category-item');
-            
-            if (checkbox.checked) {
-                selectedSheets.add(sheetName);
-                categoryItem.classList.add('selected');
-            } else {
-                selectedSheets.delete(sheetName);
-                categoryItem.classList.remove('selected');
+            const radio = document.getElementById(safeId);
+            if (radio) {
+                radio.closest('.category-item')?.classList.add('selected');
             }
             
             // 검색 다시 수행
-            performSearch();
-        }
-
-        // 전체 선택
-        function selectAllCategories() {
-            allSheetNames.forEach(sheetName => {
-                const safeId = 'category-' + sheetName.replace(/[^a-zA-Z0-9가-힣]/g, '-');
-                const checkbox = document.getElementById(safeId);
-                if (checkbox && !checkbox.checked) {
-                    checkbox.checked = true;
-                    selectedSheets.add(sheetName);
-                    checkbox.closest('.category-item').classList.add('selected');
-                }
-            });
-            performSearch();
-        }
-
-        // 전체 해제
-        function deselectAllCategories() {
-            allSheetNames.forEach(sheetName => {
-                const safeId = 'category-' + sheetName.replace(/[^a-zA-Z0-9가-힣]/g, '-');
-                const checkbox = document.getElementById(safeId);
-                if (checkbox && checkbox.checked) {
-                    checkbox.checked = false;
-                    selectedSheets.delete(sheetName);
-                    checkbox.closest('.category-item').classList.remove('selected');
-                }
-            });
             performSearch();
         }
     </script>
