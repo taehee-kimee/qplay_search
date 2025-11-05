@@ -14,7 +14,7 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background-color:#333333;
             min-height: 100vh;
             padding: 20px;
         }
@@ -22,22 +22,22 @@
         .container {
             max-width: 1200px;
             margin: 0 auto;
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            background: #ffffff;
+            border-radius: 0;
+            box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
             overflow: hidden;
+            border-radius: 10px;
         }
 
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 30px;
-            text-align: center;
+            color: #333333;
+            padding: 20px 30px;
+            text-align: left;
+            border-bottom: 1px solid #ffffff;
         }
 
-        .header h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
+        .header h2 {
+            font-size: 1.5em;
         }
 
         .header p {
@@ -46,7 +46,7 @@
         }
 
         .content {
-            padding: 40px;
+            padding: 30px;
         }
 
         .search-section {
@@ -57,15 +57,21 @@
             width: 100%;
             padding: 18px 24px;
             font-size: 1.1em;
-            border: 2px solid #e0e0e0;
-            border-radius: 12px;
+            border: 1px solid #000000;
+            border-radius: 0;
+            background: #ffffff;
+            color: #000000;
             transition: all 0.3s ease;
         }
 
         .search-box:focus {
             outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            border-color: #000000;
+            box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
+        }
+
+        .search-box::placeholder {
+            color: #999999;
         }
 
         .results-section {
@@ -74,28 +80,30 @@
 
         .results-count {
             margin-bottom: 20px;
-            color: #666;
+            color: #666666;
             font-size: 1em;
         }
 
         .result-item {
-            background: #f8f9fa;
-            border-left: 4px solid #667eea;
+            background: #ffffff;
+            border: 1px solid #e0e0e0;
+            border-left: 2px solid #000000;
             padding: 25px;
             margin-bottom: 20px;
-            border-radius: 8px;
+            border-radius: 0;
             transition: all 0.3s ease;
         }
 
         .result-item:hover {
             transform: translateX(5px);
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            border-left-color: #000000;
         }
 
         .result-question {
             font-size: 1.2em;
             font-weight: 600;
-            color: #333;
+            color: #000000;
             margin-bottom: 15px;
             line-height: 1.6;
         }
@@ -106,59 +114,62 @@
 
         .result-answer {
             font-size: 1.1em;
-            color: #555;
+            color: #333333;
             padding: 15px;
-            background: white;
-            border-radius: 8px;
+            background: #f8f8f8;
+            border-radius: 0;
             margin-top: 10px;
             line-height: 1.8;
         }
 
         .highlight {
-            background: yellow;
+            background: #000000;
+            color: #ffffff;
             padding: 2px 4px;
-            border-radius: 3px;
+            border-radius: 0;
             font-weight: 600;
         }
 
         .no-results {
             text-align: center;
             padding: 60px 20px;
-            color: #999;
+            color: #666666;
             font-size: 1.2em;
         }
 
         .loading {
             text-align: center;
             padding: 40px;
-            color: #667eea;
+            color: #000000;
             font-size: 1.1em;
         }
 
         .error {
-            background: #fee;
-            color: #c33;
+            background: #ffffff;
+            color: #000000;
             padding: 15px;
-            border-radius: 8px;
+            border-radius: 0;
             margin-top: 20px;
-            border-left: 4px solid #c33;
+            border: 1px solid #000000;
+            border-left: 2px solid #000000;
         }
 
         .status-info {
             margin-top: 15px;
             padding: 12px;
-            background: #e3f2fd;
-            border-radius: 8px;
-            color: #1976d2;
+            background: #f8f8f8;
+            border-radius: 0;
+            color: #000000;
             font-size: 0.95em;
+            border: 1px solid #e0e0e0;
         }
 
         .sheet-tag {
             display: inline-block;
             padding: 4px 10px;
-            background: #667eea;
-            color: white;
-            border-radius: 12px;
+            background: #000000;
+            color: #ffffff;
+            border-radius: 0;
             font-size: 0.85em;
             margin-left: 10px;
             font-weight: 500;
@@ -167,18 +178,15 @@
         .sheets-info {
             margin-top: 15px;
             padding: 12px;
-            background: #f0f4ff;
-            border-radius: 8px;
-            color: #667eea;
+            background: #f8f8f8;
+            border-radius: 0;
+            color: #000000;
             font-size: 0.9em;
+            border: 1px solid #e0e0e0;
         }
 
         .category-section {
             margin-bottom: 30px;
-            padding: 25px;
-            background: #f8f9fa;
-            border-radius: 12px;
-            display: none;
         }
 
         .category-section.active {
@@ -186,102 +194,48 @@
         }
 
         .category-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
         }
 
         .category-header h3 {
-            font-size: 1.3em;
-            color: #333;
-            margin: 0;
+            font-size: 1.1em;
+            color: #000000;
+            margin: 0 0 10px 0;
+            font-weight: 600;
         }
 
-        .category-controls {
-            display: flex;
-            gap: 10px;
-        }
-
-        .category-btn {
-            padding: 8px 16px;
-            background: #667eea;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.9em;
-            transition: all 0.3s ease;
-        }
-
-        .category-btn:hover {
-            background: #5568d3;
-            transform: translateY(-2px);
-        }
-
-        .category-btn.secondary {
-            background: #6c757d;
-        }
-
-        .category-btn.secondary:hover {
-            background: #5a6268;
-        }
-
-        .category-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-        }
-
-        .category-item label {
-            cursor: pointer;
-            font-weight: 500;
-            user-select: none;
-            flex: 1;
-        }
-
-        .category-item {
-            display: flex;
-            align-items: center;
-            padding: 12px 18px;
-            background: white;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
+        .category-dropdown {
+            width: 100%;
+            padding: 12px 16px;
+            font-size: 1em;
+            border: 1px solid #000000;
+            border-radius: 0;
+            background: #ffffff;
+            color: #000000;
             cursor: pointer;
             transition: all 0.3s ease;
-            user-select: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23000000' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 16px center;
+            padding-right: 40px;
         }
 
-        .category-item:hover {
-            border-color: #667eea;
-            background: #f0f4ff;
+        .category-dropdown:focus {
+            outline: none;
+            border-color: #000000;
+            box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
         }
 
-        .category-item.selected {
-            background: #667eea;
-            border-color: #667eea;
-            color: white;
-        }
-
-        .category-item input[type="radio"] {
-            width: 18px;
-            height: 18px;
-            margin-right: 10px;
-            cursor: pointer;
-        }
-
-        .category-item label {
-            cursor: pointer;
-            font-weight: 500;
-            user-select: none;
+        .category-dropdown:hover {
+            border-color: #000000;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>📚 Qplay 족보</h1>
-            <p>문제를 검색해보세요</p>
+            <h2>파르르 족보</h2>
         </div>
 
         <div class="content">
@@ -290,9 +244,11 @@
 
             <div class="category-section" id="categorySection">
                 <div class="category-header">
-                    <h3>📂 카테고리 선택</h3>
+                    <h3>카테고리</h3>
                 </div>
-                <div class="category-list" id="categoryList"></div>
+                <select id="categorySelect" class="category-dropdown" disabled>
+                    <option value="">카테고리를 선택하세요</option>
+                </select>
             </div>
 
             <div class="search-section">
@@ -335,7 +291,7 @@
                 // 시트 정보 표시
                 const sheetsInfoDiv = document.getElementById('sheetsInfo');
                 sheetsInfoDiv.style.display = 'block';
-                sheetsInfoDiv.innerHTML = `📋 읽은 시트 (${allSheetNames.length}개): ${allSheetNames.join(', ')}`;
+                sheetsInfoDiv.innerHTML = `읽은 시트 (${allSheetNames.length}개): ${allSheetNames.join(', ')}`;
                 
                 // 카테고리 선택 UI 생성
                 createCategoryFilters();
@@ -384,7 +340,7 @@
                 // 시트 정보 표시
                 const sheetsInfoDiv = document.getElementById('sheetsInfo');
                 sheetsInfoDiv.style.display = 'block';
-                sheetsInfoDiv.innerHTML = `📋 읽은 시트 (${allSheetNames.length}개): ${allSheetNames.join(', ')}`;
+                sheetsInfoDiv.innerHTML = `읽은 시트 (${allSheetNames.length}개): ${allSheetNames.join(', ')}`;
                 
                 // 카테고리 선택 UI 생성
                 createCategoryFilters();
@@ -432,7 +388,7 @@
                     document.getElementById('statusInfo').textContent = '';
                     document.getElementById('results').innerHTML = 
                         `<div class="status-info" style="text-align: center; padding: 40px;">
-                            <h3 style="margin-bottom: 20px; color: #667eea;">📚 Qplay 족보에 오신 것을 환영합니다!</h3>
+                            <h3 style="margin-bottom: 20px; color: #000000;">Qplay 족보에 오신 것을 환영합니다!</h3>
                             <p style="font-size: 1.1em; margin-bottom: 15px;">데이터 파일을 찾을 수 없습니다.</p>
                             <p style="color: #666;">data.json 파일이 필요한 위치에 있는지 확인해주세요.</p>
                         </div>`;
@@ -606,74 +562,40 @@
 
         // 카테고리 필터 UI 생성
         function createCategoryFilters() {
-            const categoryList = document.getElementById('categoryList');
+            const categorySelect = document.getElementById('categorySelect');
             const categorySection = document.getElementById('categorySection');
             
-            categoryList.innerHTML = '';
+            categorySelect.innerHTML = '';
             
             // 기본 선택값이 없으면 첫 번째 시트 선택
             if (!selectedSheet && allSheetNames.length > 0) {
                 selectedSheet = allSheetNames[0];
             }
             
+            // 옵션 추가
             allSheetNames.forEach(sheetName => {
-                const categoryItem = document.createElement('div');
-                const isSelected = selectedSheet === sheetName;
-                categoryItem.className = isSelected ? 'category-item selected' : 'category-item';
-                
-                // ID는 안전하게 만들기 (특수문자 제거)
-                const safeId = 'category-' + sheetName.replace(/[^a-zA-Z0-9가-힣]/g, '-');
-                
-                const radio = document.createElement('input');
-                radio.type = 'radio';
-                radio.name = 'category-select'; // 같은 name으로 그룹화하여 단일 선택 보장
-                radio.id = safeId;
-                radio.value = sheetName;
-                radio.checked = isSelected;
-                radio.onchange = function(e) {
-                    e.stopPropagation();
-                    selectCategory(sheetName);
-                };
-                
-                const label = document.createElement('label');
-                label.htmlFor = safeId;
-                label.textContent = sheetName;
-                
-                // 카테고리 항목 클릭 시 선택
-                categoryItem.onclick = function(e) {
-                    if (e.target !== radio && e.target !== label) {
-                        radio.checked = true;
-                        selectCategory(sheetName);
-                    }
-                };
-                
-                categoryItem.appendChild(radio);
-                categoryItem.appendChild(label);
-                categoryList.appendChild(categoryItem);
+                const option = document.createElement('option');
+                option.value = sheetName;
+                option.textContent = sheetName;
+                if (selectedSheet === sheetName) {
+                    option.selected = true;
+                }
+                categorySelect.appendChild(option);
             });
             
+            // 드롭다운 활성화
+            categorySelect.disabled = false;
             categorySection.classList.add('active');
+            
+            // 변경 이벤트 리스너
+            categorySelect.onchange = function(e) {
+                selectCategory(e.target.value);
+            };
         }
 
         // 카테고리 선택 (단일 선택)
         function selectCategory(sheetName) {
-            // 이전 선택 해제
-            if (selectedSheet) {
-                const prevSafeId = 'category-' + selectedSheet.replace(/[^a-zA-Z0-9가-힣]/g, '-');
-                const prevRadio = document.getElementById(prevSafeId);
-                if (prevRadio) {
-                    prevRadio.closest('.category-item')?.classList.remove('selected');
-                }
-            }
-            
-            // 새 선택
             selectedSheet = sheetName;
-            const safeId = 'category-' + sheetName.replace(/[^a-zA-Z0-9가-힣]/g, '-');
-            const radio = document.getElementById(safeId);
-            if (radio) {
-                radio.closest('.category-item')?.classList.add('selected');
-            }
-            
             // 검색 다시 수행
             performSearch();
         }
