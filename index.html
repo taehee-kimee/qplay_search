@@ -648,15 +648,17 @@
 
             // 검색 수행 (선택된 카테고리만) - 검색어가 변경되었거나 리셋 요청 시에만 재검색
             if (resetDisplay || displayedCount === 0) {
-                const searchTerm = currentSearchTerm.toLowerCase();
+                const searchTerm = currentSearchTerm.toLowerCase().replace(/\s+/g, ''); // 공백 제거
                 allFilteredResults = questionsData.filter(item => {
                     // 선택된 시트인지 확인
                     if (selectedSheet && item.sheet !== selectedSheet) {
                         return false;
                     }
-                    // 검색어 매칭
-                    return item.question.toLowerCase().includes(searchTerm) ||
-                           item.answer.toLowerCase().includes(searchTerm);
+                    // 검색어 매칭 (공백 제거 후 비교)
+                    const questionNoSpace = item.question.toLowerCase().replace(/\s+/g, '');
+                    const answerNoSpace = item.answer.toLowerCase().replace(/\s+/g, '');
+                    return questionNoSpace.includes(searchTerm) ||
+                           answerNoSpace.includes(searchTerm);
                 });
                 displayedCount = 0;
             }
