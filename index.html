@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Qplay 족보</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/tesseract.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -68,6 +69,30 @@
             outline: none;
             border-color: #000000;
             box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
+        }
+
+        .camera-btn {
+            position: absolute;
+            right: 50px;
+            background: none;
+            border: none;
+            color: #999;
+            font-size: 1.2em;
+            cursor: pointer;
+            padding: 4px 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .camera-btn:hover {
+            color: #000000;
+        }
+
+        .camera-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
 
         .search-box::placeholder {
@@ -296,6 +321,97 @@
             opacity: 1;
             transform: translateX(-50%) translateY(0);
         }
+
+        .camera-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .camera-modal.show {
+            display: flex;
+        }
+
+        .camera-modal-content {
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 20px;
+            max-width: 90%;
+            max-height: 90%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .camera-video-container {
+            position: relative;
+            width: 100%;
+            max-width: 640px;
+            background: #000000;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        #cameraVideo {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .camera-controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .camera-capture-btn {
+            padding: 12px 24px;
+            background: #000000;
+            color: #ffffff;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .camera-capture-btn:hover {
+            background: #333333;
+        }
+
+        .camera-capture-btn:disabled {
+            background: #999999;
+            cursor: not-allowed;
+        }
+
+        .camera-close-btn {
+            padding: 12px 24px;
+            background: #999999;
+            color: #ffffff;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .camera-close-btn:hover {
+            background: #666666;
+        }
+
+        .camera-loading {
+            padding: 20px;
+            text-align: center;
+            color: #666666;
+        }
     </style>
 </head>
 <body>
@@ -324,6 +440,7 @@
             </div>
 
             <div class="search-section">
+<<<<<<< Updated upstream
                 <input 
                     type="text" 
                     id="searchInput" 
@@ -331,6 +448,19 @@
                     placeholder="검색어를 입력하세요..."
                     disabled
                 />
+=======
+                <div class="search-container">
+                    <input 
+                        type="text" 
+                        id="searchInput" 
+                        class="search-box" 
+                        placeholder="검색어를 입력하세요..."
+                        disabled
+                    />
+                    <button id="cameraBtn" class="camera-btn" title="카메라로 문제 인식" disabled>📷</button>
+                    <button id="clearSearchBtn" class="clear-search-btn" title="검색어 지우기">×</button>
+                </div>
+>>>>>>> Stashed changes
             </div>
 
             <div class="results-section">
@@ -340,6 +470,21 @@
     </div>
 
     <div id="notification" class="notification"></div>
+
+    <div id="cameraModal" class="camera-modal">
+        <div class="camera-modal-content">
+            <div class="camera-video-container">
+                <video id="cameraVideo" autoplay playsinline></video>
+            </div>
+            <div class="camera-controls">
+                <button id="cameraCaptureBtn" class="camera-capture-btn">캡처</button>
+                <button id="cameraCloseBtn" class="camera-close-btn">닫기</button>
+            </div>
+            <div id="cameraLoading" class="camera-loading" style="display: none;">
+                OCR 처리 중...
+            </div>
+        </div>
+    </div>
 
     <script>
         let questionsData = [];
@@ -371,6 +516,7 @@
                 createCategoryFilters();
                 
                 document.getElementById('searchInput').disabled = false;
+                document.getElementById('cameraBtn').disabled = false;
                 const totalCount = selectedSheet 
                     ? questionsData.filter(item => item.sheet === selectedSheet).length 
                     : questionsData.length;
@@ -411,6 +557,7 @@
                 createCategoryFilters();
                 
                 document.getElementById('searchInput').disabled = false;
+                document.getElementById('cameraBtn').disabled = false;
                 const totalCount = selectedSheet 
                     ? questionsData.filter(item => item.sheet === selectedSheet).length 
                     : questionsData.length;
@@ -577,6 +724,152 @@
         // 체크박스 이벤트 리스너
         document.getElementById('autoCopyCheckbox').addEventListener('change', function(e) {
             autoCopyEnabled = e.target.checked;
+        });
+
+        // 자동지우기 체크박스 이벤트 리스너
+        document.getElementById('autoClearCheckbox').addEventListener('change', function(e) {
+            autoClearEnabled = e.target.checked;
+        });
+
+        // 카메라 관련 변수
+        let cameraStream = null;
+        const cameraModal = document.getElementById('cameraModal');
+        const cameraVideo = document.getElementById('cameraVideo');
+        const cameraBtn = document.getElementById('cameraBtn');
+        const cameraCaptureBtn = document.getElementById('cameraCaptureBtn');
+        const cameraCloseBtn = document.getElementById('cameraCloseBtn');
+        const cameraLoading = document.getElementById('cameraLoading');
+
+        // 카메라 열기 함수
+        async function openCamera() {
+            try {
+                // 카메라 권한 확인
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error('이 브라우저는 카메라 기능을 지원하지 않습니다.');
+                }
+
+                cameraStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: 'environment' // 후면 카메라 우선
+                    } 
+                });
+                cameraVideo.srcObject = cameraStream;
+                cameraModal.classList.add('show');
+                cameraCaptureBtn.disabled = false;
+            } catch (error) {
+                console.error('카메라 접근 실패:', error);
+                let errorMessage = '카메라에 접근할 수 없습니다.';
+                
+                if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                    errorMessage = '카메라 권한이 거부되었습니다. 브라우저 설정에서 카메라 권한을 허용해주세요.';
+                } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+                    errorMessage = '카메라를 찾을 수 없습니다. 카메라가 연결되어 있는지 확인해주세요.';
+                } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+                    errorMessage = '카메라가 다른 애플리케이션에서 사용 중입니다.';
+                }
+                
+                alert(errorMessage);
+            }
+        }
+
+        // 카메라 닫기 함수
+        function closeCamera() {
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+                cameraStream = null;
+            }
+            cameraVideo.srcObject = null;
+            cameraModal.classList.remove('show');
+            cameraLoading.style.display = 'none';
+            cameraCaptureBtn.disabled = false;
+        }
+
+        // 카메라 버튼 클릭 이벤트
+        cameraBtn.addEventListener('click', function() {
+            openCamera();
+        });
+
+        // 카메라 닫기 버튼 클릭 이벤트
+        cameraCloseBtn.addEventListener('click', function() {
+            closeCamera();
+        });
+
+        // 이미지 캡처 및 OCR 처리 함수
+        async function captureAndOCR() {
+            if (!cameraStream) return;
+
+            try {
+                cameraCaptureBtn.disabled = true;
+                cameraLoading.style.display = 'block';
+
+                // 비디오 프레임을 캔버스에 캡처
+                const canvas = document.createElement('canvas');
+                canvas.width = cameraVideo.videoWidth;
+                canvas.height = cameraVideo.videoHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(cameraVideo, 0, 0, canvas.width, canvas.height);
+
+                // 캔버스를 이미지로 변환
+                const imageData = canvas.toDataURL('image/png');
+
+                // Tesseract.js로 OCR 수행 (한국어 + 영어)
+                const { data: { text } } = await Tesseract.recognize(imageData, 'kor+eng', {
+                    logger: m => {
+                        if (m.status === 'recognizing text') {
+                            cameraLoading.textContent = `OCR 처리 중... ${Math.round(m.progress * 100)}%`;
+                        }
+                    }
+                });
+
+                // OCR 결과 처리
+                processOCRResult(text);
+
+                // 카메라 닫기
+                closeCamera();
+            } catch (error) {
+                console.error('OCR 처리 실패:', error);
+                let errorMessage = 'OCR 처리 중 오류가 발생했습니다.';
+                
+                if (error.message && error.message.includes('language')) {
+                    errorMessage = 'OCR 언어 데이터를 로드할 수 없습니다. 인터넷 연결을 확인해주세요.';
+                } else if (error.message) {
+                    errorMessage = 'OCR 처리 실패: ' + error.message;
+                }
+                
+                alert(errorMessage);
+                cameraLoading.style.display = 'none';
+                cameraLoading.textContent = 'OCR 처리 중...';
+                cameraCaptureBtn.disabled = false;
+            }
+        }
+
+        // OCR 결과를 검색창에 입력하고 검색 실행
+        function processOCRResult(text) {
+            // 텍스트 정리 (공백 제거, 줄바꿈 제거)
+            const cleanedText = text.trim().replace(/\s+/g, ' ').replace(/\n/g, ' ');
+            
+            if (cleanedText && cleanedText.length > 0) {
+                // 검색창에 입력
+                searchInput.value = cleanedText;
+                currentSearchTerm = cleanedText;
+                clearSearchBtn.classList.add('show');
+                
+                // 검색 실행
+                displayedCount = 0;
+                performSearch();
+                
+                showNotification('문제를 인식했습니다');
+            } else {
+                alert('텍스트를 인식할 수 없습니다. 다시 시도해주세요.');
+                cameraLoading.style.display = 'none';
+                cameraLoading.textContent = 'OCR 처리 중...';
+                cameraCaptureBtn.disabled = false;
+            }
+        }
+
+        // 캡처 버튼 클릭 이벤트
+        cameraCaptureBtn.addEventListener('click', function() {
+            captureAndOCR();
         });
 
         // result-item 클릭 이벤트 리스너 (이벤트 위임)
