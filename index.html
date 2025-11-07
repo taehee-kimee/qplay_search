@@ -62,7 +62,7 @@
         }
 
         .search-box {
-            flex: 1;
+            width: 100%;
             padding: 10px 16px;
             padding-right: 45px;
             font-size: 0.95em;
@@ -96,7 +96,6 @@
             align-items: center;
             justify-content: center;
             transition: all 0.3s ease;
-            z-index: 10;
             pointer-events: auto;
         }
 
@@ -540,14 +539,16 @@
 
             <div class="search-section">
                 <div class="search-container">
-                <input 
-                    type="text" 
-                    id="searchInput" 
-                    class="search-box" 
-                    placeholder="검색어를 입력하세요..."
-                    disabled
-                />
-                    <button id="cameraBtn" class="camera-btn" title="화면 캡처로 문제 인식" disabled>📷</button>
+                    <div style="position: relative; flex: 1;">
+                        <input 
+                            type="text" 
+                            id="searchInput" 
+                            class="search-box" 
+                            placeholder="검색어를 입력하세요..."
+                            disabled
+                        />
+                        <button id="cameraBtn" class="camera-btn" title="화면 캡처로 문제 인식" disabled>📷</button>
+                    </div>
                     <button id="clearSearchBtn" class="clear-search-btn" title="검색어 지우기">지우기</button>
                 </div>
             </div>
