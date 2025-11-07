@@ -46,11 +46,11 @@
         }
 
         .content {
-            padding: 30px;
+            padding: 20px;
         }
 
         .search-section {
-            margin-bottom: 30px;
+            margin-bottom: 20px;
         }
 
         .search-box {
@@ -92,6 +92,7 @@
             margin-bottom: 20px;
             border-radius: 0;
             transition: all 0.3s ease;
+            cursor: pointer;
         }
 
         .result-item:hover {
@@ -165,18 +166,8 @@
             font-weight: 500;
         }
 
-        .sheets-info {
-            margin-top: 15px;
-            padding: 12px;
-            background: #f8f8f8;
-            border-radius: 0;
-            color: #000000;
-            font-size: 0.9em;
-            border: 1px solid #e0e0e0;
-        }
-
         .category-section {
-            margin-bottom: 30px;
+            margin-bottom: 20px;
         }
 
         .category-section.active {
@@ -314,8 +305,6 @@
         </div>
 
         <div class="content">
-            <div id="sheetsInfo" class="sheets-info" style="display: none;"></div>
-
             <div class="category-section" id="categorySection">
                 <div class="category-controls">
                     <select id="categorySelect" class="category-dropdown" disabled>
@@ -378,11 +367,6 @@
                 // 초기화: 첫 번째 시트 선택
                 selectedSheet = allSheetNames.length > 0 ? allSheetNames[0] : null;
                 
-                // 시트 정보 표시
-                const sheetsInfoDiv = document.getElementById('sheetsInfo');
-                sheetsInfoDiv.style.display = 'block';
-                sheetsInfoDiv.innerHTML = `읽은 시트 (${allSheetNames.length}개): ${allSheetNames.join(', ')}`;
-                
                 // 카테고리 선택 UI 생성
                 createCategoryFilters();
                 
@@ -393,7 +377,6 @@
                 document.getElementById('results').innerHTML = 
                     `<div class="results-count">총 ${totalCount}개의 문제가 로드되었습니다. ${selectedSheet ? `(카테고리: ${selectedSheet})` : ''} 검색어를 입력하여 검색해보세요.</div>`;
             } catch (error) {
-                document.getElementById('sheetsInfo').style.display = 'none';
                 document.getElementById('categorySection').classList.remove('active');
                 document.getElementById('results').innerHTML = 
                     `<div class="error">데이터를 읽는 중 오류가 발생했습니다: ${error.message}</div>`;
@@ -424,11 +407,6 @@
                 // 초기화: 첫 번째 시트 선택
                 selectedSheet = allSheetNames.length > 0 ? allSheetNames[0] : null;
                 
-                // 시트 정보 표시
-                const sheetsInfoDiv = document.getElementById('sheetsInfo');
-                sheetsInfoDiv.style.display = 'block';
-                sheetsInfoDiv.innerHTML = `읽은 시트 (${allSheetNames.length}개): ${allSheetNames.join(', ')}`;
-                
                 // 카테고리 선택 UI 생성
                 createCategoryFilters();
                 
@@ -439,7 +417,6 @@
                 document.getElementById('results').innerHTML = 
                     `<div class="results-count">총 ${totalCount}개의 문제가 로드되었습니다. ${selectedSheet ? `(카테고리: ${selectedSheet})` : ''} 검색어를 입력하여 검색해보세요.</div>`;
             } catch (error) {
-                document.getElementById('sheetsInfo').style.display = 'none';
                 document.getElementById('categorySection').classList.remove('active');
                 document.getElementById('results').innerHTML = 
                     `<div class="error">파일을 읽는 중 오류가 발생했습니다: ${error.message}</div>`;
@@ -602,6 +579,21 @@
             autoCopyEnabled = e.target.checked;
         });
 
+        // result-item 클릭 이벤트 리스너 (이벤트 위임)
+        document.getElementById('results').addEventListener('click', function(e) {
+            const resultItem = e.target.closest('.result-item');
+            if (resultItem && autoCopyEnabled) {
+                const answer = resultItem.getAttribute('data-answer');
+                if (answer) {
+                    // HTML 엔티티 디코딩
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = answer;
+                    const decodedAnswer = tempDiv.textContent || tempDiv.innerText || '';
+                    copyToClipboard(decodedAnswer);
+                }
+            }
+        });
+
         // 출력 개수 드롭다운 이벤트 리스너
         document.getElementById('resultLimitSelect').addEventListener('change', function(e) {
             maxResults = parseInt(e.target.value, 10);
@@ -689,9 +681,10 @@
             itemsToRender.forEach(item => {
                 const highlightedQuestion = highlightText(item.question, currentSearchTerm);
                 const highlightedAnswer = highlightText(item.answer, currentSearchTerm);
+                const answerEscaped = escapeHtml(item.answer);
                 
                 html += `
-                    <div class="result-item">
+                    <div class="result-item" data-answer="${answerEscaped.replace(/"/g, '&quot;')}">
                         <div class="result-sheet">
                             <span class="sheet-tag">${escapeHtml(item.sheet || '알 수 없음')}</span>
                         </div>
