@@ -154,16 +154,6 @@
             border-left: 2px solid #000000;
         }
 
-        .status-info {
-            margin-top: 15px;
-            padding: 12px;
-            background: #f8f8f8;
-            border-radius: 0;
-            color: #000000;
-            font-size: 0.95em;
-            border: 1px solid #e0e0e0;
-        }
-
         .sheet-tag {
             display: inline-block;
             padding: 4px 10px;
@@ -191,17 +181,6 @@
 
         .category-section.active {
             display: block;
-        }
-
-        .category-header {
-            margin-bottom: 15px;
-        }
-
-        .category-header h3 {
-            font-size: 1.1em;
-            color: #000000;
-            margin: 0 0 10px 0;
-            font-weight: 600;
         }
 
         .category-controls {
@@ -248,6 +227,54 @@
             cursor: pointer;
         }
 
+        .result-limit-dropdown {
+            width: 100px;
+            padding: 12px 16px;
+            font-size: 1em;
+            border: 1px solid #000000;
+            border-radius: 0;
+            background: #ffffff;
+            color: #000000;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23000000' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 16px center;
+            padding-right: 40px;
+        }
+
+        .result-limit-dropdown:focus {
+            outline: none;
+            border-color: #000000;
+            box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
+        }
+
+        .result-limit-dropdown:hover {
+            border-color: #000000;
+        }
+
+        .load-more-btn {
+            width: 100%;
+            padding: 15px;
+            margin-top: 20px;
+            background: #000000;
+            color: #ffffff;
+            border: none;
+            border-radius: 0;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .load-more-btn:hover {
+            background: #333333;
+        }
+
+        .load-more-btn:active {
+            background: #000000;
+        }
+
         .category-dropdown:focus {
             outline: none;
             border-color: #000000;
@@ -256,6 +283,27 @@
 
         .category-dropdown:hover {
             border-color: #000000;
+        }
+
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: #000000;
+            color: #ffffff;
+            padding: 12px 24px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            z-index: 1000;
+            opacity: 0;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .notification.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
         }
     </style>
 </head>
@@ -266,16 +314,18 @@
         </div>
 
         <div class="content">
-            <div id="statusInfo" class="status-info" style="display: none;"></div>
             <div id="sheetsInfo" class="sheets-info" style="display: none;"></div>
 
             <div class="category-section" id="categorySection">
-                <div class="category-header">
-                    <h3>카테고리</h3>
-                </div>
                 <div class="category-controls">
                     <select id="categorySelect" class="category-dropdown" disabled>
                         <option value="">카테고리를 선택하세요</option>
+                    </select>
+                    <select id="resultLimitSelect" class="result-limit-dropdown">
+                        <option value="10">10개</option>
+                        <option value="30">30개</option>
+                        <option value="50">50개</option>
+                        <option value="100">100개</option>
                     </select>
                     <div class="auto-copy-checkbox">
                         <input type="checkbox" id="autoCopyCheckbox">
@@ -300,12 +350,18 @@
         </div>
     </div>
 
+    <div id="notification" class="notification"></div>
+
     <script>
         let questionsData = [];
         let currentSearchTerm = '';
         let allSheetNames = [];
         let selectedSheet = null; // 단일 선택으로 변경
         let autoCopyEnabled = false;
+        let maxResults = 10; // 기본값 10개
+        let displayedCount = 0;
+        let allFilteredResults = [];
+        let debounceTimer = null;
 
         // JSON 데이터 처리 함수
         function processJsonData(jsonData) {
@@ -330,8 +386,6 @@
                 // 카테고리 선택 UI 생성
                 createCategoryFilters();
                 
-                document.getElementById('statusInfo').textContent = 
-                    `성공적으로 로드되었습니다. 총 ${questionsData.length}개의 문제가 있습니다.`;
                 document.getElementById('searchInput').disabled = false;
                 const totalCount = selectedSheet 
                     ? questionsData.filter(item => item.sheet === selectedSheet).length 
@@ -339,7 +393,6 @@
                 document.getElementById('results').innerHTML = 
                     `<div class="results-count">총 ${totalCount}개의 문제가 로드되었습니다. ${selectedSheet ? `(카테고리: ${selectedSheet})` : ''} 검색어를 입력하여 검색해보세요.</div>`;
             } catch (error) {
-                document.getElementById('statusInfo').textContent = '';
                 document.getElementById('sheetsInfo').style.display = 'none';
                 document.getElementById('categorySection').classList.remove('active');
                 document.getElementById('results').innerHTML = 
@@ -379,8 +432,6 @@
                 // 카테고리 선택 UI 생성
                 createCategoryFilters();
                 
-                document.getElementById('statusInfo').textContent = 
-                    `성공적으로 로드되었습니다. 총 ${questionsData.length}개의 문제가 있습니다.`;
                 document.getElementById('searchInput').disabled = false;
                 const totalCount = selectedSheet 
                     ? questionsData.filter(item => item.sheet === selectedSheet).length 
@@ -388,7 +439,6 @@
                 document.getElementById('results').innerHTML = 
                     `<div class="results-count">총 ${totalCount}개의 문제가 로드되었습니다. ${selectedSheet ? `(카테고리: ${selectedSheet})` : ''} 검색어를 입력하여 검색해보세요.</div>`;
             } catch (error) {
-                document.getElementById('statusInfo').textContent = '';
                 document.getElementById('sheetsInfo').style.display = 'none';
                 document.getElementById('categorySection').classList.remove('active');
                 document.getElementById('results').innerHTML = 
@@ -400,8 +450,6 @@
 
         // 기본 데이터 자동 로드 함수 (JSON)
         function loadDefaultData() {
-            document.getElementById('statusInfo').style.display = 'block';
-            document.getElementById('statusInfo').textContent = '데이터를 로드하는 중...';
             document.getElementById('results').innerHTML = '<div class="loading">데이터를 로드하는 중...</div>';
             document.getElementById('searchInput').disabled = true;
             
@@ -415,13 +463,11 @@
                 })
                 .then(jsonData => {
                     processJsonData(jsonData);
-                    document.getElementById('statusInfo').textContent = '데이터를 성공적으로 로드했습니다.';
                 })
                 .catch(jsonError => {
                     console.log('JSON 로드 실패:', jsonError);
-                    document.getElementById('statusInfo').textContent = '';
                     document.getElementById('results').innerHTML = 
-                        `<div class="status-info" style="text-align: center; padding: 40px;">
+                        `<div class="no-results" style="text-align: center; padding: 40px;">
                             <h3 style="margin-bottom: 20px; color: #000000;">Qplay 족보에 오신 것을 환영합니다!</h3>
                             <p style="font-size: 1.1em; margin-bottom: 15px;">데이터 파일을 찾을 수 없습니다.</p>
                             <p style="color: #666;">data.json 파일이 필요한 위치에 있는지 확인해주세요.</p>
@@ -439,7 +485,7 @@
             } else {
                 // file:// 프로토콜인 경우 안내
                 document.getElementById('results').innerHTML = 
-                    `<div class="status-info" style="text-align: center; padding: 40px;">
+                    `<div class="no-results" style="text-align: center; padding: 40px;">
                         <h3 style="margin-bottom: 20px; color: #667eea;">📚 Qplay 족보에 오신 것을 환영합니다!</h3>
                         <p style="font-size: 1.1em; margin-bottom: 15px;">데이터를 로드하려면 로컬 웹 서버를 사용해주세요.</p>
                         <p style="color: #666;">로컬 서버를 실행하려면 터미널에서 다음 명령어를 실행하세요:</p>
@@ -508,10 +554,25 @@
             return data;
         }
 
+        // Notification 표시 함수
+        function showNotification(message) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.classList.add('show');
+            
+            // 2초 후 자동으로 사라지기
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 2000);
+        }
+
         // 자동복사 기능
         function copyToClipboard(text) {
             if (navigator.clipboard && navigator.clipboard.writeText) {
-                return navigator.clipboard.writeText(text).catch(err => {
+                return navigator.clipboard.writeText(text).then(() => {
+                    showNotification('답이 복사되었습니다');
+                    return true;
+                }).catch(err => {
                     console.error('클립보드 복사 실패:', err);
                     return false;
                 });
@@ -526,6 +587,7 @@
                 try {
                     document.execCommand('copy');
                     document.body.removeChild(textArea);
+                    showNotification('답이 복사되었습니다');
                     return Promise.resolve(true);
                 } catch (err) {
                     document.body.removeChild(textArea);
@@ -540,13 +602,29 @@
             autoCopyEnabled = e.target.checked;
         });
 
-        // 검색 기능
-        document.getElementById('searchInput').addEventListener('input', function(e) {
-            currentSearchTerm = e.target.value.trim();
+        // 출력 개수 드롭다운 이벤트 리스너
+        document.getElementById('resultLimitSelect').addEventListener('change', function(e) {
+            maxResults = parseInt(e.target.value, 10);
+            displayedCount = 0; // 리셋
             performSearch();
         });
 
-        function performSearch() {
+        // 검색 기능 (디바운싱 적용)
+        document.getElementById('searchInput').addEventListener('input', function(e) {
+            currentSearchTerm = e.target.value.trim();
+            
+            // 디바운싱: 300ms 지연
+            if (debounceTimer) {
+                clearTimeout(debounceTimer);
+            }
+            
+            debounceTimer = setTimeout(() => {
+                displayedCount = 0; // 검색어 변경 시 리셋
+                performSearch();
+            }, 300);
+        });
+
+        function performSearch(resetDisplay = false) {
             const resultsDiv = document.getElementById('results');
             
             if (!currentSearchTerm) {
@@ -556,39 +634,57 @@
                 
                 resultsDiv.innerHTML = 
                     `<div class="results-count">총 ${totalCount}개의 문제가 로드되었습니다. ${selectedSheet ? `(카테고리: ${selectedSheet})` : ''} 검색어를 입력하여 검색해보세요.</div>`;
+                allFilteredResults = [];
+                displayedCount = 0;
                 return;
             }
 
             if (questionsData.length === 0) {
                 resultsDiv.innerHTML = '<div class="no-results">데이터가 로드되지 않았습니다.</div>';
+                allFilteredResults = [];
+                displayedCount = 0;
                 return;
             }
 
-            // 검색 수행 (선택된 카테고리만)
-            const searchTerm = currentSearchTerm.toLowerCase();
-            const filtered = questionsData.filter(item => {
-                // 선택된 시트인지 확인
-                if (selectedSheet && item.sheet !== selectedSheet) {
-                    return false;
-                }
-                // 검색어 매칭
-                return item.question.toLowerCase().includes(searchTerm) ||
-                       item.answer.toLowerCase().includes(searchTerm);
-            });
+            // 검색 수행 (선택된 카테고리만) - 검색어가 변경되었거나 리셋 요청 시에만 재검색
+            if (resetDisplay || displayedCount === 0) {
+                const searchTerm = currentSearchTerm.toLowerCase();
+                allFilteredResults = questionsData.filter(item => {
+                    // 선택된 시트인지 확인
+                    if (selectedSheet && item.sheet !== selectedSheet) {
+                        return false;
+                    }
+                    // 검색어 매칭
+                    return item.question.toLowerCase().includes(searchTerm) ||
+                           item.answer.toLowerCase().includes(searchTerm);
+                });
+                displayedCount = 0;
+            }
 
-            if (filtered.length === 0) {
+            if (allFilteredResults.length === 0) {
                 resultsDiv.innerHTML = '<div class="no-results">검색 결과가 없습니다.</div>';
                 return;
             }
 
+            // 표시할 개수 계산
+            const startIndex = displayedCount;
+            const toDisplay = Math.min(maxResults, allFilteredResults.length - displayedCount);
+            const itemsToRender = allFilteredResults.slice(startIndex, startIndex + toDisplay);
+            const isFirstLoad = startIndex === 0;
+
             // 결과 표시
-            let html = `<div class="results-count">검색 결과: ${filtered.length}개`;
-            if (selectedSheet) {
-                html += ` (카테고리: ${selectedSheet})`;
-            }
-            html += `</div>`;
+            let html = '';
             
-            filtered.forEach(item => {
+            // 처음 로드하는 경우에만 카운트 표시
+            if (isFirstLoad) {
+                html = `<div class="results-count">검색 결과: ${allFilteredResults.length}개`;
+                if (selectedSheet) {
+                    html += ` (카테고리: ${selectedSheet})`;
+                }
+                html += `</div>`;
+            }
+            
+            itemsToRender.forEach(item => {
                 const highlightedQuestion = highlightText(item.question, currentSearchTerm);
                 const highlightedAnswer = highlightText(item.answer, currentSearchTerm);
                 
@@ -603,11 +699,28 @@
                 `;
             });
 
-            resultsDiv.innerHTML = html;
+            displayedCount += toDisplay;
 
-            // 자동복사 기능 (성능 최적화: 비동기 처리)
-            if (autoCopyEnabled && selectedSheet === "꽁꽁" && filtered.length > 0) {
-                const firstAnswer = filtered[0].answer;
+            // 더 보기 버튼 추가
+            if (displayedCount < allFilteredResults.length) {
+                html += `<button class="load-more-btn" onclick="loadMoreResults()">더 보기 (${allFilteredResults.length - displayedCount}개 남음)</button>`;
+            }
+
+            // 기존 결과에 추가하거나 새로 렌더링
+            if (isFirstLoad) {
+                resultsDiv.innerHTML = html;
+            } else {
+                // 더 보기 버튼 제거 후 추가
+                const loadMoreBtn = resultsDiv.querySelector('.load-more-btn');
+                if (loadMoreBtn) {
+                    loadMoreBtn.remove();
+                }
+                resultsDiv.insertAdjacentHTML('beforeend', html);
+            }
+
+            // 자동복사 기능 (성능 최적화: 비동기 처리) - 첫 번째 결과만 복사
+            if (autoCopyEnabled && selectedSheet === "꽁꽁" && allFilteredResults.length > 0 && isFirstLoad) {
+                const firstAnswer = allFilteredResults[0].answer;
                 // 렌더링 블로킹 방지를 위해 비동기 처리
                 setTimeout(() => {
                     copyToClipboard(firstAnswer).catch(() => {
@@ -615,6 +728,11 @@
                     });
                 }, 0);
             }
+        }
+
+        // 더 보기 버튼 함수
+        function loadMoreResults() {
+            performSearch(false);
         }
 
         // 텍스트 하이라이트
@@ -673,8 +791,9 @@
         // 카테고리 선택 (단일 선택)
         function selectCategory(sheetName) {
             selectedSheet = sheetName;
+            displayedCount = 0; // 리셋
             // 검색 다시 수행
-            performSearch();
+            performSearch(true);
         }
     </script>
 </body>
