@@ -53,12 +53,19 @@
             margin-bottom: 20px;
         }
 
+        .search-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
         .search-box {
             width: 100%;
             padding: 18px 24px;
+            padding-right: 60px;
             font-size: 1.1em;
-            border: 1px solid #000000;
-            border-radius: 0;
+            border: 1px solid #999;
+            border-radius: 8px;
             background: #ffffff;
             color: #000000;
             transition: all 0.3s ease;
@@ -66,8 +73,31 @@
 
         .search-box:focus {
             outline: none;
-            border-color: #000000;
-            box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
+            border-color: #999;
+            box-shadow: 0 0 0 2px rgba(153, 153, 153, 0.1);
+        }
+
+        .clear-search-btn {
+            position: absolute;
+            right: 12px;
+            background: none;
+            border: none;
+            color: #999;
+            font-size: 1.2em;
+            cursor: pointer;
+            padding: 4px 8px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .clear-search-btn:hover {
+            color: #000000;
+        }
+
+        .clear-search-btn.show {
+            display: flex;
         }
 
         .search-box::placeholder {
@@ -184,14 +214,14 @@
             width: 220px;
             padding: 12px 16px;
             font-size: 1em;
-            border: 1px solid #000000;
-            border-radius: 0;
+            border: 1px solid #999;
+            border-radius: 8px;
             background: #ffffff;
             color: #000000;
             cursor: pointer;
             transition: all 0.3s ease;
             appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23000000' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23999999' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
             background-repeat: no-repeat;
             background-position: right 16px center;
             padding-right: 40px;
@@ -222,14 +252,14 @@
             width: 100px;
             padding: 12px 16px;
             font-size: 1em;
-            border: 1px solid #000000;
-            border-radius: 0;
+            border: 1px solid #999;
+            border-radius: 8px;
             background: #ffffff;
             color: #000000;
             cursor: pointer;
             transition: all 0.3s ease;
             appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23000000' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23999999' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
             background-repeat: no-repeat;
             background-position: right 16px center;
             padding-right: 40px;
@@ -237,12 +267,12 @@
 
         .result-limit-dropdown:focus {
             outline: none;
-            border-color: #000000;
-            box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
+            border-color: #999;
+            box-shadow: 0 0 0 2px rgba(153, 153, 153, 0.1);
         }
 
         .result-limit-dropdown:hover {
-            border-color: #000000;
+            border-color: #999;
         }
 
         .load-more-btn {
@@ -268,12 +298,12 @@
 
         .category-dropdown:focus {
             outline: none;
-            border-color: #000000;
-            box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
+            border-color: #999;
+            box-shadow: 0 0 0 2px rgba(153, 153, 153, 0.1);
         }
 
         .category-dropdown:hover {
-            border-color: #000000;
+            border-color: #999;
         }
 
         .notification {
@@ -320,17 +350,24 @@
                         <input type="checkbox" id="autoCopyCheckbox">
                         <label for="autoCopyCheckbox">자동복사</label>
                     </div>
+                    <div class="auto-copy-checkbox">
+                        <input type="checkbox" id="autoClearCheckbox">
+                        <label for="autoClearCheckbox">자동지우기</label>
+                    </div>
                 </div>
             </div>
 
             <div class="search-section">
-                <input 
-                    type="text" 
-                    id="searchInput" 
-                    class="search-box" 
-                    placeholder="검색어를 입력하세요..."
-                    disabled
-                />
+                <div class="search-container">
+                    <input 
+                        type="text" 
+                        id="searchInput" 
+                        class="search-box" 
+                        placeholder="검색어를 입력하세요..."
+                        disabled
+                    />
+                    <button id="clearSearchBtn" class="clear-search-btn" title="검색어 지우기">×</button>
+                </div>
             </div>
 
             <div class="results-section">
@@ -347,6 +384,7 @@
         let allSheetNames = [];
         let selectedSheet = null; // 단일 선택으로 변경
         let autoCopyEnabled = false;
+        let autoClearEnabled = false;
         let maxResults = 10; // 기본값 10개
         let displayedCount = 0;
         let allFilteredResults = [];
@@ -579,6 +617,11 @@
             autoCopyEnabled = e.target.checked;
         });
 
+        // 자동지우기 체크박스 이벤트 리스너
+        document.getElementById('autoClearCheckbox').addEventListener('change', function(e) {
+            autoClearEnabled = e.target.checked;
+        });
+
         // result-item 클릭 이벤트 리스너 (이벤트 위임)
         document.getElementById('results').addEventListener('click', function(e) {
             const resultItem = e.target.closest('.result-item');
@@ -602,8 +645,18 @@
         });
 
         // 검색 기능 (디바운싱 적용)
-        document.getElementById('searchInput').addEventListener('input', function(e) {
+        const searchInput = document.getElementById('searchInput');
+        const clearSearchBtn = document.getElementById('clearSearchBtn');
+        
+        searchInput.addEventListener('input', function(e) {
             currentSearchTerm = e.target.value.trim();
+            
+            // 지우기 버튼 표시/숨김
+            if (currentSearchTerm) {
+                clearSearchBtn.classList.add('show');
+            } else {
+                clearSearchBtn.classList.remove('show');
+            }
             
             // 디바운싱: 300ms 지연
             if (debounceTimer) {
@@ -614,6 +667,48 @@
                 displayedCount = 0; // 검색어 변경 시 리셋
                 performSearch();
             }, 300);
+        });
+
+        // 검색어 지우기 함수
+        function clearSearchInput() {
+            searchInput.value = '';
+            currentSearchTerm = '';
+            clearSearchBtn.classList.remove('show');
+            displayedCount = 0;
+            performSearch();
+            searchInput.focus();
+        }
+
+        // 지우기 버튼 클릭 이벤트
+        clearSearchBtn.addEventListener('click', function() {
+            clearSearchInput();
+        });
+
+        // Alt+Tab 키 조합 감지
+        let altKeyPressed = false;
+        let tabKeyPressed = false;
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Alt' || e.keyCode === 18) {
+                altKeyPressed = true;
+            }
+            if (e.key === 'Tab' || e.keyCode === 9) {
+                tabKeyPressed = true;
+            }
+            
+            // Alt+Tab 조합 감지
+            if (altKeyPressed && tabKeyPressed && autoClearEnabled) {
+                clearSearchInput();
+            }
+        });
+
+        document.addEventListener('keyup', function(e) {
+            if (e.key === 'Alt' || e.keyCode === 18) {
+                altKeyPressed = false;
+            }
+            if (e.key === 'Tab' || e.keyCode === 9) {
+                tabKeyPressed = false;
+            }
         });
 
         function performSearch(resetDisplay = false) {
