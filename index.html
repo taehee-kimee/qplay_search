@@ -54,26 +54,37 @@
             margin-bottom: 20px;
         }
 
+        .search-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
         .search-box {
-            width: 100%;
-            padding: 18px 24px;
-            font-size: 1.1em;
-            border: 1px solid #000000;
-            border-radius: 0;
+            flex: 1;
+            padding: 10px 16px;
+            padding-right: 45px;
+            font-size: 0.95em;
+            border: 1px solid #999;
+            border-radius: 8px;
             background: #ffffff;
             color: #000000;
             transition: all 0.3s ease;
+            height: 45px;
         }
 
         .search-box:focus {
             outline: none;
-            border-color: #000000;
-            box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
+            border-color: #999;
+            box-shadow: 0 0 0 2px rgba(153, 153, 153, 0.1);
         }
 
         .camera-btn {
             position: absolute;
-            right: 50px;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
             background: none;
             border: none;
             color: #999;
@@ -84,6 +95,8 @@
             align-items: center;
             justify-content: center;
             transition: all 0.3s ease;
+            z-index: 10;
+            pointer-events: auto;
         }
 
         .camera-btn:hover {
@@ -93,6 +106,31 @@
         .camera-btn:disabled {
             opacity: 0.5;
             cursor: not-allowed;
+        }
+
+        .clear-search-btn {
+            background: none;
+            border: 1px solid #999;
+            border-radius: 8px;
+            color: #999;
+            font-size: 0.9em;
+            cursor: pointer;
+            padding: 10px 16px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            height: 45px;
+        }
+
+        .clear-search-btn:hover {
+            color: #000000;
+            border-color: #000000;
+        }
+
+        .clear-search-btn.show {
+            display: flex;
         }
 
         .search-box::placeholder {
@@ -207,19 +245,20 @@
 
         .category-dropdown {
             width: 220px;
-            padding: 12px 16px;
-            font-size: 1em;
-            border: 1px solid #000000;
-            border-radius: 0;
+            padding: 10px 16px;
+            font-size: 0.95em;
+            border: 1px solid #999;
+            border-radius: 8px;
             background: #ffffff;
             color: #000000;
             cursor: pointer;
             transition: all 0.3s ease;
             appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23000000' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23999999' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
             background-repeat: no-repeat;
-            background-position: right 16px center;
-            padding-right: 40px;
+            background-position: right 12px center;
+            padding-right: 35px;
+            height: 45px;
         }
 
         .auto-copy-checkbox {
@@ -245,29 +284,30 @@
 
         .result-limit-dropdown {
             width: 100px;
-            padding: 12px 16px;
-            font-size: 1em;
-            border: 1px solid #000000;
-            border-radius: 0;
+            padding: 10px 16px;
+            font-size: 0.95em;
+            border: 1px solid #999;
+            border-radius: 8px;
             background: #ffffff;
             color: #000000;
             cursor: pointer;
             transition: all 0.3s ease;
             appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23000000' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23999999' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
             background-repeat: no-repeat;
-            background-position: right 16px center;
-            padding-right: 40px;
+            background-position: right 12px center;
+            padding-right: 35px;
+            height: 45px;
         }
 
         .result-limit-dropdown:focus {
             outline: none;
-            border-color: #000000;
-            box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
+            border-color: #999;
+            box-shadow: 0 0 0 2px rgba(153, 153, 153, 0.1);
         }
 
         .result-limit-dropdown:hover {
-            border-color: #000000;
+            border-color: #999;
         }
 
         .load-more-btn {
@@ -293,12 +333,12 @@
 
         .category-dropdown:focus {
             outline: none;
-            border-color: #000000;
-            box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
+            border-color: #999;
+            box-shadow: 0 0 0 2px rgba(153, 153, 153, 0.1);
         }
 
         .category-dropdown:hover {
-            border-color: #000000;
+            border-color: #999;
         }
 
         .notification {
@@ -325,14 +365,15 @@
         .camera-modal {
             display: none;
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
+            bottom: 20px;
+            right: 20px;
+            width: auto;
+            height: auto;
+            background: transparent;
             z-index: 2000;
-            align-items: center;
-            justify-content: center;
+            align-items: flex-end;
+            justify-content: flex-end;
+            pointer-events: none;
         }
 
         .camera-modal.show {
@@ -342,22 +383,29 @@
         .camera-modal-content {
             background: #ffffff;
             border-radius: 12px;
-            padding: 20px;
-            max-width: 90%;
-            max-height: 90%;
+            padding: 15px;
+            max-width: 400px;
+            max-height: 500px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 20px;
+            gap: 15px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            pointer-events: auto;
+        }
+
+        .camera-modal.minimized .camera-video-container {
+            display: none;
         }
 
         .camera-video-container {
             position: relative;
             width: 100%;
-            max-width: 640px;
+            max-width: 360px;
             background: #000000;
             border-radius: 8px;
             overflow: hidden;
+            cursor: crosshair;
         }
 
         #cameraVideo {
@@ -366,10 +414,55 @@
             display: block;
         }
 
+        /* 영역 선택 오버레이 */
+        .selection-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .selection-box {
+            position: absolute;
+            border: 2px dashed #00ff00;
+            background: rgba(0, 255, 0, 0.1);
+            pointer-events: none;
+            display: none;
+        }
+
+        .selection-box.active {
+            display: block;
+        }
+
         .camera-controls {
             display: flex;
-            gap: 15px;
+            gap: 10px;
             align-items: center;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .camera-continue-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            user-select: none;
+            font-size: 0.9em;
+            color: #333;
+        }
+
+        .camera-continue-checkbox input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .camera-continue-checkbox span {
+            white-space: nowrap;
         }
 
         .camera-capture-btn {
@@ -423,9 +516,9 @@
         <div class="content">
             <div class="category-section" id="categorySection">
                 <div class="category-controls">
-                    <select id="categorySelect" class="category-dropdown" disabled>
-                        <option value="">카테고리를 선택하세요</option>
-                    </select>
+                <select id="categorySelect" class="category-dropdown" disabled>
+                    <option value="">카테고리를 선택하세요</option>
+                </select>
                     <select id="resultLimitSelect" class="result-limit-dropdown">
                         <option value="10">10개</option>
                         <option value="30">30개</option>
@@ -440,7 +533,7 @@
             </div>
 
             <div class="search-section">
-<<<<<<< Updated upstream
+                <div class="search-container">
                 <input 
                     type="text" 
                     id="searchInput" 
@@ -448,19 +541,9 @@
                     placeholder="검색어를 입력하세요..."
                     disabled
                 />
-=======
-                <div class="search-container">
-                    <input 
-                        type="text" 
-                        id="searchInput" 
-                        class="search-box" 
-                        placeholder="검색어를 입력하세요..."
-                        disabled
-                    />
-                    <button id="cameraBtn" class="camera-btn" title="카메라로 문제 인식" disabled>📷</button>
-                    <button id="clearSearchBtn" class="clear-search-btn" title="검색어 지우기">×</button>
+                    <button id="cameraBtn" class="camera-btn" title="화면 캡처로 문제 인식" disabled>📷</button>
+                    <button id="clearSearchBtn" class="clear-search-btn" title="검색어 지우기">지우기</button>
                 </div>
->>>>>>> Stashed changes
             </div>
 
             <div class="results-section">
@@ -475,8 +558,15 @@
         <div class="camera-modal-content">
             <div class="camera-video-container">
                 <video id="cameraVideo" autoplay playsinline></video>
+                <div class="selection-overlay">
+                    <div id="selectionBox" class="selection-box"></div>
+                </div>
             </div>
             <div class="camera-controls">
+                <label class="camera-continue-checkbox">
+                    <input type="checkbox" id="cameraContinueCheckbox">
+                    <span>중단없이</span>
+                </label>
                 <button id="cameraCaptureBtn" class="camera-capture-btn">캡처</button>
                 <button id="cameraCloseBtn" class="camera-close-btn">닫기</button>
             </div>
@@ -721,51 +811,230 @@
             }
         }
 
-        // 체크박스 이벤트 리스너
-        document.getElementById('autoCopyCheckbox').addEventListener('change', function(e) {
-            autoCopyEnabled = e.target.checked;
-        });
-
-        // 자동지우기 체크박스 이벤트 리스너
-        document.getElementById('autoClearCheckbox').addEventListener('change', function(e) {
-            autoClearEnabled = e.target.checked;
-        });
-
         // 카메라 관련 변수
         let cameraStream = null;
-        const cameraModal = document.getElementById('cameraModal');
-        const cameraVideo = document.getElementById('cameraVideo');
-        const cameraBtn = document.getElementById('cameraBtn');
-        const cameraCaptureBtn = document.getElementById('cameraCaptureBtn');
-        const cameraCloseBtn = document.getElementById('cameraCloseBtn');
-        const cameraLoading = document.getElementById('cameraLoading');
+        let cameraModal = null;
+        let cameraVideo = null;
+        let cameraBtn = null;
+        let cameraCaptureBtn = null;
+        let cameraCloseBtn = null;
+        let cameraLoading = null;
+        let cameraContinueCheckbox = null;
+
+        // 영역 선택 관련 변수
+        let isSelecting = false;
+        let selectionStart = { x: 0, y: 0 };
+        let selectionEnd = { x: 0, y: 0 };
+        let selectionBox = null;
+
+        // 자동 캡처 관련 변수
+        let autoCaptureInterval = null;
+        let isAutoCaptureMode = false;
+        let lastOCRText = '';
+        let savedSelectionRect = null;
+
+        // 모든 이벤트 리스너 초기화 함수
+        function initEventListeners() {
+            // 체크박스 이벤트 리스너
+            const autoCopyCheckbox = document.getElementById('autoCopyCheckbox');
+            if (autoCopyCheckbox) {
+                autoCopyCheckbox.addEventListener('change', function(e) {
+                    autoCopyEnabled = e.target.checked;
+                });
+            }
+
+            // 자동지우기 체크박스 이벤트 리스너
+            const autoClearCheckbox = document.getElementById('autoClearCheckbox');
+            if (autoClearCheckbox) {
+                autoClearCheckbox.addEventListener('change', function(e) {
+                    autoClearEnabled = e.target.checked;
+                });
+            }
+
+            // 카메라 관련 요소 초기화
+            cameraModal = document.getElementById('cameraModal');
+            cameraVideo = document.getElementById('cameraVideo');
+            cameraBtn = document.getElementById('cameraBtn');
+            cameraCaptureBtn = document.getElementById('cameraCaptureBtn');
+            cameraCloseBtn = document.getElementById('cameraCloseBtn');
+            cameraContinueCheckbox = document.getElementById('cameraContinueCheckbox');
+            cameraLoading = document.getElementById('cameraLoading');
+
+            // 카메라 버튼 클릭 이벤트
+            if (cameraBtn) {
+                cameraBtn.addEventListener('click', function() {
+                    openCamera();
+                });
+            }
+
+            // 카메라 닫기 버튼 클릭 이벤트
+            if (cameraCloseBtn) {
+                cameraCloseBtn.addEventListener('click', function() {
+                    closeCamera();
+                });
+            }
+
+            // 카메라 중단없이 체크박스는 이벤트 리스너 불필요 (상태만 확인)
+
+            // 캡처 버튼 클릭 이벤트
+            if (cameraCaptureBtn) {
+                cameraCaptureBtn.addEventListener('click', function() {
+                    if (isAutoCaptureMode) {
+                        // 자동 모드 중이면 중지
+                        stopAutoCapture();
+                    } else {
+                        // 수동 캡처 시작
+                        captureAndOCR(false);
+                    }
+                });
+            }
+
+            // result-item 클릭 이벤트 리스너 (이벤트 위임)
+            const resultsDiv = document.getElementById('results');
+            if (resultsDiv) {
+                resultsDiv.addEventListener('click', function(e) {
+                    const resultItem = e.target.closest('.result-item');
+                    if (resultItem && autoCopyEnabled) {
+                        const answer = resultItem.getAttribute('data-answer');
+                        if (answer) {
+                            // HTML 엔티티 디코딩
+                            const tempDiv = document.createElement('div');
+                            tempDiv.innerHTML = answer;
+                            const decodedAnswer = tempDiv.textContent || tempDiv.innerText || '';
+                            copyToClipboard(decodedAnswer);
+                        }
+                    }
+                });
+            }
+
+            // 출력 개수 드롭다운 이벤트 리스너
+            const resultLimitSelect = document.getElementById('resultLimitSelect');
+            if (resultLimitSelect) {
+                resultLimitSelect.addEventListener('change', function(e) {
+                    maxResults = parseInt(e.target.value, 10);
+                    displayedCount = 0; // 리셋
+            performSearch();
+        });
+            }
+        }
+
+        // 영역 선택 초기화 함수
+        function initSelectionArea() {
+            selectionBox = document.getElementById('selectionBox');
+            const videoContainer = document.querySelector('.camera-video-container');
+            
+            if (!videoContainer || !selectionBox) return;
+            
+            // 마우스 다운 - 선택 시작
+            videoContainer.addEventListener('mousedown', (e) => {
+                if (!cameraStream) return;
+                isSelecting = true;
+                const rect = videoContainer.getBoundingClientRect();
+                selectionStart.x = e.clientX - rect.left;
+                selectionStart.y = e.clientY - rect.top;
+                selectionBox.style.display = 'block';
+                selectionBox.classList.add('active');
+            });
+            
+            // 마우스 이동 - 선택 영역 업데이트
+            videoContainer.addEventListener('mousemove', (e) => {
+                if (!isSelecting || !cameraStream) return;
+                const rect = videoContainer.getBoundingClientRect();
+                selectionEnd.x = e.clientX - rect.left;
+                selectionEnd.y = e.clientY - rect.top;
+                
+                updateSelectionBox();
+            });
+            
+            // 마우스 업 - 선택 종료
+            document.addEventListener('mouseup', () => {
+                if (isSelecting) {
+                    isSelecting = false;
+                }
+            });
+        }
+
+        // 선택 박스 업데이트
+        function updateSelectionBox() {
+            if (!selectionBox) return;
+            
+            const left = Math.min(selectionStart.x, selectionEnd.x);
+            const top = Math.min(selectionStart.y, selectionEnd.y);
+            const width = Math.abs(selectionEnd.x - selectionStart.x);
+            const height = Math.abs(selectionEnd.y - selectionStart.y);
+            
+            selectionBox.style.left = left + 'px';
+            selectionBox.style.top = top + 'px';
+            selectionBox.style.width = width + 'px';
+            selectionBox.style.height = height + 'px';
+        }
+
+        // 선택 영역 좌표를 비디오 좌표로 변환
+        function getSelectionRect() {
+            if (!cameraVideo || !selectionBox) return null;
+            
+            const videoRect = cameraVideo.getBoundingClientRect();
+            const containerRect = selectionBox.parentElement.getBoundingClientRect();
+            
+            const scaleX = cameraVideo.videoWidth / videoRect.width;
+            const scaleY = cameraVideo.videoHeight / videoRect.height;
+            
+            const left = Math.min(selectionStart.x, selectionEnd.x);
+            const top = Math.min(selectionStart.y, selectionEnd.y);
+            const width = Math.abs(selectionEnd.x - selectionStart.x);
+            const height = Math.abs(selectionEnd.y - selectionStart.y);
+            
+            // 영역이 너무 작으면 전체 화면 사용
+            if (width < 10 || height < 10) {
+                return null;
+            }
+            
+            return {
+                x: left * scaleX,
+                y: top * scaleY,
+                width: width * scaleX,
+                height: height * scaleY
+            };
+        }
 
         // 카메라 열기 함수
         async function openCamera() {
             try {
-                // 카메라 권한 확인
-                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                    throw new Error('이 브라우저는 카메라 기능을 지원하지 않습니다.');
+                // 화면 공유 권한 확인
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+                    throw new Error('이 브라우저는 화면 공유 기능을 지원하지 않습니다.');
                 }
 
-                cameraStream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { 
-                        facingMode: 'environment' // 후면 카메라 우선
-                    } 
+                // 화면 공유 요청 (스크린 캡처)
+                cameraStream = await navigator.mediaDevices.getDisplayMedia({ 
+                    video: {
+                        displaySurface: 'browser' // 브라우저 화면 캡처
+                    },
+                    audio: false
                 });
                 cameraVideo.srcObject = cameraStream;
                 cameraModal.classList.add('show');
                 cameraCaptureBtn.disabled = false;
+                
+                // 영역 선택 초기화
+                setTimeout(() => {
+                    initSelectionArea();
+                }, 100);
+                
+                // 스트림이 종료되면 모달 닫기
+                cameraStream.getVideoTracks()[0].addEventListener('ended', () => {
+                    closeCamera();
+                });
             } catch (error) {
-                console.error('카메라 접근 실패:', error);
-                let errorMessage = '카메라에 접근할 수 없습니다.';
+                console.error('화면 공유 실패:', error);
+                let errorMessage = '화면 공유에 접근할 수 없습니다.';
                 
                 if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-                    errorMessage = '카메라 권한이 거부되었습니다. 브라우저 설정에서 카메라 권한을 허용해주세요.';
+                    errorMessage = '화면 공유 권한이 거부되었습니다. 브라우저 설정에서 화면 공유 권한을 허용해주세요.';
                 } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
-                    errorMessage = '카메라를 찾을 수 없습니다. 카메라가 연결되어 있는지 확인해주세요.';
+                    errorMessage = '화면을 찾을 수 없습니다.';
                 } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
-                    errorMessage = '카메라가 다른 애플리케이션에서 사용 중입니다.';
+                    errorMessage = '화면이 다른 애플리케이션에서 사용 중입니다.';
                 }
                 
                 alert(errorMessage);
@@ -774,40 +1043,109 @@
 
         // 카메라 닫기 함수
         function closeCamera() {
+            // 자동 캡처 중지
+            stopAutoCapture();
+            
             if (cameraStream) {
                 cameraStream.getTracks().forEach(track => track.stop());
                 cameraStream = null;
             }
             cameraVideo.srcObject = null;
             cameraModal.classList.remove('show');
+            cameraModal.classList.remove('minimized');
             cameraLoading.style.display = 'none';
+            cameraCaptureBtn.disabled = false;
+            cameraCaptureBtn.textContent = '캡처';
+            
+            // 중단없이 체크박스 리셋
+            if (cameraContinueCheckbox) {
+                cameraContinueCheckbox.checked = false;
+            }
+            
+            // 선택 영역 리셋
+            if (selectionBox) {
+                selectionBox.style.display = 'none';
+                selectionBox.classList.remove('active');
+            }
+            isSelecting = false;
+            lastOCRText = '';
+            savedSelectionRect = null;
+        }
+
+
+        // 자동 캡처 시작
+        function startAutoCapture() {
+            if (isAutoCaptureMode) return;
+            
+            isAutoCaptureMode = true;
+            cameraCaptureBtn.textContent = '자동 캡처 중...';
+            cameraCaptureBtn.disabled = true;
+            
+            // 2초마다 자동 캡처
+            autoCaptureInterval = setInterval(() => {
+                if (cameraStream && isAutoCaptureMode) {
+                    captureAndOCR(true);
+                }
+            }, 2000); // 2초 간격
+        }
+
+        // 자동 캡처 중지
+        function stopAutoCapture() {
+            if (!isAutoCaptureMode) return;
+            
+            isAutoCaptureMode = false;
+            if (autoCaptureInterval) {
+                clearInterval(autoCaptureInterval);
+                autoCaptureInterval = null;
+            }
+            cameraCaptureBtn.textContent = '캡처';
             cameraCaptureBtn.disabled = false;
         }
 
-        // 카메라 버튼 클릭 이벤트
-        cameraBtn.addEventListener('click', function() {
-            openCamera();
-        });
-
-        // 카메라 닫기 버튼 클릭 이벤트
-        cameraCloseBtn.addEventListener('click', function() {
-            closeCamera();
-        });
-
         // 이미지 캡처 및 OCR 처리 함수
-        async function captureAndOCR() {
+        async function captureAndOCR(isAutoMode = false) {
             if (!cameraStream) return;
 
             try {
-                cameraCaptureBtn.disabled = true;
-                cameraLoading.style.display = 'block';
+                if (!isAutoMode) {
+                    cameraCaptureBtn.disabled = true;
+                }
+                // OCR 처리 중 텍스트 숨김
+                // cameraLoading.style.display = 'block';
 
+                // 선택 영역 가져오기
+                const selectionRect = getSelectionRect();
+                
+                // 자동 모드이고 선택 영역이 없으면 저장된 영역 사용
+                const captureRect = isAutoMode && !selectionRect ? savedSelectionRect : selectionRect;
+                
+                if (!captureRect && !isAutoMode) {
+                    alert('영역을 선택해주세요.');
+                    cameraLoading.style.display = 'none';
+                    cameraCaptureBtn.disabled = false;
+                    return;
+                }
+                
                 // 비디오 프레임을 캔버스에 캡처
                 const canvas = document.createElement('canvas');
-                canvas.width = cameraVideo.videoWidth;
-                canvas.height = cameraVideo.videoHeight;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(cameraVideo, 0, 0, canvas.width, canvas.height);
+                
+                if (captureRect) {
+                    // 선택 영역만 캡처
+                    canvas.width = captureRect.width;
+                    canvas.height = captureRect.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(
+                        cameraVideo,
+                        captureRect.x, captureRect.y, captureRect.width, captureRect.height,
+                        0, 0, captureRect.width, captureRect.height
+                    );
+                } else {
+                    // 전체 화면 캡처 (영역 선택 안 함)
+                    canvas.width = cameraVideo.videoWidth;
+                    canvas.height = cameraVideo.videoHeight;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(cameraVideo, 0, 0, canvas.width, canvas.height);
+                }
 
                 // 캔버스를 이미지로 변환
                 const imageData = canvas.toDataURL('image/png');
@@ -815,99 +1153,362 @@
                 // Tesseract.js로 OCR 수행 (한국어 + 영어)
                 const { data: { text } } = await Tesseract.recognize(imageData, 'kor+eng', {
                     logger: m => {
-                        if (m.status === 'recognizing text') {
-                            cameraLoading.textContent = `OCR 처리 중... ${Math.round(m.progress * 100)}%`;
-                        }
-                    }
+                        // OCR 처리 중 진행률 표시 숨김
+                    // if (m.status === 'recognizing text' && !isAutoMode) {
+                    //     cameraLoading.textContent = `OCR 처리 중... ${Math.round(m.progress * 100)}%`;
+                    // }
+                    },
+                    // OCR 정확도 향상을 위한 옵션
+                    tessedit_pageseg_mode: '6' // 단일 텍스트 블록으로 인식
                 });
 
-                // OCR 결과 처리
-                processOCRResult(text);
-
-                // 카메라 닫기
-                closeCamera();
+                // 텍스트 정리
+                let cleanedText = text.trim().replace(/\s+/g, ' ').replace(/\n/g, ' ');
+                
+                // 문제만 추출 (OCR 결과에서 문제 부분만 추출)
+                cleanedText = extractQuestion(cleanedText);
+                
+                // 자동 모드일 때만 텍스트 변경 확인
+                if (isAutoMode) {
+                    // 텍스트가 변경되었는지 확인 (추출된 문제 기준)
+                    if (cleanedText && cleanedText.length > 0 && cleanedText !== lastOCRText) {
+                        lastOCRText = cleanedText;
+                        // 자동 검색 수행 (검색창에 검색어 입력)
+                        processOCRResult(cleanedText, true);
+                    }
+                } else {
+                    // 수동 모드: 첫 캡처 시 자동 모드 시작
+                    if (cleanedText && cleanedText.length > 0) {
+                        lastOCRText = cleanedText;
+                        savedSelectionRect = captureRect;
+                        processOCRResult(cleanedText, false);
+                        
+                        // 자동 캡처 모드 시작 (문제가 바뀔 때마다 자동 캡처)
+                        startAutoCapture();
+                    }
+                }
+                
+                cameraLoading.style.display = 'none';
+                
+                if (!isAutoMode) {
+                    cameraCaptureBtn.disabled = false;
+                }
             } catch (error) {
                 console.error('OCR 처리 실패:', error);
-                let errorMessage = 'OCR 처리 중 오류가 발생했습니다.';
                 
-                if (error.message && error.message.includes('language')) {
-                    errorMessage = 'OCR 언어 데이터를 로드할 수 없습니다. 인터넷 연결을 확인해주세요.';
-                } else if (error.message) {
-                    errorMessage = 'OCR 처리 실패: ' + error.message;
+                if (!isAutoMode) {
+                    let errorMessage = 'OCR 처리 중 오류가 발생했습니다.';
+                    
+                    if (error.message && error.message.includes('language')) {
+                        errorMessage = 'OCR 언어 데이터를 로드할 수 없습니다. 인터넷 연결을 확인해주세요.';
+                    } else if (error.message) {
+                        errorMessage = 'OCR 처리 실패: ' + error.message;
+                    }
+                    
+                    alert(errorMessage);
+                    cameraLoading.style.display = 'none';
+                    cameraLoading.textContent = 'OCR 처리 중...';
+                    cameraCaptureBtn.disabled = false;
+                } else {
+                    cameraLoading.style.display = 'none';
                 }
-                
-                alert(errorMessage);
-                cameraLoading.style.display = 'none';
-                cameraLoading.textContent = 'OCR 처리 중...';
-                cameraCaptureBtn.disabled = false;
             }
         }
+
+        // 문제만 추출하는 함수
+        function extractQuestion(text) {
+            if (!text) return '';
+            
+            let cleaned = text.trim();
+            
+            // 1. 카테고리 정보 제거 (예: "클세사 : 규들레이")
+            cleaned = cleaned.replace(/^[^:]*:\s*[^\[]*/g, '');
+            
+            // 2. 문제 번호 제거 - 다양한 패턴 처리
+            // [문제 1], [문제1], [1], 문제』, 문제」, 문제:, 문제 등
+            cleaned = cleaned.replace(/\[문제\s*\d+\]|\[\d+\]|문제\s*\d+/g, '');
+            cleaned = cleaned.replace(/문제[』」:：]\s*/g, ''); // 문제』, 문제」, 문제: 제거
+            cleaned = cleaned.replace(/^문제\s+/g, ''); // 시작 부분의 "문제 " 제거
+            
+            // 3. 물음표를 기준으로 문제와 선택지/정답 분리 (가장 중요)
+            const questionMarkIndex = cleaned.indexOf('?');
+            if (questionMarkIndex !== -1) {
+                cleaned = cleaned.substring(0, questionMarkIndex + 1);
+            } else {
+                // 물음표가 없으면 "정답", "답", "해설" 등의 키워드로 분리
+                const answerKeywords = ['정답', '답', '해설', '해답', '답안', '정답:', '답:', '해설:'];
+                for (const keyword of answerKeywords) {
+                    const keywordIndex = cleaned.toLowerCase().indexOf(keyword.toLowerCase());
+                    if (keywordIndex !== -1) {
+                        cleaned = cleaned.substring(0, keywordIndex);
+                        break;
+                    }
+                }
+            }
+            
+            // 4. 선택지 패턴 제거 (예: "1.2002", "2.2002", "①", "②")
+            cleaned = cleaned.replace(/\d+\.\s*[^\?]*/g, '');
+            cleaned = cleaned.replace(/[①②③④⑤⑥⑦⑧⑨⑩]\s*[^\?]*/g, '');
+            
+            // 5. 정답 관련 키워드 제거 (물음표 이후에 남아있을 수 있는 경우)
+            cleaned = cleaned.replace(/정답.*$/i, '');
+            cleaned = cleaned.replace(/답.*$/i, '');
+            cleaned = cleaned.replace(/해설.*$/i, '');
+            
+            // 6. 불필요한 공백 정리
+            cleaned = cleaned.replace(/\s+/g, ' ').trim();
+            
+            // 7. OCR 오류 개선 (일반적인 패턴)
+            cleaned = cleaned.replace(/FIFAEEY/gi, 'FIFA');
+            cleaned = cleaned.replace(/월드\s*$/g, '월드컵');
+            
+            // 8. 문제가 너무 짧으면 원본 반환 (필터링이 너무 강했을 경우)
+            if (cleaned.length < 5) {
+                // 원본에서 최소한의 정리만 수행
+                cleaned = text.trim().replace(/\s+/g, ' ');
+                // 물음표 이후 제거
+                const qIndex = cleaned.indexOf('?');
+                if (qIndex !== -1) {
+                    cleaned = cleaned.substring(0, qIndex + 1);
+                }
+                // 문제』 같은 패턴 제거
+                cleaned = cleaned.replace(/문제[』」:：]\s*/g, '');
+                cleaned = cleaned.replace(/^문제\s+/g, '');
+            }
+            
+            return cleaned;
+        }
+
+        // 핵심 키워드만 추출하는 함수
+        function extractKeywords(text) {
+            if (!text) return [];
+            
+            // 1. 문제만 추출 (이미 extractQuestion으로 처리된 경우)
+            let cleaned = text.trim();
+            
+            // 2. 물음표, 특수문자 제거 (단, 숫자는 유지)
+            // 대괄호는 공백으로 변환하여 단어 분리 개선
+            cleaned = cleaned.replace(/[?.,!;:(){}』」]/g, ' ');
+            cleaned = cleaned.replace(/[\[\]]/g, ' '); // 대괄호는 공백으로
+            
+            // 3. 접속사 및 불필요한 단어 제거 (단어 단위로)
+            const conjunctions = ['그리고', '또한', '또는', '하지만', '그러나', '그런데', '따라서', '그래서', '그러므로', '그러면', '만약', '만일', '만약에'];
+            conjunctions.forEach(conj => {
+                // 단어 단위로만 제거 (공백으로 구분된)
+                const escaped = conj.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const regex = new RegExp(`(^|\\s)${escaped}(\\s|$)`, 'gi');
+                cleaned = cleaned.replace(regex, ' ');
+            });
+            
+            // 4. 조사 제거 (더 보수적으로 - 단어 끝에만, 최소 2글자 이상인 단어에서만)
+            const particles = ['은', '는', '이', '가', '을', '를', '의', '에', '에서', '와', '과', '도', '만', '조차', '까지', '부터', '에게', '한테', '께', '로', '으로', '처럼', '같이', '만큼', '보다'];
+            particles.forEach(particle => {
+                // 단어 끝에 붙은 조사만 제거 (최소 2글자 이상인 단어에서만)
+                const escapedParticle = particle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const regex = new RegExp(`([가-힣a-zA-Z0-9]{2,})${escapedParticle}(?=\\s|$)`, 'g');
+                cleaned = cleaned.replace(regex, '$1');
+                // 단독으로 있는 조사 제거
+                const regex2 = new RegExp(`(^|\\s)${escapedParticle}(\\s|$)`, 'g');
+                cleaned = cleaned.replace(regex2, ' ');
+            });
+            
+            // 5. 공백 정리
+            cleaned = cleaned.replace(/\s+/g, ' ').trim();
+            
+            // 6. 키워드 추출 (1글자 필터링 완화)
+            const keywords = cleaned.split(' ')
+                .filter(word => {
+                    const trimmed = word.trim();
+                    // 빈 문자열 제거
+                    if (trimmed.length === 0) return false;
+                    // 1글자 단어도 포함 (숫자뿐만 아니라 한글도)
+                    // 단, 조사만 있는 경우는 제외
+                    if (trimmed.length === 1) {
+                        // 숫자는 항상 포함
+                        if (/^\d$/.test(trimmed)) return true;
+                        // 한글 1글자도 포함 (의미 있는 단어일 수 있음)
+                        if (/^[가-힣]$/.test(trimmed)) return true;
+                    }
+                    return true;
+                })
+                .map(word => word.trim().toLowerCase())
+                .filter(word => word.length > 0);
+            
+            // 7. 중복 제거
+            return [...new Set(keywords)];
+        }
+
+        // 키워드 기반 검색 함수 (정확히 일치하는 문제만 검색)
+        function searchByKeywords(keywords, question, answer) {
+            if (keywords.length === 0) return false;
+            
+            const questionLower = question.toLowerCase();
+            const answerLower = answer.toLowerCase();
+            
+            // 모든 키워드가 포함되어야 함 (AND 조건)
+            return keywords.every(keyword => {
+                // 키워드가 단어 단위로 포함되는지 확인 (정확한 단어 매칭)
+                const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const regex = new RegExp(`(^|\\s)${escapedKeyword}(\\s|$)`, 'i');
+                const exactMatch = regex.test(questionLower) || regex.test(answerLower);
+                
+                // 정확한 단어 매칭이 실패했을 때, 공백 제거 버전으로도 확인
+                // 예: '근로자가연' 입력 시 '근로자가 연간'에서 공백 제거 후 '근로자가연간'과 비교
+                if (!exactMatch) {
+                    const questionNoSpace = questionLower.replace(/\s+/g, '');
+                    const answerNoSpace = answerLower.replace(/\s+/g, '');
+                    return questionNoSpace.includes(keyword) || answerNoSpace.includes(keyword);
+                }
+                
+                return exactMatch;
+            });
+        }
+
 
         // OCR 결과를 검색창에 입력하고 검색 실행
-        function processOCRResult(text) {
-            // 텍스트 정리 (공백 제거, 줄바꿈 제거)
-            const cleanedText = text.trim().replace(/\s+/g, ' ').replace(/\n/g, ' ');
+        function processOCRResult(text, isAutoMode = false) {
+            // 텍스트 정리 (이미 extractQuestion으로 처리된 경우도 있음)
+            let cleanedText = text.trim().replace(/\s+/g, ' ').replace(/\n/g, ' ');
+            
+            // 문제만 추출 (아직 처리되지 않은 경우)
+            if (!cleanedText.includes('?') || cleanedText.includes('문제') || cleanedText.includes('[')) {
+                cleanedText = extractQuestion(cleanedText);
+            }
             
             if (cleanedText && cleanedText.length > 0) {
-                // 검색창에 입력
-                searchInput.value = cleanedText;
-                currentSearchTerm = cleanedText;
-                clearSearchBtn.classList.add('show');
+                // 키워드 추출
+                let keywords = extractKeywords(cleanedText);
+                
+                // 키워드 추출 실패 시 대체 로직
+                if (keywords.length === 0) {
+                    // 최소한의 정리만 수행하여 키워드 추출 재시도
+                    const fallbackText = cleanedText.replace(/[?.,!;:()[\]{}』」]/g, ' ').trim();
+                    keywords = fallbackText.split(' ')
+                        .filter(word => word.length >= 2)
+                        .map(word => word.toLowerCase())
+                        .filter(word => word.length > 0);
+                }
+                
+                // 디버깅 로그 (개발 환경에서만)
+                if (!isAutoMode) {
+                    console.log('OCR 결과:', text);
+                    console.log('추출된 문제:', cleanedText);
+                    console.log('추출된 키워드:', keywords);
+                }
+                
+                // 키워드를 한 번에 검색창에 입력하고 검색
+                const searchTerm = keywords.join(' ');
+                if (searchInput) {
+                    searchInput.value = searchTerm;
+                }
+                currentSearchTerm = searchTerm;
+                displayedCount = 0;
+                
+                if (clearSearchBtn) {
+                    clearSearchBtn.classList.add('show');
+                }
                 
                 // 검색 실행
-                displayedCount = 0;
                 performSearch();
                 
-                showNotification('문제를 인식했습니다');
+                // 검색 결과 확인 (검색 결과가 나왔으면 자동 캡처 중지 - 단, 중단없이 체크박스가 체크되어 있으면 중지하지 않음)
+                setTimeout(() => {
+                    if (allFilteredResults.length > 0 && isAutoCaptureMode) {
+                        // 중단없이 체크박스가 체크되어 있으면 자동 캡처 계속
+                        const shouldContinue = cameraContinueCheckbox && cameraContinueCheckbox.checked;
+                        if (!shouldContinue) {
+                            stopAutoCapture();
+                            if (!isAutoMode) {
+                                showNotification('검색 결과를 찾았습니다. 자동 캡처가 중지되었습니다.');
+                            }
+                        }
+                    }
+                }, 100);
+                
+                // 알림 표시
+                if (!isAutoMode) {
+                    showNotification('문제를 인식했습니다');
+                } else {
+                    showNotification('문제가 업데이트되었습니다');
+                }
             } else {
-                alert('텍스트를 인식할 수 없습니다. 다시 시도해주세요.');
-                cameraLoading.style.display = 'none';
-                cameraLoading.textContent = 'OCR 처리 중...';
-                cameraCaptureBtn.disabled = false;
+                if (!isAutoMode) {
+                    alert('텍스트를 인식할 수 없습니다. 다시 시도해주세요.');
+                    cameraLoading.style.display = 'none';
+                    cameraLoading.textContent = 'OCR 처리 중...';
+                    cameraCaptureBtn.disabled = false;
+                }
             }
         }
 
-        // 캡처 버튼 클릭 이벤트
-        cameraCaptureBtn.addEventListener('click', function() {
-            captureAndOCR();
-        });
 
-        // result-item 클릭 이벤트 리스너 (이벤트 위임)
-        document.getElementById('results').addEventListener('click', function(e) {
-            const resultItem = e.target.closest('.result-item');
-            if (resultItem && autoCopyEnabled) {
-                const answer = resultItem.getAttribute('data-answer');
-                if (answer) {
-                    // HTML 엔티티 디코딩
-                    const tempDiv = document.createElement('div');
-                    tempDiv.innerHTML = answer;
-                    const decodedAnswer = tempDiv.textContent || tempDiv.innerText || '';
-                    copyToClipboard(decodedAnswer);
+        // 검색 관련 변수 선언 (전역)
+        let searchInput = null;
+        let clearSearchBtn = null;
+
+        // 검색 기능 초기화
+        function initSearch() {
+            searchInput = document.getElementById('searchInput');
+            clearSearchBtn = document.getElementById('clearSearchBtn');
+            
+            if (!searchInput || !clearSearchBtn) {
+                console.error('검색 요소를 찾을 수 없습니다.');
+                // 재시도
+                setTimeout(initSearch, 100);
+                return;
+            }
+
+            // 검색 기능 (디바운싱 적용)
+            searchInput.addEventListener('input', function(e) {
+                const value = e.target.value.trim();
+                currentSearchTerm = value;
+                
+                // 지우기 버튼 표시/숨김
+                if (currentSearchTerm) {
+                    clearSearchBtn.classList.add('show');
+                } else {
+                    clearSearchBtn.classList.remove('show');
                 }
-            }
-        });
+                
+                // 디바운싱: 300ms 지연
+                if (debounceTimer) {
+                    clearTimeout(debounceTimer);
+                }
+                
+                debounceTimer = setTimeout(() => {
+                    displayedCount = 0; // 검색어 변경 시 리셋
+                    performSearch();
+                }, 300);
+            });
 
-        // 출력 개수 드롭다운 이벤트 리스너
-        document.getElementById('resultLimitSelect').addEventListener('change', function(e) {
-            maxResults = parseInt(e.target.value, 10);
-            displayedCount = 0; // 리셋
+            // 지우기 버튼 클릭 이벤트
+            clearSearchBtn.addEventListener('click', function() {
+                clearSearchInput();
+            });
+        }
+
+        // 검색어 지우기 함수
+        function clearSearchInput() {
+            if (!searchInput || !clearSearchBtn) return;
+            searchInput.value = '';
+            currentSearchTerm = '';
+            clearSearchBtn.classList.remove('show');
+            displayedCount = 0;
             performSearch();
-        });
+            searchInput.focus();
+        }
 
-        // 검색 기능 (디바운싱 적용)
-        document.getElementById('searchInput').addEventListener('input', function(e) {
-            currentSearchTerm = e.target.value.trim();
-            
-            // 디바운싱: 300ms 지연
-            if (debounceTimer) {
-                clearTimeout(debounceTimer);
-            }
-            
-            debounceTimer = setTimeout(() => {
-                displayedCount = 0; // 검색어 변경 시 리셋
-                performSearch();
-            }, 300);
-        });
+        // 페이지 로드 시 모든 기능 초기화
+        function initAll() {
+            initEventListeners();
+            initSearch();
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initAll);
+        } else {
+            initAll();
+        }
 
         function performSearch(resetDisplay = false) {
             const resultsDiv = document.getElementById('results');
@@ -932,18 +1533,35 @@
             }
 
             // 검색 수행 (선택된 카테고리만) - 검색어가 변경되었거나 리셋 요청 시에만 재검색
+            // 사용자가 직접 입력한 검색어는 조사 제거 없이 그대로 사용
+            // 공백으로 구분된 단어들을 키워드로 사용
+            let keywords = [];
+            if (currentSearchTerm.trim().length > 0) {
+                keywords = currentSearchTerm.trim()
+                    .split(/\s+/)
+                    .filter(word => word.length > 0)
+                    .map(word => word.toLowerCase());
+            }
+            
             if (resetDisplay || displayedCount === 0) {
-                const searchTerm = currentSearchTerm.toLowerCase().replace(/\s+/g, ''); // 공백 제거
                 allFilteredResults = questionsData.filter(item => {
-                    // 선택된 시트인지 확인
-                    if (selectedSheet && item.sheet !== selectedSheet) {
+                // 선택된 시트인지 확인
+                if (selectedSheet && item.sheet !== selectedSheet) {
+                    return false;
+                }
+                    
+                    // 검색어가 없으면 검색하지 않음
+                    if (!currentSearchTerm || currentSearchTerm.trim().length === 0) {
                         return false;
                     }
-                    // 검색어 매칭 (공백 제거 후 비교)
-                    const questionNoSpace = item.question.toLowerCase().replace(/\s+/g, '');
-                    const answerNoSpace = item.answer.toLowerCase().replace(/\s+/g, '');
-                    return questionNoSpace.includes(searchTerm) ||
-                           answerNoSpace.includes(searchTerm);
+                    
+                    // 키워드 기반 검색 (키워드가 1개 이상일 때 사용)
+                    if (keywords.length >= 1) {
+                        return searchByKeywords(keywords, item.question, item.answer);
+                    }
+                    
+                    // 키워드가 없으면 검색하지 않음
+                    return false;
                 });
                 displayedCount = 0;
             }
@@ -951,6 +1569,16 @@
             if (allFilteredResults.length === 0) {
                 resultsDiv.innerHTML = '<div class="no-results">검색 결과가 없습니다.</div>';
                 return;
+            }
+
+            // 검색 결과가 있을 때 자동 캡처 중지 (단, 중단없이 체크박스가 체크되어 있으면 중지하지 않음)
+            if (allFilteredResults.length > 0 && isAutoCaptureMode && displayedCount === 0) {
+                // 중단없이 체크박스가 체크되어 있으면 자동 캡처 계속
+                const shouldContinue = cameraContinueCheckbox && cameraContinueCheckbox.checked;
+                if (!shouldContinue) {
+                    stopAutoCapture();
+                    showNotification('검색 결과를 찾았습니다. 자동 캡처가 중지되었습니다.');
+                }
             }
 
             // 표시할 개수 계산
@@ -965,15 +1593,18 @@
             // 처음 로드하는 경우에만 카운트 표시
             if (isFirstLoad) {
                 html = `<div class="results-count">검색 결과: ${allFilteredResults.length}개`;
-                if (selectedSheet) {
-                    html += ` (카테고리: ${selectedSheet})`;
-                }
-                html += `</div>`;
+            if (selectedSheet) {
+                html += ` (카테고리: ${selectedSheet})`;
+            }
+            html += `</div>`;
             }
             
             itemsToRender.forEach(item => {
-                const highlightedQuestion = highlightText(item.question, currentSearchTerm);
-                const highlightedAnswer = highlightText(item.answer, currentSearchTerm);
+                // 문제 텍스트에서 "[문제]" 제거
+                let questionText = item.question.replace(/\[문제\s*\d+\]|\[문제\]|\[\d+\]/g, '').trim();
+                // 키워드 기반 하이라이트 (각 키워드를 개별적으로 하이라이트)
+                const highlightedQuestion = highlightTextWithKeywords(questionText, keywords.length > 0 ? keywords : [currentSearchTerm]);
+                const highlightedAnswer = highlightTextWithKeywords(item.answer, keywords.length > 0 ? keywords : [currentSearchTerm]);
                 const answerEscaped = escapeHtml(item.answer);
                 
                 html += `
@@ -996,7 +1627,7 @@
 
             // 기존 결과에 추가하거나 새로 렌더링
             if (isFirstLoad) {
-                resultsDiv.innerHTML = html;
+            resultsDiv.innerHTML = html;
             } else {
                 // 더 보기 버튼 제거 후 추가
                 const loadMoreBtn = resultsDiv.querySelector('.load-more-btn');
@@ -1023,12 +1654,60 @@
             performSearch(false);
         }
 
-        // 텍스트 하이라이트
+        // 텍스트 하이라이트 (단일 검색어)
         function highlightText(text, searchTerm) {
             if (!searchTerm) return escapeHtml(text);
             
             const regex = new RegExp(`(${escapeRegex(searchTerm)})`, 'gi');
             return escapeHtml(text).replace(regex, '<span class="highlight">$1</span>');
+        }
+
+        // 키워드 기반 텍스트 하이라이트 (여러 키워드를 개별적으로 하이라이트)
+        function highlightTextWithKeywords(text, keywords) {
+            if (!text || !keywords || keywords.length === 0) return escapeHtml(text);
+            
+            let highlightedText = escapeHtml(text);
+            const textLower = text.toLowerCase();
+            
+            // 각 키워드를 하이라이트 (긴 키워드부터 처리하여 중첩 방지)
+            const sortedKeywords = [...keywords].sort((a, b) => b.length - a.length);
+            
+            sortedKeywords.forEach(keyword => {
+                if (!keyword || keyword.trim().length === 0) return;
+                
+                const keywordLower = keyword.toLowerCase();
+                const escapedKeyword = escapeRegex(keyword);
+                
+                // 1. 정확한 단어 단위 매칭 시도 (공백으로 구분된 단어)
+                const wordRegex = new RegExp(`(^|\\s)(${escapedKeyword})(\\s|$)`, 'gi');
+                const hasWordMatch = wordRegex.test(textLower);
+                
+                if (hasWordMatch) {
+                    // 단어 단위로 하이라이트
+                    highlightedText = highlightedText.replace(wordRegex, (match, before, keywordMatch, after) => {
+                        // 이미 하이라이트된 부분은 건너뛰기
+                        if (before.includes('<span') || keywordMatch.includes('<span')) {
+                            return match;
+                        }
+                        return `${before}<span class="highlight">${keywordMatch}</span>${after}`;
+                    });
+                } else {
+                    // 2. 단어 단위 매칭이 없으면 공백 제거 버전으로 확인
+                    const textNoSpace = textLower.replace(/\s+/g, '');
+                    const keywordNoSpace = keywordLower.replace(/\s+/g, '');
+                    
+                    if (textNoSpace.includes(keywordNoSpace)) {
+                        // 원본 텍스트에서 키워드가 포함된 부분 찾기 (공백 무시)
+                        // 간단하게 키워드 자체를 하이라이트 (공백 포함 가능)
+                        const simpleRegex = new RegExp(`(${escapedKeyword})`, 'gi');
+                        if (!highlightedText.toLowerCase().includes(`<span class="highlight">${keywordLower}</span>`)) {
+                            highlightedText = highlightedText.replace(simpleRegex, '<span class="highlight">$1</span>');
+                        }
+                    }
+                }
+            });
+            
+            return highlightedText;
         }
 
         // HTML 이스케이프
