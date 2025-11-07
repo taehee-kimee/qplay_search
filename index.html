@@ -85,6 +85,7 @@
             right: 12px;
             top: 50%;
             transform: translateY(-50%);
+            z-index: 20;
             background: none;
             border: none;
             color: #999;
@@ -114,6 +115,7 @@
             border-radius: 8px;
             color: #999;
             font-size: 0.9em;
+            z-index: 10;
             cursor: pointer;
             padding: 10px 16px;
             display: none;
@@ -529,6 +531,10 @@
                         <input type="checkbox" id="autoCopyCheckbox">
                         <label for="autoCopyCheckbox">자동복사</label>
                     </div>
+                    <div class="auto-copy-checkbox">
+                        <input type="checkbox" id="autoJokboCheckbox">
+                        <label for="autoJokboCheckbox">자동족보</label>
+                    </div>
                 </div>
             </div>
 
@@ -582,6 +588,7 @@
         let allSheetNames = [];
         let selectedSheet = null; // 단일 선택으로 변경
         let autoCopyEnabled = false;
+        let autoJokboEnabled = false;
         let maxResults = 10; // 기본값 10개
         let displayedCount = 0;
         let allFilteredResults = [];
@@ -848,6 +855,16 @@
             if (autoClearCheckbox) {
                 autoClearCheckbox.addEventListener('change', function(e) {
                     autoClearEnabled = e.target.checked;
+                });
+            }
+
+            const autoJokboCheckbox = document.getElementById('autoJokboCheckbox');
+            if (autoJokboCheckbox) {
+                autoJokboCheckbox.addEventListener('change', function(e) {
+                    autoJokboEnabled = e.target.checked;
+                    // 모드 변경 시 검색 재실행
+                    displayedCount = 0;
+                    performSearch(true);
                 });
             }
 
@@ -1339,31 +1356,150 @@
         }
 
         // 키워드 기반 검색 함수 (정확히 일치하는 문제만 검색)
-        function searchByKeywords(keywords, question, answer) {
+        function searchByKeywords(keywords, question, answer, isJokboMode = false) {
             if (keywords.length === 0) return false;
             
             const questionLower = question.toLowerCase();
             const answerLower = answer.toLowerCase();
             
-            // 모든 키워드가 포함되어야 함 (AND 조건)
-            return keywords.every(keyword => {
-                // 키워드가 단어 단위로 포함되는지 확인 (정확한 단어 매칭)
-                const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                const regex = new RegExp(`(^|\\s)${escapedKeyword}(\\s|$)`, 'i');
-                const exactMatch = regex.test(questionLower) || regex.test(answerLower);
-                
-                // 정확한 단어 매칭이 실패했을 때, 공백 제거 버전으로도 확인
-                // 예: '근로자가연' 입력 시 '근로자가 연간'에서 공백 제거 후 '근로자가연간'과 비교
-                if (!exactMatch) {
+            if (isJokboMode) {
+                // 자동족보 모드: 키워드 중 일부만 포함되어도 검색 (OR 조건)
+                // 또는 키워드의 일부만 매칭되어도 검색
+                return keywords.some(keyword => {
+                    const keywordLower = keyword.toLowerCase();
+                    
+                    // 1. 정확한 단어 매칭
+                    const escapedKeyword = escapeRegex(keyword);
+                    const wordRegex = new RegExp(`(^|\\s)${escapedKeyword}(\\s|$)`, 'i');
+                    if (wordRegex.test(questionLower) || wordRegex.test(answerLower)) {
+                        return true;
+                    }
+                    
+                    // 2. 공백 제거 버전으로 확인
                     const questionNoSpace = questionLower.replace(/\s+/g, '');
                     const answerNoSpace = answerLower.replace(/\s+/g, '');
-                    return questionNoSpace.includes(keyword) || answerNoSpace.includes(keyword);
-                }
-                
-                return exactMatch;
-            });
+                    const keywordNoSpace = keywordLower.replace(/\s+/g, '');
+                    if (questionNoSpace.includes(keywordNoSpace) || answerNoSpace.includes(keywordNoSpace)) {
+                        return true;
+                    }
+                    
+                    // 3. 부분 문자열 매칭 (키워드의 일부만 포함되어도 검색)
+                    // 키워드가 3글자 이상이면 2글자 이상 포함되어도 검색
+                    if (keyword.length >= 3) {
+                        const minLength = Math.max(2, Math.floor(keyword.length * 0.5)); // 최소 50% 이상
+                        for (let i = 0; i <= keyword.length - minLength; i++) {
+                            const substring = keyword.substring(i, i + minLength);
+                            if (questionLower.includes(substring) || answerLower.includes(substring)) {
+                                return true;
+                            }
+                        }
+                    }
+                    
+                    // 4. 키워드가 2글자 이상이면 직접 포함 여부 확인
+                    if (keyword.length >= 2) {
+                        if (questionLower.includes(keywordLower) || answerLower.includes(keywordLower)) {
+                            return true;
+                        }
+                    }
+                    
+                    return false;
+                });
+            } else {
+                // 기존 로직: 모든 키워드가 포함되어야 함 (AND 조건)
+                return keywords.every(keyword => {
+                    // 키워드가 단어 단위로 포함되는지 확인 (정확한 단어 매칭)
+                    const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const regex = new RegExp(`(^|\\s)${escapedKeyword}(\\s|$)`, 'i');
+                    const exactMatch = regex.test(questionLower) || regex.test(answerLower);
+                    
+                    // 정확한 단어 매칭이 실패했을 때, 공백 제거 버전으로도 확인
+                    // 예: '근로자가연' 입력 시 '근로자가 연간'에서 공백 제거 후 '근로자가연간'과 비교
+                    if (!exactMatch) {
+                        const questionNoSpace = questionLower.replace(/\s+/g, '');
+                        const answerNoSpace = answerLower.replace(/\s+/g, '');
+                        return questionNoSpace.includes(keyword) || answerNoSpace.includes(keyword);
+                    }
+                    
+                    return exactMatch;
+                });
+            }
         }
 
+        // 일치도 점수 계산 함수 (자동족보 모드용)
+        function calculateMatchScore(keywords, question, answer) {
+            if (keywords.length === 0) return 0;
+            
+            const questionLower = question.toLowerCase();
+            const answerLower = answer.toLowerCase();
+            let totalScore = 0;
+            let matchedKeywords = 0;
+            
+            // 검색어 전체를 하나의 문자열로 합친 버전도 고려
+            const fullSearchTerm = keywords.join(' ').toLowerCase();
+            const questionNoSpace = questionLower.replace(/\s+/g, '');
+            const answerNoSpace = answerLower.replace(/\s+/g, '');
+            const fullSearchNoSpace = fullSearchTerm.replace(/\s+/g, '');
+            
+            // 전체 검색어가 포함되면 매우 높은 점수 (200점)
+            if (questionLower.includes(fullSearchTerm) || answerLower.includes(fullSearchTerm)) {
+                totalScore += 200;
+            } else if (questionNoSpace.includes(fullSearchNoSpace) || answerNoSpace.includes(fullSearchNoSpace)) {
+                totalScore += 150;
+            }
+            
+            // 각 키워드별 점수 계산
+            keywords.forEach(keyword => {
+                const keywordLower = keyword.toLowerCase();
+                let keywordScore = 0;
+                let matched = false;
+                
+                // 정확한 단어 매칭
+                const escapedKeyword = escapeRegex(keyword);
+                const wordRegex = new RegExp(`(^|\\s)${escapedKeyword}(\\s|$)`, 'i');
+                const exactMatchInQuestion = wordRegex.test(questionLower);
+                const exactMatchInAnswer = wordRegex.test(answerLower);
+                
+                if (exactMatchInQuestion || exactMatchInAnswer) {
+                    keywordScore = 100;
+                    matched = true;
+                    if (exactMatchInQuestion && exactMatchInAnswer) {
+                        keywordScore = 150;
+                    }
+                } else {
+                    // 공백 제거 버전
+                    const keywordNoSpace = keywordLower.replace(/\s+/g, '');
+                    const noSpaceMatchInQuestion = questionNoSpace.includes(keywordNoSpace);
+                    const noSpaceMatchInAnswer = answerNoSpace.includes(keywordNoSpace);
+                    
+                    if (noSpaceMatchInQuestion || noSpaceMatchInAnswer) {
+                        keywordScore = 80;
+                        matched = true;
+                        if (noSpaceMatchInQuestion && noSpaceMatchInAnswer) {
+                            keywordScore = 120;
+                        }
+                    } else if (keyword.length >= 2) {
+                        // 부분 매칭
+                        if (questionLower.includes(keywordLower) || answerLower.includes(keywordLower)) {
+                            keywordScore = 30;
+                            matched = true;
+                        }
+                    }
+                }
+                
+                if (matched) {
+                    // 키워드 길이 가중치
+                    keywordScore *= (1 + keyword.length * 0.1);
+                    totalScore += keywordScore;
+                    matchedKeywords++;
+                }
+            });
+            
+            // 매칭된 키워드 비율 보너스
+            const matchRatio = matchedKeywords / keywords.length;
+            totalScore *= (0.5 + matchRatio * 0.5);
+            
+            return totalScore;
+        }
 
         // OCR 결과를 검색창에 입력하고 검색 실행
         function processOCRResult(text, isAutoMode = false) {
@@ -1557,12 +1693,24 @@
                     
                     // 키워드 기반 검색 (키워드가 1개 이상일 때 사용)
                     if (keywords.length >= 1) {
-                        return searchByKeywords(keywords, item.question, item.answer);
+                        return searchByKeywords(keywords, item.question, item.answer, autoJokboEnabled);
                     }
                     
                     // 키워드가 없으면 검색하지 않음
                     return false;
                 });
+                
+                // 자동족보 모드일 때 일치도 점수로 정렬
+                if (autoJokboEnabled && keywords.length > 0) {
+                    allFilteredResults = allFilteredResults.map(item => ({
+                        ...item,
+                        matchScore: calculateMatchScore(keywords, item.question, item.answer)
+                    })).sort((a, b) => {
+                        // 일치도 점수가 높은 순으로 정렬
+                        return b.matchScore - a.matchScore;
+                    });
+                }
+                
                 displayedCount = 0;
             }
 
