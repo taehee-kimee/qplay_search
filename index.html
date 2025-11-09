@@ -167,8 +167,8 @@
 
         .result-question {
             font-size: 1.2em;
-            font-weight: 600;
-            color: #000000;
+            font-weight: 500;
+            color: #333333;
             margin-bottom: 15px;
             line-height: 1.6;
         }
@@ -179,7 +179,7 @@
 
         .result-answer {
             font-size: 1.1em;
-            color: #333333;
+            color: #ff0000;
             padding: 15px;
             background: #f8f8f8;
             border-radius: 0;
@@ -188,11 +188,11 @@
         }
 
         .highlight {
-            background: #000000;
-            color: #ffffff;
-            padding: 2px 4px;
-            border-radius: 0;
-            font-weight: 600;
+            font-weight: bold;
+        }
+
+        .result-question .highlight {
+            font-weight: 1000;
         }
 
         .no-results {
@@ -393,10 +393,102 @@
             gap: 15px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
             pointer-events: auto;
+            position: relative;
+        }
+
+        .camera-modal-header {
+            width: 100%;
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 4px;
+            padding: 0;
+            margin: -10px -10px 0 0;
+            cursor: move;
+            user-select: none; /* 드래그 시 텍스트 선택 방지 */
+        }
+
+        /* 드래그 중 시각적 피드백 */
+        .camera-modal.dragging .camera-modal-content {
+            opacity: 0.9;
+        }
+
+        .camera-minimize-btn {
+            background: none;
+            border: none;
+            color: #666666;
+            font-size: 1.5em;
+            cursor: pointer;
+            padding: 4px 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            line-height: 1;
+            width: 28px;
+            height: 28px;
+        }
+
+        .camera-minimize-btn:hover {
+            color: #000000;
+            background: #f0f0f0;
+            border-radius: 4px;
+        }
+
+        .camera-minimized-controls {
+            display: none;
+            gap: 8px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .camera-icon-btn {
+            background: #000000;
+            border: none;
+            color: #ffffff;
+            font-size: 1.2em;
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+            line-height: 1;
+            min-width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .camera-icon-btn:hover {
+            background: #333333;
         }
 
         .camera-modal.minimized .camera-video-container {
             display: none;
+        }
+
+        .camera-modal.minimized .camera-controls {
+            display: none;
+        }
+
+        .camera-modal.minimized .camera-loading {
+            display: none;
+        }
+
+        .camera-modal.minimized .camera-modal-header {
+            display: none;
+        }
+
+        .camera-modal.minimized .camera-minimized-controls {
+            display: flex;
+        }
+
+        .camera-modal.minimized .camera-modal-content {
+            padding: 10px;
+            max-width: auto;
+            max-height: auto;
+            min-width: auto;
+            width: auto;
         }
 
         .camera-video-container {
@@ -444,6 +536,10 @@
             align-items: center;
             flex-wrap: wrap;
             justify-content: center;
+        }
+
+        .camera-controls .camera-close-btn {
+            display: none;
         }
 
         .camera-continue-checkbox {
@@ -506,9 +602,124 @@
             text-align: center;
             color: #666666;
         }
+
+        /* Toast 공지 팝업 */
+        .notice-toast-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 9999;
+            display: none;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .notice-toast-overlay.show {
+            display: block;
+        }
+
+        .notice-toast {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #ffffff;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            padding: 16px 20px;
+            max-width: 600px;
+            width: calc(100% - 40px);
+            z-index: 10000;
+            display: none;
+            flex-direction: column;
+            gap: 12px;
+            animation: scaleIn 0.3s ease-out;
+        }
+
+        .notice-toast.show {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes scaleIn {
+            from {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+            }
+        }
+
+        .notice-toast-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .notice-toast-title {
+            font-weight: 600;
+            color: #333;
+            font-size: 0.95em;
+            flex: 1;
+        }
+
+        .notice-toast-close {
+            background: none;
+            border: none;
+            font-size: 1.5em;
+            color: #999;
+            cursor: pointer;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .notice-toast-close:hover {
+            color: #333;
+        }
+
+        .notice-toast-content {
+            color: #666;
+            font-size: 0.9em;
+            line-height: 1.5;
+            white-space: normal;
+        }
     </style>
 </head>
 <body>
+    <!-- Toast 공지 팝업 -->
+    <div id="noticeToastOverlay" class="notice-toast-overlay"></div>
+    <div id="noticeToast" class="notice-toast">
+        <div class="notice-toast-header">
+            <div class="notice-toast-title">📢 업데이트 공지</div>
+            <button class="notice-toast-close" id="noticeToastClose" aria-label="닫기">×</button>
+        </div>
+        <div class="notice-toast-content" id="noticeToastContent">
+            자동족보 검색 로직 업데이트<br>
+            화면 공유 팝업 drag로 이동가능<br>
+            화면 공유 팝업 최소화 가능
+        </div>
+    </div>
+
     <div class="container">
         <div class="header">
             <h2>💸그깽 족보💸</h2>
@@ -563,6 +774,10 @@
 
     <div id="cameraModal" class="camera-modal">
         <div class="camera-modal-content">
+            <div class="camera-modal-header">
+                <button id="cameraMinimizeBtn" class="camera-minimize-btn" title="최소화">−</button>
+                <button id="cameraCloseBtnHeader" class="camera-minimize-btn" title="닫기">×</button>
+            </div>
             <div class="camera-video-container">
                 <video id="cameraVideo" autoplay playsinline></video>
                 <div class="selection-overlay">
@@ -580,10 +795,58 @@
             <div id="cameraLoading" class="camera-loading" style="display: none;">
                 OCR 처리 중...
             </div>
+            <div class="camera-minimized-controls">
+                <button id="cameraMaximizeBtn" class="camera-icon-btn" title="최대화">□</button>
+            </div>
         </div>
     </div>
 
     <script>
+        // Toast 공지 팝업 기능
+        const noticeToastOverlay = document.getElementById('noticeToastOverlay');
+        const noticeToast = document.getElementById('noticeToast');
+        const noticeToastClose = document.getElementById('noticeToastClose');
+        
+        // 공지 버전 (새 공지가 있으면 이 버전을 변경하면 됩니다)
+        const NOTICE_VERSION = '2';
+        
+        // 공지 팝업 표시 (버전 확인)
+        function showNoticeToast() {
+            if (!noticeToast || !noticeToastOverlay) return;
+            
+            const savedVersion = localStorage.getItem('noticeToastVersion');
+            const isClosed = localStorage.getItem('noticeToastClosed') === 'true';
+            
+            // 버전이 다르거나 닫지 않았으면 표시
+            if (savedVersion !== NOTICE_VERSION || !isClosed) {
+                noticeToastOverlay.classList.add('show');
+                noticeToast.classList.add('show');
+            }
+        }
+        
+        // 공지 팝업 닫기
+        function closeNoticeToast() {
+            if (noticeToast && noticeToastOverlay) {
+                noticeToast.classList.remove('show');
+                noticeToastOverlay.classList.remove('show');
+                localStorage.setItem('noticeToastClosed', 'true');
+                localStorage.setItem('noticeToastVersion', NOTICE_VERSION);
+            }
+        }
+        
+        // 이벤트 리스너
+        if (noticeToastClose) {
+            noticeToastClose.addEventListener('click', closeNoticeToast);
+        }
+        
+        // 배경 클릭 시 닫기
+        if (noticeToastOverlay) {
+            noticeToastOverlay.addEventListener('click', closeNoticeToast);
+        }
+        
+        // 페이지 로드 시 공지 표시
+        window.addEventListener('DOMContentLoaded', showNoticeToast);
+
         let questionsData = [];
         let currentSearchTerm = '';
         let allSheetNames = [];
@@ -828,6 +1091,16 @@
         let cameraCloseBtn = null;
         let cameraLoading = null;
         let cameraContinueCheckbox = null;
+        let cameraMinimizeBtn = null;
+        let cameraMaximizeBtn = null;
+        let cameraCloseBtnHeader = null;
+
+        // 드래그 관련 변수
+        let isDragging = false;
+        let dragStartX = 0;
+        let dragStartY = 0;
+        let modalStartLeft = 0;
+        let modalStartTop = 0;
 
         // 영역 선택 관련 변수
         let isSelecting = false;
@@ -877,6 +1150,9 @@
             cameraCloseBtn = document.getElementById('cameraCloseBtn');
             cameraContinueCheckbox = document.getElementById('cameraContinueCheckbox');
             cameraLoading = document.getElementById('cameraLoading');
+            cameraMinimizeBtn = document.getElementById('cameraMinimizeBtn');
+            cameraMaximizeBtn = document.getElementById('cameraMaximizeBtn');
+            cameraCloseBtnHeader = document.getElementById('cameraCloseBtnHeader');
 
             // 카메라 버튼 클릭 이벤트
             if (cameraBtn) {
@@ -888,6 +1164,27 @@
             // 카메라 닫기 버튼 클릭 이벤트
             if (cameraCloseBtn) {
                 cameraCloseBtn.addEventListener('click', function() {
+                    closeCamera();
+                });
+            }
+
+            // 최소화 버튼 클릭 이벤트
+            if (cameraMinimizeBtn) {
+                cameraMinimizeBtn.addEventListener('click', function() {
+                    toggleMinimize();
+                });
+            }
+
+            // 최대화 버튼 클릭 이벤트
+            if (cameraMaximizeBtn) {
+                cameraMaximizeBtn.addEventListener('click', function() {
+                    toggleMinimize();
+                });
+            }
+
+            // 헤더 닫기 버튼 클릭 이벤트
+            if (cameraCloseBtnHeader) {
+                cameraCloseBtnHeader.addEventListener('click', function() {
                     closeCamera();
                 });
             }
@@ -934,6 +1231,63 @@
             performSearch();
         });
             }
+
+            // 카메라 모달 드래그 기능 초기화
+            initDragFunctionality();
+        }
+
+        // 카메라 모달 드래그 기능 초기화
+        function initDragFunctionality() {
+            const header = document.querySelector('.camera-modal-header');
+            if (!header || !cameraModal) return;
+            
+            header.addEventListener('mousedown', (e) => {
+                // 버튼 클릭은 드래그로 처리하지 않음
+                if (e.target.closest('button')) return;
+                
+                // 최소화 상태에서는 드래그 비활성화
+                if (cameraModal.classList.contains('minimized')) return;
+                
+                isDragging = true;
+                const rect = cameraModal.getBoundingClientRect();
+                dragStartX = e.clientX;
+                dragStartY = e.clientY;
+                modalStartLeft = rect.left;
+                modalStartTop = rect.top;
+                
+                cameraModal.classList.add('dragging');
+                e.preventDefault();
+                e.stopPropagation(); // 다른 이벤트와 충돌 방지
+            });
+            
+            document.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                
+                const deltaX = e.clientX - dragStartX;
+                const deltaY = e.clientY - dragStartY;
+                
+                const newLeft = modalStartLeft + deltaX;
+                const newTop = modalStartTop + deltaY;
+                
+                // 화면 경계 체크
+                const maxLeft = window.innerWidth - cameraModal.offsetWidth;
+                const maxTop = window.innerHeight - cameraModal.offsetHeight;
+                
+                const clampedLeft = Math.max(0, Math.min(newLeft, maxLeft));
+                const clampedTop = Math.max(0, Math.min(newTop, maxTop));
+                
+                cameraModal.style.left = clampedLeft + 'px';
+                cameraModal.style.top = clampedTop + 'px';
+                cameraModal.style.right = 'auto';
+                cameraModal.style.bottom = 'auto';
+            });
+            
+            document.addEventListener('mouseup', (e) => {
+                if (isDragging) {
+                    isDragging = false;
+                    cameraModal.classList.remove('dragging');
+                }
+            });
         }
 
         // 영역 선택 초기화 함수
@@ -991,11 +1345,27 @@
         function getSelectionRect() {
             if (!cameraVideo || !selectionBox) return null;
             
+            // 최소화 상태 확인
+            const isMinimized = cameraModal && cameraModal.classList.contains('minimized');
+            if (isMinimized) {
+                return null; // 최소화 상태에서는 null 반환하여 savedSelectionRect 사용
+            }
+            
             const videoRect = cameraVideo.getBoundingClientRect();
             const containerRect = selectionBox.parentElement.getBoundingClientRect();
             
+            // display: none인 경우 width/height가 0이 될 수 있음
+            if (videoRect.width === 0 || videoRect.height === 0) {
+                return null;
+            }
+            
             const scaleX = cameraVideo.videoWidth / videoRect.width;
             const scaleY = cameraVideo.videoHeight / videoRect.height;
+            
+            // scale이 유효하지 않은 경우 (NaN, Infinity 등)
+            if (!isFinite(scaleX) || !isFinite(scaleY)) {
+                return null;
+            }
             
             const left = Math.min(selectionStart.x, selectionEnd.x);
             const top = Math.min(selectionStart.y, selectionEnd.y);
@@ -1059,6 +1429,18 @@
             }
         }
 
+        // 카메라 최소화/최대화 토글 함수
+        function toggleMinimize() {
+            if (!cameraModal) return;
+            
+            const isMinimized = cameraModal.classList.contains('minimized');
+            if (isMinimized) {
+                cameraModal.classList.remove('minimized');
+            } else {
+                cameraModal.classList.add('minimized');
+            }
+        }
+
         // 카메라 닫기 함수
         function closeCamera() {
             // 자동 캡처 중지
@@ -1088,6 +1470,14 @@
             isSelecting = false;
             lastOCRText = '';
             savedSelectionRect = null;
+            
+            // 드래그 위치 리셋
+            isDragging = false;
+            cameraModal.classList.remove('dragging');
+            cameraModal.style.left = '';
+            cameraModal.style.top = '';
+            cameraModal.style.right = '20px';
+            cameraModal.style.bottom = '20px';
         }
 
 
@@ -1495,9 +1885,13 @@
                 }
             });
             
-            // 매칭된 키워드 비율 보너스
+            // 매칭된 키워드 수에 비례한 보너스 (곱하기 대신 더하기로 변경)
+            // 매칭된 키워드가 많을수록 보너스 추가
             const matchRatio = matchedKeywords / keywords.length;
-            totalScore *= (0.5 + matchRatio * 0.5);
+            totalScore += totalScore * (matchRatio * 0.3); // 매칭 비율에 따른 보너스 추가
+            
+            // 추가로 매칭된 키워드 수에 비례한 고정 보너스
+            totalScore += matchedKeywords * 10;
             
             return totalScore;
         }
