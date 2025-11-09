@@ -35,10 +35,14 @@
             padding: 20px 30px;
             text-align: left;
             border-bottom: 1px solid #ffffff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         .header h2 {
             font-size: 1.5em;
+            margin: 0;
         }
 
         .header p {
@@ -703,6 +707,124 @@
             line-height: 1.5;
             white-space: normal;
         }
+
+        .help-btn {
+            background: none;
+            border: none;
+            color: #666666;
+            font-size: 0.9em;
+            cursor: pointer;
+            padding: 8px 12px;
+            transition: color 0.3s ease;
+            text-decoration: none;
+        }
+
+        .help-btn:hover {
+            color: #000000;
+        }
+
+        /* 사용방법 모달 */
+        .help-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 9999;
+            display: none;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .help-modal-overlay.show {
+            display: block;
+        }
+
+        .help-modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #ffffff;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            padding: 24px 28px;
+            max-width: 600px;
+            width: calc(100% - 40px);
+            max-height: 80vh;
+            overflow-y: auto;
+            z-index: 10000;
+            display: none;
+            flex-direction: column;
+            gap: 16px;
+            animation: scaleIn 0.3s ease-out;
+        }
+
+        .help-modal.show {
+            display: flex;
+        }
+
+        .help-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .help-modal-title {
+            font-weight: 600;
+            color: #333;
+            font-size: 1.1em;
+            flex: 1;
+        }
+
+        .help-modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5em;
+            color: #999;
+            cursor: pointer;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .help-modal-close:hover {
+            color: #333;
+        }
+
+        .help-modal-content {
+            color: #666;
+            font-size: 0.95em;
+            line-height: 1.8;
+        }
+
+        .help-modal-content ol {
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        .help-modal-content li {
+            margin-bottom: 12px;
+        }
+
+        .help-modal-content .tip {
+            margin-top: 20px;
+            padding: 12px 16px;
+            background: #f8f8f8;
+            border-left: 3px solid #000000;
+            border-radius: 4px;
+        }
+
+        .help-modal-content .tip strong {
+            color: #333;
+        }
     </style>
 </head>
 <body>
@@ -714,15 +836,40 @@
             <button class="notice-toast-close" id="noticeToastClose" aria-label="닫기">×</button>
         </div>
         <div class="notice-toast-content" id="noticeToastContent">
-            자동족보 검색 로직 업데이트<br>
-            화면 공유 팝업 drag로 이동가능<br>
-            화면 공유 팝업 최소화 가능
+            - 자동족보 검색 로직 업데이트<br>
+            - 화면 공유 팝업 drag로 이동가능<br>
+            - 화면 공유 팝업 최소화 가능
+        </div>
+    </div>
+
+    <!-- 사용방법 모달 -->
+    <div id="helpModalOverlay" class="help-modal-overlay"></div>
+    <div id="helpModal" class="help-modal">
+        <div class="help-modal-header">
+            <div class="help-modal-title">📖 자동족보 사용법</div>
+            <button class="help-modal-close" id="helpModalClose" aria-label="닫기">×</button>
+        </div>
+        <div class="help-modal-content">
+            <ol>
+                <li><strong>자동족보</strong> 체크박스를 활성화하세요.</li>
+                <li>검색창 옆 <strong>카메라 아이콘</strong>을 클릭하세요.</li>
+                <li>화면 공유 창에서 <strong>큐플레이 창</strong>을 선택하세요.<br>
+                    <small style="color: #999;">※ 크롬 브라우저의 화면 공유 권한이 허용되어야 합니다.</small></li>
+                <li>비디오 화면에서 <strong>문제가 표시되는 영역을 드래그</strong>하여 선택하세요.<br>
+                    <small style="color: #999;">※ 게임마다 문제 영역이 다르므로 정확히 선택해주세요.</small></li>
+                <li><strong>캡처 버튼</strong>을 클릭하면 자동 검색이 시작됩니다.<br>
+                    <small style="color: #999;">※ 계속 사용하려면 '중단없이' 체크박스를 활성화하세요.</small></li>
+            </ol>
+            <div class="tip">
+                <strong>💡 Tip:</strong> 게임을 하지 않을 때는 잠시 중단해주세요. 브라우저 성능 저하로 텍스트 인식에 부하가 걸릴 수 있습니다.
+            </div>
         </div>
     </div>
 
     <div class="container">
         <div class="header">
             <h2>💸그깽 족보💸</h2>
+            <button id="helpBtn" class="help-btn" aria-label="자동족보 사용법">자동족보 사용법</button>
         </div>
 
         <div class="content">
@@ -2304,6 +2451,42 @@
             displayedCount = 0; // 리셋
             // 검색 다시 수행
             performSearch(true);
+        }
+
+        // 사용방법 모달 기능
+        const helpModalOverlay = document.getElementById('helpModalOverlay');
+        const helpModal = document.getElementById('helpModal');
+        const helpBtn = document.getElementById('helpBtn');
+        const helpModalClose = document.getElementById('helpModalClose');
+        
+        // 사용방법 모달 열기
+        function openHelpModal() {
+            if (helpModal && helpModalOverlay) {
+                helpModalOverlay.classList.add('show');
+                helpModal.classList.add('show');
+            }
+        }
+        
+        // 사용방법 모달 닫기
+        function closeHelpModal() {
+            if (helpModal && helpModalOverlay) {
+                helpModal.classList.remove('show');
+                helpModalOverlay.classList.remove('show');
+            }
+        }
+        
+        // 이벤트 리스너
+        if (helpBtn) {
+            helpBtn.addEventListener('click', openHelpModal);
+        }
+        
+        if (helpModalClose) {
+            helpModalClose.addEventListener('click', closeHelpModal);
+        }
+        
+        // 배경 클릭 시 닫기
+        if (helpModalOverlay) {
+            helpModalOverlay.addEventListener('click', closeHelpModal);
         }
     </script>
 </body>
