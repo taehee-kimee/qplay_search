@@ -17,8 +17,7 @@
     "declarationMap": false,
     "sourceMap": true,
     "noEmit": false,
-    "isolatedModules": true,
-    "types": ["tesseract.js"]
+    "isolatedModules": true
   },
   "include": [
     "utils/**/*",
