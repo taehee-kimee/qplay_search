@@ -6,6 +6,16 @@
     <title>Qplay 족보</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/tesseract.min.js"></script>
+    <script type="module">
+        // Service Worker 등록
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(reg => console.log('Service Worker 등록 성공:', reg.scope))
+                    .catch(err => console.warn('Service Worker 등록 실패:', err));
+            });
+        }
+    </script>
     <style>
         * {
             margin: 0;
@@ -836,9 +846,18 @@
             <button class="notice-toast-close" id="noticeToastClose" aria-label="닫기">×</button>
         </div>
         <div class="notice-toast-content" id="noticeToastContent">
-            - 자동족보 검색 로직 업데이트<br>
-            - 화면 공유 팝업 drag로 이동가능<br>
-            - 화면 공유 팝업 최소화 가능
+            <strong>주요 개선사항</strong><br><br>
+            
+            <strong>1. 긴 문장 검색 정교화</strong><br>
+            공백 없이 붙어 있는 긴 질문을 의미 단위로 자동 분리하여 더 정확한 검색 결과를 제공합니다.<br>
+            예: "출제자우골기퍼무엇이라할까요" → "골기퍼", "무엇이라할까요"로 분리<br><br>
+            
+            <strong>2. OCR/텍스트 노이즈 자동 정리</strong><br>
+            "출제자", "정답" 등 불필요한 접두어를 자동으로 제거하여 핵심 키워드만 추출합니다.<br><br>
+            
+            <strong>3. 자동족보 모드 개선</strong><br>
+            긴 검색어 입력 시 의미 단위로 분리하여 검색 정확도가 향상되었습니다.<br>
+            일반족보 모드의 기존 AND 검색 로직은 그대로 유지됩니다.
         </div>
     </div>
 
@@ -948,6 +967,135 @@
         </div>
     </div>
 
+    <script type="module">
+        // Feature Flags 및 Workers 통합
+        // 주의: 브라우저에서 직접 TypeScript 모듈을 로드할 수 없으므로
+        // JavaScript로 변환된 버전을 사용하거나 번들러가 필요합니다.
+        // 여기서는 간단한 Feature Flag만 구현합니다.
+        
+        const params = new URLSearchParams(location.search);
+        const storage = typeof localStorage !== 'undefined' ? localStorage : null;
+        
+        const FEATURES = {
+            enableOcrPool: params.get('ocr_pool') === '1' || storage?.getItem('qplay:ocr_pool') === '1' || false,
+            enableFastSearch: params.get('fast') === '1' || storage?.getItem('qplay:fastsearch') === '1' || false,
+            enableShadowTest: params.get('shadow') === '1' || storage?.getItem('qplay:shadow_test') === '1' || false,
+            enableTelemetry: params.get('telemetry') === '1' || storage?.getItem('qplay:telemetry') === '1' || false,
+            maxConcurrentOcr: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ? 1 : 2
+        };
+        
+        window.QPLAY_FEATURES = FEATURES;
+        
+        // Workers 초기화 (기본적으로 비활성화, 필요시 활성화)
+        let ocrWorker = null;
+        let searchWorker = null;
+        let searchIndexBuilt = false;
+        
+        async function initWorkers() {
+            if (!FEATURES.enableOcrPool && !FEATURES.enableFastSearch) {
+                return;
+            }
+            
+            try {
+                if (FEATURES.enableOcrPool && typeof Worker !== 'undefined') {
+                    ocrWorker = new Worker(new URL('./workers/ocr.worker.ts', import.meta.url), { type: 'module' });
+                    ocrWorker.postMessage({ type: 'get-flags', id: 'init' });
+                }
+                
+                if (FEATURES.enableFastSearch && typeof Worker !== 'undefined') {
+                    searchWorker = new Worker(new URL('./workers/search.worker.ts', import.meta.url), { type: 'module' });
+                    searchWorker.postMessage({ type: 'get-flags', id: 'init' });
+                }
+            } catch (error) {
+                console.warn('Workers 초기화 실패, 기존 방식 사용:', error);
+            }
+        }
+        
+        // 검색 인덱스 구축
+        async function buildSearchIndex() {
+            if (!searchWorker || !FEATURES.enableFastSearch || searchIndexBuilt) {
+                return;
+            }
+            
+            try {
+                const documents = (window.questionsData || []).map((item, index) => ({
+                    id: String(index),
+                    text: (item.question || '') + ' ' + (item.answer || ''),
+                    payload: item
+                }));
+                
+                if (documents.length === 0) {
+                    return;
+                }
+                
+                searchWorker.postMessage({
+                    type: 'build-index',
+                    id: 'build-' + Date.now(),
+                    documents,
+                    timeout: 10000
+                });
+                
+                const handler = (event) => {
+                    if (event.data.type === 'index-ready') {
+                        searchIndexBuilt = true;
+                        console.log('검색 인덱스 구축 완료:', event.data.size);
+                        searchWorker.removeEventListener('message', handler);
+                    }
+                };
+                searchWorker.addEventListener('message', handler);
+            } catch (error) {
+                console.warn('검색 인덱스 구축 실패:', error);
+            }
+        }
+        
+        // Telemetry 로깅 (간단한 버전)
+        function logTelemetry(event) {
+            if (!FEATURES.enableTelemetry) {
+                return;
+            }
+            
+            try {
+                const eventData = {
+                    ...event,
+                    timestamp: Date.now(),
+                    userAgent: navigator.userAgent
+                };
+                
+                // 로컬 스토리지에 버퍼링 (실제로는 서버로 전송)
+                const buffer = JSON.parse(localStorage.getItem('qplay:telemetry_buffer') || '[]');
+                buffer.push(eventData);
+                if (buffer.length > 100) {
+                    buffer.shift();
+                }
+                localStorage.setItem('qplay:telemetry_buffer', JSON.stringify(buffer));
+            } catch (error) {
+                console.warn('Telemetry 로깅 실패:', error);
+            }
+        }
+        
+        window.initWorkers = initWorkers;
+        window.buildSearchIndex = buildSearchIndex;
+        window.logTelemetry = logTelemetry;
+        window.ocrWorker = ocrWorker;
+        window.searchWorker = searchWorker;
+        
+        // 페이지 로드 시 Workers 초기화
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                initWorkers().then(() => {
+                    if (window.questionsData && window.questionsData.length > 0) {
+                        buildSearchIndex();
+                    }
+                });
+            });
+        } else {
+            initWorkers().then(() => {
+                if (window.questionsData && window.questionsData.length > 0) {
+                    buildSearchIndex();
+                }
+            });
+        }
+    </script>
     <script>
         // Toast 공지 팝업 기능
         const noticeToastOverlay = document.getElementById('noticeToastOverlay');
@@ -955,7 +1103,7 @@
         const noticeToastClose = document.getElementById('noticeToastClose');
         
         // 공지 버전 (새 공지가 있으면 이 버전을 변경하면 됩니다)
-        const NOTICE_VERSION = '2';
+        const NOTICE_VERSION = '3';
         
         // 공지 팝업 표시 (버전 확인)
         function showNoticeToast() {
@@ -995,6 +1143,7 @@
         window.addEventListener('DOMContentLoaded', showNoticeToast);
 
         let questionsData = [];
+        window.questionsData = questionsData; // Workers에서 접근 가능하도록
         let currentSearchTerm = '';
         let allSheetNames = [];
         let selectedSheet = null; // 단일 선택으로 변경
@@ -1004,11 +1153,13 @@
         let displayedCount = 0;
         let allFilteredResults = [];
         let debounceTimer = null;
+        let currentSearchRequestId = null;
 
         // JSON 데이터 처리 함수
         function processJsonData(jsonData) {
             try {
                 questionsData = jsonData.data || [];
+                window.questionsData = questionsData; // Workers에서 접근 가능하도록
                 allSheetNames = jsonData.metadata?.sheets || [];
                 
                 // 시트 이름 추출 (데이터에서 고유한 시트 이름 찾기)
@@ -1030,6 +1181,11 @@
                     : questionsData.length;
                 document.getElementById('results').innerHTML = 
                     `<div class="results-count">총 ${totalCount}개의 문제가 로드되었습니다. ${selectedSheet ? `(카테고리: ${selectedSheet})` : ''} 검색어를 입력하여 검색해보세요.</div>`;
+                
+                // 검색 인덱스 구축 (Fast Search 활성화 시)
+                if (window.buildSearchIndex) {
+                    window.buildSearchIndex();
+                }
             } catch (error) {
                 document.getElementById('categorySection').classList.remove('active');
                 document.getElementById('results').innerHTML = 
@@ -1657,8 +1813,156 @@
             cameraCaptureBtn.disabled = false;
         }
 
-        // 이미지 캡처 및 OCR 처리 함수
+        // 이미지 캡처 및 OCR 처리 함수 (Feature Flag로 선택)
         async function captureAndOCR(isAutoMode = false) {
+            // Feature Flag 확인
+            const useWorker = window.QPLAY_FEATURES?.enableOcrPool && window.ocrWorker;
+            
+            if (useWorker) {
+                try {
+                    return await captureAndOCRWithWorker(isAutoMode);
+                } catch (error) {
+                    console.warn('Worker OCR 실패, 기존 방식으로 fallback:', error);
+                    return await captureAndOCRLegacy(isAutoMode);
+                }
+            }
+            
+            return await captureAndOCRLegacy(isAutoMode);
+        }
+        
+        // Workers를 사용한 OCR
+        async function captureAndOCRWithWorker(isAutoMode = false) {
+            if (!cameraStream || !window.ocrWorker) {
+                return await captureAndOCRLegacy(isAutoMode);
+            }
+            
+            const requestId = `ocr-${Date.now()}-${Math.random()}`;
+            const startTime = performance.now();
+            
+            try {
+                if (!isAutoMode) {
+                    cameraCaptureBtn.disabled = true;
+                }
+                
+                const selectionRect = getSelectionRect();
+                const captureRect = isAutoMode && !selectionRect ? savedSelectionRect : selectionRect;
+                
+                if (!captureRect && !isAutoMode) {
+                    alert('영역을 선택해주세요.');
+                    cameraLoading.style.display = 'none';
+                    cameraCaptureBtn.disabled = false;
+                    return;
+                }
+                
+                const canvas = document.createElement('canvas');
+                
+                if (captureRect) {
+                    canvas.width = captureRect.width;
+                    canvas.height = captureRect.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(
+                        cameraVideo,
+                        captureRect.x, captureRect.y, captureRect.width, captureRect.height,
+                        0, 0, captureRect.width, captureRect.height
+                    );
+                } else {
+                    canvas.width = cameraVideo.videoWidth;
+                    canvas.height = cameraVideo.videoHeight;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(cameraVideo, 0, 0, canvas.width, canvas.height);
+                }
+                
+                const imageBitmap = await createImageBitmap(canvas);
+                
+                return new Promise((resolve, reject) => {
+                    const timeout = setTimeout(() => {
+                        reject(new Error('OCR 타임아웃'));
+                    }, 30000);
+                    
+                    const handler = (event) => {
+                        if (event.data.id !== requestId) {
+                            return;
+                        }
+                        
+                        clearTimeout(timeout);
+                        window.ocrWorker.removeEventListener('message', handler);
+                        
+                        if (event.data.type === 'ocr-error') {
+                            reject(new Error(event.data.error));
+                            return;
+                        }
+                        
+                        if (event.data.type === 'ocr-result') {
+                            const ocrMs = performance.now() - startTime;
+                            if (window.logTelemetry) {
+                                window.logTelemetry({
+                                    event: 'ocr-complete',
+                                    ocr_ms: ocrMs,
+                                    confidence: event.data.confidence
+                                });
+                            }
+                            
+                            let cleanedText = event.data.text.trim().replace(/\s+/g, ' ').replace(/\n/g, ' ');
+                            
+                            // 특수문자 제거 (한글, 영문, 숫자, 기본 구두점만 유지)
+                            cleanedText = cleanedText.replace(/[^가-힣a-zA-Z0-9\s?.,!;:()[\]{}』」]/g, ' ');
+                            cleanedText = cleanedText.replace(/\s+/g, ' ').trim();
+                            
+                            // OCR 후처리: 한자 → 한글 변환
+                            cleanedText = postProcessOCRText(cleanedText);
+                            
+                            // 음독 문제 감지 (originalText 저장 최적화: 음독 문제일 때만 저장)
+                            const isPronunciationQuestion = cleanedText.includes('음독') || 
+                                                           cleanedText.includes('읽기') || 
+                                                           cleanedText.includes('독음') ||
+                                                           cleanedText.includes('읽으');
+                            const originalText = isPronunciationQuestion ? cleanedText : null;
+                            
+                            // 문제만 추출 (OCR 결과에서 문제 부분만 추출, 원본 텍스트 전달)
+                            cleanedText = extractQuestion(cleanedText, originalText);
+                            
+                            if (isAutoMode) {
+                                if (cleanedText && cleanedText.length > 0 && cleanedText !== lastOCRText) {
+                                    lastOCRText = cleanedText;
+                                    processOCRResult(cleanedText, true);
+                                }
+                            } else {
+                                if (cleanedText && cleanedText.length > 0) {
+                                    lastOCRText = cleanedText;
+                                    savedSelectionRect = captureRect;
+                                    processOCRResult(cleanedText, false);
+                                    startAutoCapture();
+                                }
+                            }
+                            
+                            cameraLoading.style.display = 'none';
+                            if (!isAutoMode) {
+                                cameraCaptureBtn.disabled = false;
+                            }
+                            
+                            resolve();
+                        }
+                    };
+                    
+                    window.ocrWorker.addEventListener('message', handler);
+                    window.ocrWorker.postMessage({
+                        type: 'ocr',
+                        id: requestId,
+                        payload: imageBitmap,
+                        config: {
+                            lang: 'eng+kor',
+                            tesseditPagesegMode: 6
+                        }
+                    }, [imageBitmap]);
+                });
+            } catch (error) {
+                console.error('Worker OCR 처리 실패:', error);
+                return await captureAndOCRLegacy(isAutoMode);
+            }
+        }
+        
+        // 기존 OCR 함수 (레거시)
+        async function captureAndOCRLegacy(isAutoMode = false) {
             if (!cameraStream) return;
 
             try {
@@ -1720,8 +2024,22 @@
                 // 텍스트 정리
                 let cleanedText = text.trim().replace(/\s+/g, ' ').replace(/\n/g, ' ');
                 
-                // 문제만 추출 (OCR 결과에서 문제 부분만 추출)
-                cleanedText = extractQuestion(cleanedText);
+                // 특수문자 제거 (한글, 영문, 숫자, 기본 구두점만 유지)
+                cleanedText = cleanedText.replace(/[^가-힣a-zA-Z0-9\s?.,!;:()[\]{}』」]/g, ' ');
+                cleanedText = cleanedText.replace(/\s+/g, ' ').trim();
+                
+                // OCR 후처리: 한자 → 한글 변환
+                cleanedText = postProcessOCRText(cleanedText);
+                
+                // 음독 문제 감지 (originalText 저장 최적화: 음독 문제일 때만 저장)
+                const isPronunciationQuestion = cleanedText.includes('음독') || 
+                                               cleanedText.includes('읽기') || 
+                                               cleanedText.includes('독음') ||
+                                               cleanedText.includes('읽으');
+                const originalText = isPronunciationQuestion ? cleanedText : null;
+                
+                // 문제만 추출 (OCR 결과에서 문제 부분만 추출, 원본 텍스트 전달)
+                cleanedText = extractQuestion(cleanedText, originalText);
                 
                 // 자동 모드일 때만 텍스트 변경 확인
                 if (isAutoMode) {
@@ -1771,8 +2089,57 @@
         }
 
         // 문제만 추출하는 함수
-        function extractQuestion(text) {
+        // OCR 후처리: 한자 → 한글 변환 (일반적인 사자성어)
+        // 정규식 패턴 상수 (성능 최적화)
+        const HANJA_PATTERN = /[\u4E00-\u9FFF]{2,}/g;
+        
+        function postProcessOCRText(text) {
+            if (!text) return text;
+            
+            // 빠른 체크: 한자 문자가 있는지 먼저 확인 (성능 최적화)
+            let hasHanja = false;
+            for (let i = 0; i < text.length; i++) {
+                const code = text.charCodeAt(i);
+                if (code >= 0x4E00 && code <= 0x9FFF) {
+                    hasHanja = true;
+                    break;
+                }
+            }
+            
+            // 한자가 없으면 즉시 반환 (성능 최적화)
+            if (!hasHanja) return text;
+            
+            // 일반적인 사자성어 한자 → 한글 음독 매핑
+            const hanjaToKorean = {
+                '自業自得': '자업자득',
+                '自業自破': '자업자파',
+                '自業自困': '자업자곤',
+                '自業自造': '자업자조',
+                // 더 많은 매핑은 필요시 추가 가능
+            };
+            
+            let processedText = text;
+            
+            // 한자 패턴 찾기 (유니코드 범위: \u4E00-\u9FFF)
+            const hanjaMatches = text.match(HANJA_PATTERN);
+            
+            if (hanjaMatches) {
+                hanjaMatches.forEach(hanja => {
+                    if (hanjaToKorean[hanja]) {
+                        // 한자를 한글 음독으로 교체
+                        processedText = processedText.replace(hanja, hanjaToKorean[hanja]);
+                    }
+                });
+            }
+            
+            return processedText;
+        }
+
+        function extractQuestion(text, originalText = null) {
             if (!text) return '';
+            
+            // 원본 텍스트가 없으면 현재 텍스트를 원본으로 사용
+            const fullText = originalText || text;
             
             let cleaned = text.trim();
             
@@ -1781,29 +2148,76 @@
             
             // 2. 문제 번호 제거 - 다양한 패턴 처리
             // [문제 1], [문제1], [1], 문제』, 문제」, 문제:, 문제 등
-            cleaned = cleaned.replace(/\[문제\s*\d+\]|\[\d+\]|문제\s*\d+/g, '');
+            // "내 문제 10" 같은 패턴도 제거 (앞뒤 공백 처리)
+            cleaned = cleaned.replace(/\[문제\s*\d+\]|\[\d+\]/g, '');
+            cleaned = cleaned.replace(/\s*문제\s*\d+\s*/g, ' '); // "내 문제 10" 같은 패턴 제거
             cleaned = cleaned.replace(/문제[』」:：]\s*/g, ''); // 문제』, 문제」, 문제: 제거
             cleaned = cleaned.replace(/^문제\s+/g, ''); // 시작 부분의 "문제 " 제거
             
+            // 음독 문제 감지
+            const isPronunciationQuestion = cleaned.includes('음독') || 
+                                           cleaned.includes('읽기') || 
+                                           cleaned.includes('독음') ||
+                                           cleaned.includes('읽으');
+            
             // 3. 물음표를 기준으로 문제와 선택지/정답 분리 (가장 중요)
             const questionMarkIndex = cleaned.indexOf('?');
+            let questionEndIndex = -1;
+            
             if (questionMarkIndex !== -1) {
-                cleaned = cleaned.substring(0, questionMarkIndex + 1);
+                questionEndIndex = questionMarkIndex + 1;
+                cleaned = cleaned.substring(0, questionEndIndex);
             } else {
                 // 물음표가 없으면 "정답", "답", "해설" 등의 키워드로 분리
                 const answerKeywords = ['정답', '답', '해설', '해답', '답안', '정답:', '답:', '해설:'];
                 for (const keyword of answerKeywords) {
                     const keywordIndex = cleaned.toLowerCase().indexOf(keyword.toLowerCase());
                     if (keywordIndex !== -1) {
+                        questionEndIndex = keywordIndex;
                         cleaned = cleaned.substring(0, keywordIndex);
                         break;
                     }
                 }
             }
             
-            // 4. 선택지 패턴 제거 (예: "1.2002", "2.2002", "①", "②")
-            cleaned = cleaned.replace(/\d+\.\s*[^\?]*/g, '');
-            cleaned = cleaned.replace(/[①②③④⑤⑥⑦⑧⑨⑩]\s*[^\?]*/g, '');
+            // 음독 문제인 경우 선택지에서 한글 음독 추출
+            if (isPronunciationQuestion && questionEndIndex !== -1) {
+                // 원본 텍스트에서 선택지 영역 추출
+                const fullCleaned = fullText.trim().replace(/\s+/g, ' ').replace(/\n/g, ' ');
+                const fullQuestionEndIndex = fullCleaned.indexOf('?') !== -1 
+                    ? fullCleaned.indexOf('?') + 1 
+                    : (fullCleaned.toLowerCase().indexOf('정답') !== -1 
+                        ? fullCleaned.toLowerCase().indexOf('정답') 
+                        : fullCleaned.length);
+                
+                // 선택지 영역에서 한글 음독 패턴 찾기
+                const answerSection = fullCleaned.substring(fullQuestionEndIndex);
+                // 한글 패턴: 2글자 이상의 한글 단어 (사자성어 음독은 보통 4글자)
+                const koreanPronunciationPattern = /[가-힣]{3,}/g;
+                const pronunciations = answerSection.match(koreanPronunciationPattern);
+                
+                if (pronunciations && pronunciations.length > 0) {
+                    // 선택지로 보이는 한글 음독 추출 (일반적으로 4개 선택지)
+                    // 숫자나 특수문자 바로 앞/뒤에 있는 한글 단어 우선
+                    const validPronunciations = pronunciations
+                        .filter(p => {
+                            // 너무 짧거나 너무 긴 것은 제외
+                            return p.length >= 3 && p.length <= 8;
+                        })
+                        .slice(0, 6); // 최대 6개까지 (선택지 + 오인식 방지)
+                    
+                    // 문제 텍스트에 음독 키워드 추가
+                    if (validPronunciations.length > 0) {
+                        cleaned = cleaned + ' ' + validPronunciations.join(' ');
+                    }
+                }
+            }
+            
+            // 4. 선택지 패턴 제거 (음독 문제가 아닐 때만)
+            if (!isPronunciationQuestion) {
+                cleaned = cleaned.replace(/\d+\.\s*[^\?]*/g, '');
+                cleaned = cleaned.replace(/[①②③④⑤⑥⑦⑧⑨⑩]\s*[^\?]*/g, '');
+            }
             
             // 5. 정답 관련 키워드 제거 (물음표 이후에 남아있을 수 있는 경우)
             cleaned = cleaned.replace(/정답.*$/i, '');
@@ -1816,6 +2230,11 @@
             // 7. OCR 오류 개선 (일반적인 패턴)
             cleaned = cleaned.replace(/FIFAEEY/gi, 'FIFA');
             cleaned = cleaned.replace(/월드\s*$/g, '월드컵');
+            
+            // OCR 오류 패턴 교정 (띄어쓰기 오류 등)
+            cleaned = cleaned.replace(/고\s*치약/g, '고치는 약');
+            cleaned = cleaned.replace(/고치약/g, '고치는 약');
+            cleaned = cleaned.replace(/\s*치약\s*없다/g, ' 약 없다');
             
             // 8. 문제가 너무 짧으면 원본 반환 (필터링이 너무 강했을 경우)
             if (cleaned.length < 5) {
@@ -1856,8 +2275,18 @@
             });
             
             // 4. 조사 제거 (더 보수적으로 - 단어 끝에만, 최소 2글자 이상인 단어에서만)
+            // 동사 어미 보호 리스트 (조사로 오인식 방지)
+            const verbEndings = ['고치는', '고치고', '고쳐서', '고쳐', '고친', '고칠', '고친다', '고친다면', '고치면', '고치니', '고치며', '고치면서'];
             const particles = ['은', '는', '이', '가', '을', '를', '의', '에', '에서', '와', '과', '도', '만', '조차', '까지', '부터', '에게', '한테', '께', '로', '으로', '처럼', '같이', '만큼', '보다'];
+            
             particles.forEach(particle => {
+                // 동사 어미 보호: 동사 어미 패턴이 포함된 경우 조사 제거 건너뛰기
+                const isVerbEnding = verbEndings.some(ending => cleaned.includes(ending));
+                if (isVerbEnding && particle === '는') {
+                    // "고치는" 같은 동사 어미는 보호
+                    return;
+                }
+                
                 // 단어 끝에 붙은 조사만 제거 (최소 2글자 이상인 단어에서만)
                 const escapedParticle = particle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                 const regex = new RegExp(`([가-힣a-zA-Z0-9]{2,})${escapedParticle}(?=\\s|$)`, 'g');
@@ -1891,6 +2320,107 @@
             
             // 7. 중복 제거
             return [...new Set(keywords)];
+        }
+
+        const LONG_QUERY_THRESHOLD = 12;
+        const LONG_QUERY_SPLIT_REGEX = /(무엇이라할까요|무엇이라할까|무엇이라고할까요|무엇이라고|무엇이라|무엇인가요|무엇일까요|무엇일까|무엇인가|무엇인지|무엇입니까|무엇을|무엇이|무엇은|누구인가요|누구일까요|어디인가요|언제인가요|어떻게|왜인가요|어떤가요|어떤가|어떤가요|어떤가요|어떤가요)/gi;
+        const SEARCH_NOISE_PREFIX_PATTERNS = [
+            /^출제자[가-힣0-9a-z]*/,
+            /^정답[가-힣0-9a-z]*/,
+            /^문제[가-힣0-9a-z]*/,
+            /^카테고리[가-힣0-9a-z]*/,
+            /^출처[가-힣0-9a-z]*/
+        ];
+
+        function removeNoisePrefixes(token) {
+            let cleaned = token;
+            SEARCH_NOISE_PREFIX_PATTERNS.forEach(pattern => {
+                cleaned = cleaned.replace(pattern, '');
+            });
+            return cleaned;
+        }
+
+        function splitLongKeyword(keyword) {
+            const tokens = [];
+            const lowerKeyword = keyword.toLowerCase();
+            LONG_QUERY_SPLIT_REGEX.lastIndex = 0;
+            let lastIndex = 0;
+            let match;
+
+            while ((match = LONG_QUERY_SPLIT_REGEX.exec(lowerKeyword)) !== null) {
+                const start = match.index;
+                if (start > lastIndex) {
+                    const before = lowerKeyword.slice(lastIndex, start);
+                    if (before.length >= 2) {
+                        tokens.push(before);
+                    }
+                }
+
+                const matched = match[0];
+                if (matched.length >= 2) {
+                    tokens.push(matched);
+                }
+                lastIndex = start + matched.length;
+            }
+
+            if (lastIndex < lowerKeyword.length) {
+                const tail = lowerKeyword.slice(lastIndex);
+                if (tail.length >= 2) {
+                    tokens.push(tail);
+                }
+            }
+
+            if (tokens.length === 0) {
+                const chunkSize = 3;
+                for (let index = 0; index < lowerKeyword.length; index += chunkSize) {
+                    const chunk = lowerKeyword.slice(index, index + chunkSize);
+                    if (chunk.length >= 2) {
+                        tokens.push(chunk);
+                    }
+                }
+            }
+
+            return [...new Set(tokens)];
+        }
+
+        function tokenizeSearchTerm(term) {
+            const trimmed = term.trim();
+            if (trimmed.length === 0) {
+                return [];
+            }
+
+            const basicTokens = trimmed
+                .split(/\s+/)
+                .filter(word => word.length > 0)
+                .map(word => word.toLowerCase());
+
+            if (basicTokens.length > 1) {
+                return [...new Set(basicTokens)];
+            }
+
+            const [singleToken] = basicTokens;
+            if (!singleToken) {
+                return [];
+            }
+
+            const noiseRemoved = removeNoisePrefixes(singleToken).replace(/[^가-힣0-9a-z]/g, '');
+            const target = noiseRemoved.length > 0 ? noiseRemoved : singleToken;
+
+            if (target.length < LONG_QUERY_THRESHOLD) {
+                return [...new Set([target.toLowerCase()])];
+            }
+
+            const splitted = splitLongKeyword(target);
+            return splitted.length > 0 ? splitted : [...new Set([target.toLowerCase()])];
+        }
+
+        function shouldForceFlexibleMatching(searchTerm, keywords) {
+            const trimmed = searchTerm.trim();
+            if (trimmed.length === 0) {
+                return false;
+            }
+            const hasSpace = /\s/.test(trimmed);
+            return !hasSpace && trimmed.length >= LONG_QUERY_THRESHOLD && keywords.length <= 1;
         }
 
         // 키워드 기반 검색 함수 (정확히 일치하는 문제만 검색)
@@ -2148,6 +2678,15 @@
                     clearSearchBtn.classList.remove('show');
                 }
                 
+                // 이전 검색 요청 취소 (searchWorker 사용 시)
+                if (currentSearchRequestId && searchWorker) {
+                    searchWorker.postMessage({
+                        type: 'cancel',
+                        id: currentSearchRequestId
+                    });
+                    currentSearchRequestId = null;
+                }
+                
                 // 디바운싱: 300ms 지연
                 if (debounceTimer) {
                     clearTimeout(debounceTimer);
@@ -2213,16 +2752,11 @@
             // 검색 수행 (선택된 카테고리만) - 검색어가 변경되었거나 리셋 요청 시에만 재검색
             // 사용자가 직접 입력한 검색어는 조사 제거 없이 그대로 사용
             // 공백으로 구분된 단어들을 키워드로 사용
-            let keywords = [];
-            if (currentSearchTerm.trim().length > 0) {
-                keywords = currentSearchTerm.trim()
-                    .split(/\s+/)
-                    .filter(word => word.length > 0)
-                    .map(word => word.toLowerCase());
-            }
+            const keywords = tokenizeSearchTerm(currentSearchTerm);
+            const forceFlexibleMatching = shouldForceFlexibleMatching(currentSearchTerm, keywords);
             
             if (resetDisplay || displayedCount === 0) {
-                allFilteredResults = questionsData.filter(item => {
+                let filtered = questionsData.filter(item => {
                 // 선택된 시트인지 확인
                 if (selectedSheet && item.sheet !== selectedSheet) {
                     return false;
@@ -2235,7 +2769,12 @@
                     
                     // 키워드 기반 검색 (키워드가 1개 이상일 때 사용)
                     if (keywords.length >= 1) {
-                        return searchByKeywords(keywords, item.question, item.answer, autoJokboEnabled);
+                        return searchByKeywords(
+                            keywords,
+                            item.question,
+                            item.answer,
+                            autoJokboEnabled || forceFlexibleMatching
+                        );
                     }
                     
                     // 키워드가 없으면 검색하지 않음
@@ -2244,15 +2783,32 @@
                 
                 // 자동족보 모드일 때 일치도 점수로 정렬
                 if (autoJokboEnabled && keywords.length > 0) {
-                    allFilteredResults = allFilteredResults.map(item => ({
+                    filtered = filtered.map(item => ({
                         ...item,
                         matchScore: calculateMatchScore(keywords, item.question, item.answer)
                     })).sort((a, b) => {
                         // 일치도 점수가 높은 순으로 정렬
                         return b.matchScore - a.matchScore;
                     });
+                    
+                    // Margin 필터링: 낮은 확신도 결과 제거
+                    // 첫 번째와 두 번째 결과의 점수 차이가 너무 작으면 낮은 확신도 결과 제거
+                    if (filtered.length > 1) {
+                        const topScore = filtered[0]?.matchScore ?? 0;
+                        const secondScore = filtered[1]?.matchScore ?? 0;
+                        const margin = topScore - secondScore;
+                        const marginThreshold = topScore * 0.1; // 상위 점수의 10% 이상 차이
+                        
+                        // Margin이 너무 작고, 상위 결과의 점수가 낮으면 낮은 확신도 결과 제거
+                        if (margin < marginThreshold && topScore < 50) {
+                            // 상위 결과만 유지 (점수가 비슷한 결과 제거)
+                            const minScore = topScore * 0.7; // 상위 점수의 70% 이상
+                            filtered = filtered.filter(item => (item.matchScore ?? 0) >= minScore);
+                        }
+                    }
                 }
                 
+                allFilteredResults = filtered;
                 displayedCount = 0;
             }
 
