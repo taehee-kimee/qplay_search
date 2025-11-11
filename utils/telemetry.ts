@@ -70,3 +70,4 @@ export function getTelemetryBuffer(): readonly TelemetryEvent[] {
   return TELEMETRY_BUFFER;
 }
 
+
