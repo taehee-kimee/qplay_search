@@ -1,4 +1,15 @@
-import { createWorker, type CreateWorkerOptions, type Worker as TesseractWorker } from 'tesseract.js';
+import { createWorker, type Worker as TesseractWorker } from 'tesseract.js';
+
+// tesseract.js 4.x의 CreateWorkerOptions 타입 정의
+interface CreateWorkerOptions {
+  workerPath?: string;
+  corePath?: string;
+  langPath?: string;
+  gzip?: boolean;
+  cachePath?: string;
+  cacheMethod?: string;
+  logger?: (m: { status: string; progress: number }) => void;
+}
 
 declare const self: DedicatedWorkerGlobalScope;
 
@@ -95,12 +106,15 @@ async function handleOcrRequest(message: OcrRequestMessage): Promise<void> {
       : await createNewWorker(message.config?.lang ?? DEFAULT_LANG);
 
     if (message.config?.tesseditPagesegMode !== undefined) {
-      await worker.setParameters({ tessedit_pageseg_mode: String(message.config.tesseditPagesegMode) });
+      await worker.setParameters({ 
+        tessedit_pageseg_mode: String(message.config.tesseditPagesegMode) 
+      } as Record<string, string | number>);
     }
 
     const inputBitmap = await toImageBitmap(message.payload);
     try {
-      const result = await worker.recognize(inputBitmap);
+      // ImageBitmap을 tesseract.js가 인식할 수 있는 형식으로 변환
+      const result = await worker.recognize(inputBitmap as unknown as Parameters<TesseractWorker['recognize']>[0]);
       if (!activeJobs.has(id)) {
         return;
       }
@@ -179,12 +193,9 @@ async function cancelJob(id: string): Promise<void> {
 
   try {
     const worker = await workerPromise;
-    try {
-      await worker.reset();
-    } catch {
-      await worker.terminate();
-      workerPromise = null;
-    }
+    // tesseract.js 4.x에는 reset() 메서드가 없으므로 terminate만 사용
+    await worker.terminate();
+    workerPromise = null;
   } catch {
     workerPromise = null;
   }
