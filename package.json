@@ -14,6 +14,9 @@
   },
   "dependencies": {
     "tesseract.js": "^4.1.1"
+  },
+  "optionalDependencies": {
+    "@types/tesseract.js": "*"
   }
 }
 
