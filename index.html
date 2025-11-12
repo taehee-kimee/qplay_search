@@ -846,18 +846,15 @@
             <button class="notice-toast-close" id="noticeToastClose" aria-label="닫기">×</button>
         </div>
         <div class="notice-toast-content" id="noticeToastContent">
-            <strong>주요 개선사항</strong><br><br>
+            <strong>v4 주요 개선사항</strong><br><br>
             
-            <strong>1. 긴 문장 검색 정교화</strong><br>
-            공백 없이 붙어 있는 긴 질문을 의미 단위로 자동 분리하여 더 정확한 검색 결과를 제공합니다.<br>
-            예: "출제자우골기퍼무엇이라할까요" → "골기퍼", "무엇이라할까요"로 분리<br><br>
+            <strong>1. 가중치 기반 검색 정확도 향상</strong><br>
+            문제 키워드와 선택지 키워드를 구분하여 검색 정확도를 개선했습니다.<br>
+            문제에서 추출한 키워드는 높은 가중치를, 선택지에서 추출한 키워드는 낮은 가중치를 적용합니다.<br><br>
             
-            <strong>2. OCR/텍스트 노이즈 자동 정리</strong><br>
-            "출제자", "정답" 등 불필요한 접두어를 자동으로 제거하여 핵심 키워드만 추출합니다.<br><br>
-            
-            <strong>3. 자동족보 모드 개선</strong><br>
-            긴 검색어 입력 시 의미 단위로 분리하여 검색 정확도가 향상되었습니다.<br>
-            일반족보 모드의 기존 AND 검색 로직은 그대로 유지됩니다.
+            <strong>2. 검색 결과 정렬 개선</strong><br>
+            자동족보 모드에서 일치도 점수를 기반으로 더 정확한 결과가 상단에 표시됩니다.<br>
+            문제와 정답 모두에 키워드가 포함된 경우 더 높은 점수를 부여합니다.
         </div>
     </div>
 
@@ -887,7 +884,7 @@
 
     <div class="container">
         <div class="header">
-            <h2>💸그깽 족보💸</h2>
+            <h2>💸그깽 족보💸 <span style="color: #999; font-size: 0.7em; font-weight: normal;">v4</span></h2>
             <button id="helpBtn" class="help-btn" aria-label="자동족보 사용법">자동족보 사용법</button>
         </div>
 
@@ -1101,19 +1098,33 @@
         const noticeToastOverlay = document.getElementById('noticeToastOverlay');
         const noticeToast = document.getElementById('noticeToast');
         const noticeToastClose = document.getElementById('noticeToastClose');
+        const noticeToastContent = document.getElementById('noticeToastContent');
         
-        // 공지 버전 (새 공지가 있으면 이 버전을 변경하면 됩니다)
-        const NOTICE_VERSION = '3';
+        // 공지 내용의 해시값 계산 (간단한 해시 함수)
+        function calculateContentHash(content) {
+            let hash = 0;
+            if (!content) return '0';
+            for (let i = 0; i < content.length; i++) {
+                const char = content.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash; // 32bit 정수로 변환
+            }
+            return Math.abs(hash).toString(36);
+        }
         
-        // 공지 팝업 표시 (버전 확인)
+        // 공지 팝업 표시 (내용 해시 확인)
         function showNoticeToast() {
-            if (!noticeToast || !noticeToastOverlay) return;
+            if (!noticeToast || !noticeToastOverlay || !noticeToastContent) return;
             
-            const savedVersion = localStorage.getItem('noticeToastVersion');
-            const isClosed = localStorage.getItem('noticeToastClosed') === 'true';
+            // 공지 내용 가져오기
+            const content = noticeToastContent.textContent || noticeToastContent.innerText || '';
+            const contentHash = calculateContentHash(content);
             
-            // 버전이 다르거나 닫지 않았으면 표시
-            if (savedVersion !== NOTICE_VERSION || !isClosed) {
+            // 저장된 해시값과 비교
+            const savedHash = localStorage.getItem('noticeToastContentHash');
+            
+            // 내용이 변경되었거나 처음 보는 경우 표시
+            if (savedHash !== contentHash) {
                 noticeToastOverlay.classList.add('show');
                 noticeToast.classList.add('show');
             }
@@ -1121,11 +1132,14 @@
         
         // 공지 팝업 닫기
         function closeNoticeToast() {
-            if (noticeToast && noticeToastOverlay) {
+            if (noticeToast && noticeToastOverlay && noticeToastContent) {
                 noticeToast.classList.remove('show');
                 noticeToastOverlay.classList.remove('show');
-                localStorage.setItem('noticeToastClosed', 'true');
-                localStorage.setItem('noticeToastVersion', NOTICE_VERSION);
+                
+                // 현재 공지 내용의 해시값 저장
+                const content = noticeToastContent.textContent || noticeToastContent.innerText || '';
+                const contentHash = calculateContentHash(content);
+                localStorage.setItem('noticeToastContentHash', contentHash);
             }
         }
         
