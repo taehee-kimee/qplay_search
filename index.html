@@ -1911,12 +1911,13 @@
                             // OCR 후처리: 한자 → 한글 변환
                             cleanedText = postProcessOCRText(cleanedText);
                             
-                            // 음독 문제 감지 (originalText 저장 최적화: 음독 문제일 때만 저장)
+                            // 음독 문제 감지
                             const isPronunciationQuestion = cleanedText.includes('음독') || 
                                                            cleanedText.includes('읽기') || 
                                                            cleanedText.includes('독음') ||
                                                            cleanedText.includes('읽으');
-                            const originalText = isPronunciationQuestion ? cleanedText : null;
+                            // 선택지 추출을 위해 항상 originalText 전달
+                            const originalText = cleanedText;
                             
                             // 문제만 추출 (OCR 결과에서 문제 부분만 추출, 원본 텍스트 전달)
                             cleanedText = extractQuestion(cleanedText, originalText);
@@ -2031,12 +2032,13 @@
                 // OCR 후처리: 한자 → 한글 변환
                 cleanedText = postProcessOCRText(cleanedText);
                 
-                // 음독 문제 감지 (originalText 저장 최적화: 음독 문제일 때만 저장)
+                // 음독 문제 감지
                 const isPronunciationQuestion = cleanedText.includes('음독') || 
                                                cleanedText.includes('읽기') || 
                                                cleanedText.includes('독음') ||
                                                cleanedText.includes('읽으');
-                const originalText = isPronunciationQuestion ? cleanedText : null;
+                // 선택지 추출을 위해 항상 originalText 전달
+                const originalText = cleanedText;
                 
                 // 문제만 추출 (OCR 결과에서 문제 부분만 추출, 원본 텍스트 전달)
                 cleanedText = extractQuestion(cleanedText, originalText);
@@ -2163,10 +2165,13 @@
             // 3. 물음표를 기준으로 문제와 선택지/정답 분리 (가장 중요)
             const questionMarkIndex = cleaned.indexOf('?');
             let questionEndIndex = -1;
+            let questionText = '';
+            let choicesText = '';
             
             if (questionMarkIndex !== -1) {
                 questionEndIndex = questionMarkIndex + 1;
-                cleaned = cleaned.substring(0, questionEndIndex);
+                questionText = cleaned.substring(0, questionEndIndex);
+                choicesText = cleaned.substring(questionEndIndex);
             } else {
                 // 물음표가 없으면 "정답", "답", "해설" 등의 키워드로 분리
                 const answerKeywords = ['정답', '답', '해설', '해답', '답안', '정답:', '답:', '해설:'];
@@ -2174,50 +2179,120 @@
                     const keywordIndex = cleaned.toLowerCase().indexOf(keyword.toLowerCase());
                     if (keywordIndex !== -1) {
                         questionEndIndex = keywordIndex;
-                        cleaned = cleaned.substring(0, keywordIndex);
+                        questionText = cleaned.substring(0, keywordIndex);
+                        choicesText = cleaned.substring(keywordIndex);
                         break;
                     }
                 }
+                if (questionEndIndex === -1) {
+                    questionText = cleaned;
+                }
             }
             
-            // 음독 문제인 경우 선택지에서 한글 음독 추출
+            // 원본 텍스트에서 선택지 영역 추출 (선택지 키워드 추출용)
+            const fullCleaned = fullText.trim().replace(/\s+/g, ' ').replace(/\n/g, ' ');
+            const fullQuestionEndIndex = fullCleaned.indexOf('?') !== -1 
+                ? fullCleaned.indexOf('?') + 1 
+                : (fullCleaned.toLowerCase().indexOf('정답') !== -1 
+                    ? fullCleaned.toLowerCase().indexOf('정답') 
+                    : fullCleaned.length);
+            const answerSection = fullCleaned.substring(fullQuestionEndIndex);
+            
+            // 음독 문제인 경우 선택지에서 한글 음독 추출 (개선 버전)
             if (isPronunciationQuestion && questionEndIndex !== -1) {
-                // 원본 텍스트에서 선택지 영역 추출
-                const fullCleaned = fullText.trim().replace(/\s+/g, ' ').replace(/\n/g, ' ');
-                const fullQuestionEndIndex = fullCleaned.indexOf('?') !== -1 
-                    ? fullCleaned.indexOf('?') + 1 
-                    : (fullCleaned.toLowerCase().indexOf('정답') !== -1 
-                        ? fullCleaned.toLowerCase().indexOf('정답') 
-                        : fullCleaned.length);
+                // 1. 문제 텍스트에서 한자 제거 (한글만 남기기)
+                const questionWithoutHanja = questionText.replace(/[\u4E00-\u9FFF]/g, '').trim();
                 
-                // 선택지 영역에서 한글 음독 패턴 찾기
-                const answerSection = fullCleaned.substring(fullQuestionEndIndex);
-                // 한글 패턴: 2글자 이상의 한글 단어 (사자성어 음독은 보통 4글자)
-                const koreanPronunciationPattern = /[가-힣]{3,}/g;
-                const pronunciations = answerSection.match(koreanPronunciationPattern);
+                // 2. 선택지 영역에서 한자 제거 (한글 음독만 남기기)
+                const answerSectionWithoutHanja = answerSection.replace(/[\u4E00-\u9FFF]/g, ' ').trim();
                 
-                if (pronunciations && pronunciations.length > 0) {
-                    // 선택지로 보이는 한글 음독 추출 (일반적으로 4개 선택지)
-                    // 숫자나 특수문자 바로 앞/뒤에 있는 한글 단어 우선
-                    const validPronunciations = pronunciations
-                        .filter(p => {
-                            // 너무 짧거나 너무 긴 것은 제외
-                            return p.length >= 3 && p.length <= 8;
-                        })
-                        .slice(0, 6); // 최대 6개까지 (선택지 + 오인식 방지)
+                // 3. 일반 문제와 동일한 선택지 패턴 매칭 사용 (더 정확함)
+                const choicePatterns = [
+                    /\d+[\.\)]\s*([가-힣]{2,})/g,  // "1. 자업자득", "1) 자업자득"
+                    /[①②③④⑤⑥⑦⑧⑨⑩]\s*([가-힣]{2,})/g,  // "① 자업자득"
+                    /([가-힣]{3,8})(?=\s|$|,|\.|\))/g  // 연속된 한글 (사자성어)
+                ];
+                
+                const pronunciations = new Set();
+                
+                // 선택지 패턴으로 추출
+                choicePatterns.forEach(pattern => {
+                    pattern.lastIndex = 0;
+                    let match;
+                    while ((match = pattern.exec(answerSectionWithoutHanja)) !== null) {
+                        const pron = match[1]?.trim();
+                        if (pron && pron.length >= 2 && pron.length <= 8) {
+                            pronunciations.add(pron);
+                        }
+                    }
+                });
+                
+                // 한자 제거된 선택지 영역에서 직접 한글 추출 (백업)
+                if (pronunciations.size === 0) {
+                    const directMatches = answerSectionWithoutHanja.match(/[가-힣]{3,8}/g);
+                    if (directMatches) {
+                        directMatches.forEach(m => {
+                            if (m.length >= 3 && m.length <= 8) {
+                                pronunciations.add(m);
+                            }
+                        });
+                    }
+                }
+                
+                // 문제 텍스트에서 이미 추출된 한글 음독도 추가
+                const questionPronunciations = questionWithoutHanja.match(/[가-힣]{3,8}/g);
+                if (questionPronunciations) {
+                    questionPronunciations.forEach(p => {
+                        if (p.length >= 3 && p.length <= 8) {
+                            pronunciations.add(p);
+                        }
+                    });
+                }
+                
+                // 최종 검색어 구성: 한자 제거된 문제 + 추출된 음독들
+                const extractedPronunciations = Array.from(pronunciations).slice(0, 6);
+                if (extractedPronunciations.length > 0) {
+                    questionText = questionWithoutHanja + ' ' + extractedPronunciations.join(' ');
+                } else {
+                    // 음독을 못 찾았어도 한자 제거된 문제로라도 검색
+                    questionText = questionWithoutHanja;
+                }
+            } else if (!isPronunciationQuestion) {
+                // 선택지에서 의미 있는 키워드 추출 (2글자 이상, 단일 문자 제외)
+                // answerSection을 우선 사용 (원본 텍스트에서 직접 추출)
+                const textToSearch = answerSection && answerSection.length > 0 ? answerSection : choicesText;
+                
+                if (textToSearch && textToSearch.length > 0) {
+                    // 선택지 패턴: "1. 내용", "2. 내용", "① 내용", "② 내용" 등
+                    const choicePatterns = [
+                        /\d+\.\s*([가-힣a-zA-Z0-9]{2,})/g,  // "1. 내용"
+                        /[①②③④⑤⑥⑦⑧⑨⑩]\s*([가-힣a-zA-Z0-9]{2,})/g  // "① 내용"
+                    ];
                     
-                    // 문제 텍스트에 음독 키워드 추가
-                    if (validPronunciations.length > 0) {
-                        cleaned = cleaned + ' ' + validPronunciations.join(' ');
+                    const extractedChoices = [];
+                    choicePatterns.forEach(pattern => {
+                        // 정규식의 lastIndex 초기화
+                        pattern.lastIndex = 0;
+                        let match;
+                        while ((match = pattern.exec(textToSearch)) !== null) {
+                            const choiceContent = match[1]?.trim();
+                            // 단일 문자(a, b, c, d) 제외, 2글자 이상만, 한글/영문/숫자 포함
+                            if (choiceContent && choiceContent.length >= 2 && !/^[a-z]$/i.test(choiceContent)) {
+                                extractedChoices.push(choiceContent);
+                            }
+                        }
+                    });
+                    
+                    // 선택지 키워드를 문제 텍스트에 추가 (검색 정확도 향상)
+                    if (extractedChoices.length > 0) {
+                        // 중복 제거 후 추가 (구분자로 표시하여 나중에 가중치 적용)
+                        const uniqueChoices = [...new Set(extractedChoices)];
+                        questionText = questionText + ' |CHOICES| ' + uniqueChoices.join(' ');
                     }
                 }
             }
             
-            // 4. 선택지 패턴 제거 (음독 문제가 아닐 때만)
-            if (!isPronunciationQuestion) {
-                cleaned = cleaned.replace(/\d+\.\s*[^\?]*/g, '');
-                cleaned = cleaned.replace(/[①②③④⑤⑥⑦⑧⑨⑩]\s*[^\?]*/g, '');
-            }
+            cleaned = questionText;
             
             // 5. 정답 관련 키워드 제거 (물음표 이후에 남아있을 수 있는 경우)
             cleaned = cleaned.replace(/정답.*$/i, '');
@@ -2274,45 +2349,58 @@
                 cleaned = cleaned.replace(regex, ' ');
             });
             
-            // 4. 조사 제거 (더 보수적으로 - 단어 끝에만, 최소 2글자 이상인 단어에서만)
+            // 4. 조사 제거 제거 (테스트용 - 조사 제거 없이 검색)
             // 동사 어미 보호 리스트 (조사로 오인식 방지)
-            const verbEndings = ['고치는', '고치고', '고쳐서', '고쳐', '고친', '고칠', '고친다', '고친다면', '고치면', '고치니', '고치며', '고치면서'];
-            const particles = ['은', '는', '이', '가', '을', '를', '의', '에', '에서', '와', '과', '도', '만', '조차', '까지', '부터', '에게', '한테', '께', '로', '으로', '처럼', '같이', '만큼', '보다'];
-            
-            particles.forEach(particle => {
-                // 동사 어미 보호: 동사 어미 패턴이 포함된 경우 조사 제거 건너뛰기
-                const isVerbEnding = verbEndings.some(ending => cleaned.includes(ending));
-                if (isVerbEnding && particle === '는') {
-                    // "고치는" 같은 동사 어미는 보호
-                    return;
-                }
-                
-                // 단어 끝에 붙은 조사만 제거 (최소 2글자 이상인 단어에서만)
-                const escapedParticle = particle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                const regex = new RegExp(`([가-힣a-zA-Z0-9]{2,})${escapedParticle}(?=\\s|$)`, 'g');
-                cleaned = cleaned.replace(regex, '$1');
-                // 단독으로 있는 조사 제거
-                const regex2 = new RegExp(`(^|\\s)${escapedParticle}(\\s|$)`, 'g');
-                cleaned = cleaned.replace(regex2, ' ');
-            });
+            // const verbEndings = ['고치는', '고치고', '고쳐서', '고쳐', '고친', '고칠', '고친다', '고친다면', '고치면', '고치니', '고치며', '고치면서'];
+            // const particles = ['은', '는', '이', '가', '을', '를', '의', '에', '에서', '와', '과', '도', '만', '조차', '까지', '부터', '에게', '한테', '께', '로', '으로', '처럼', '같이', '만큼', '보다'];
+            // 
+            // particles.forEach(particle => {
+            //     // 동사 어미 보호: 동사 어미 패턴이 포함된 경우 조사 제거 건너뛰기
+            //     const isVerbEnding = verbEndings.some(ending => cleaned.includes(ending));
+            //     if (isVerbEnding && particle === '는') {
+            //         // "고치는" 같은 동사 어미는 보호
+            //         return;
+            //     }
+            //     
+            //     // 단어 끝에 붙은 조사만 제거 (최소 2글자 이상인 단어에서만)
+            //     const escapedParticle = particle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            //     const regex = new RegExp(`([가-힣a-zA-Z0-9]{2,})${escapedParticle}(?=\\s|$)`, 'g');
+            //     cleaned = cleaned.replace(regex, '$1');
+            //     // 단독으로 있는 조사 제거
+            //     const regex2 = new RegExp(`(^|\\s)${escapedParticle}(\\s|$)`, 'g');
+            //     cleaned = cleaned.replace(regex2, ' ');
+            // });
             
             // 5. 공백 정리
             cleaned = cleaned.replace(/\s+/g, ' ').trim();
             
-            // 6. 키워드 추출 (1글자 필터링 완화)
+            // 6. 키워드 추출 (1글자 필터링 완화, 선택지 노이즈 제거)
             const keywords = cleaned.split(' ')
                 .filter(word => {
                     const trimmed = word.trim();
                     // 빈 문자열 제거
                     if (trimmed.length === 0) return false;
-                    // 1글자 단어도 포함 (숫자뿐만 아니라 한글도)
-                    // 단, 조사만 있는 경우는 제외
+                    
+                    // 단일 영문자 제거 (a, b, c, d 같은 선택지 번호)
+                    if (trimmed.length === 1 && /^[a-z]$/i.test(trimmed)) {
+                        return false;
+                    }
+                    
+                    // 1글자 단어 처리
                     if (trimmed.length === 1) {
                         // 숫자는 항상 포함
                         if (/^\d$/.test(trimmed)) return true;
                         // 한글 1글자도 포함 (의미 있는 단어일 수 있음)
                         if (/^[가-힣]$/.test(trimmed)) return true;
+                        return false;
                     }
+                    
+                    // 2글자 이상인 경우
+                    // 너무 짧은 영문 조합 제거 (aa, bb 같은 노이즈)
+                    if (trimmed.length === 2 && /^[a-z]{2}$/i.test(trimmed) && trimmed[0] === trimmed[1]) {
+                        return false;
+                    }
+                    
                     return true;
                 })
                 .map(word => word.trim().toLowerCase())
@@ -2320,6 +2408,90 @@
             
             // 7. 중복 제거
             return [...new Set(keywords)];
+        }
+
+        // 키워드 추출 헬퍼 함수 (기존 extractKeywords 로직 재사용)
+        function extractKeywordsFromText(text) {
+            if (!text) return [];
+            
+            let cleaned = text.trim();
+            
+            // 물음표, 특수문자 제거
+            cleaned = cleaned.replace(/[?.,!;:(){}』」]/g, ' ');
+            cleaned = cleaned.replace(/[\[\]]/g, ' ');
+            
+            // 접속사 및 불필요한 단어 제거
+            const conjunctions = ['그리고', '또한', '또는', '하지만', '그러나', '그런데', '따라서', '그래서', '그러므로', '그러면', '만약', '만일', '만약에'];
+            conjunctions.forEach(conj => {
+                const escaped = conj.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const regex = new RegExp(`(^|\\s)${escaped}(\\s|$)`, 'gi');
+                cleaned = cleaned.replace(regex, ' ');
+            });
+            
+            // 조사 제거 제거 (테스트용 - 조사 제거 없이 검색)
+            // const verbEndings = ['고치는', '고치고', '고쳐서', '고쳐', '고친', '고칠', '고친다', '고친다면', '고치면', '고치니', '고치며', '고치면서'];
+            // const particles = ['은', '는', '이', '가', '을', '를', '의', '에', '에서', '와', '과', '도', '만', '조차', '까지', '부터', '에게', '한테', '께', '로', '으로', '처럼', '같이', '만큼', '보다'];
+            // 
+            // particles.forEach(particle => {
+            //     const isVerbEnding = verbEndings.some(ending => cleaned.includes(ending));
+            //     if (isVerbEnding && particle === '는') {
+            //         return;
+            //     }
+            //     
+            //     const escapedParticle = particle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            //     const regex = new RegExp(`([가-힣a-zA-Z0-9]{2,})${escapedParticle}(?=\\s|$)`, 'g');
+            //     cleaned = cleaned.replace(regex, '$1');
+            //     const regex2 = new RegExp(`(^|\\s)${escapedParticle}(\\s|$)`, 'g');
+            //     cleaned = cleaned.replace(regex2, ' ');
+            // });
+            
+            // 공백 정리
+            cleaned = cleaned.replace(/\s+/g, ' ').trim();
+            
+            // 키워드 추출
+            const keywords = cleaned.split(' ')
+                .filter(word => {
+                    const trimmed = word.trim();
+                    if (trimmed.length === 0) return false;
+                    
+                    if (trimmed.length === 1 && /^[a-z]$/i.test(trimmed)) {
+                        return false;
+                    }
+                    
+                    if (trimmed.length === 1) {
+                        if (/^\d$/.test(trimmed)) return true;
+                        if (/^[가-힣]$/.test(trimmed)) return true;
+                        return false;
+                    }
+                    
+                    if (trimmed.length === 2 && /^[a-z]{2}$/i.test(trimmed) && trimmed[0] === trimmed[1]) {
+                        return false;
+                    }
+                    
+                    return true;
+                })
+                .map(word => word.trim().toLowerCase())
+                .filter(word => word.length > 0);
+            
+            return [...new Set(keywords)];
+        }
+
+        // 문제와 선택지 키워드를 구분하여 추출하는 함수 (가중치 적용용)
+        function extractKeywordsWithWeights(text) {
+            if (!text) return { questionKeywords: [], choiceKeywords: [] };
+            
+            // 선택지 구분자로 분리
+            const parts = text.split('|CHOICES|');
+            const questionPart = parts[0]?.trim() || text;
+            const choicePart = parts[1]?.trim() || '';
+            
+            // 문제 키워드 추출
+            const questionKeywords = extractKeywordsFromText(questionPart);
+            
+            // 선택지 키워드 추출
+            const choiceKeywords = choicePart ? extractKeywordsFromText(choicePart) : [];
+            
+            return { questionKeywords, choiceKeywords };
         }
 
         const LONG_QUERY_THRESHOLD = 12;
@@ -2573,39 +2745,163 @@
             return totalScore;
         }
 
+        // 일치도 점수 계산 함수 (문제/선택지 키워드 가중치 적용)
+        function calculateMatchScoreWithWeights(questionKeywords, choiceKeywords, question, answer) {
+            const allQuestionKeywords = questionKeywords || [];
+            const allChoiceKeywords = choiceKeywords || [];
+            
+            if (allQuestionKeywords.length === 0 && allChoiceKeywords.length === 0) return 0;
+            
+            const questionLower = question.toLowerCase();
+            const answerLower = answer.toLowerCase();
+            let totalScore = 0;
+            let matchedQuestionKeywords = 0;
+            let matchedChoiceKeywords = 0;
+            
+            // 문제 키워드 점수 계산 (높은 가중치)
+            allQuestionKeywords.forEach(keyword => {
+                const keywordLower = keyword.toLowerCase();
+                let keywordScore = 0;
+                let matched = false;
+                
+                const escapedKeyword = escapeRegex(keyword);
+                const wordRegex = new RegExp(`(^|\\s)${escapedKeyword}(\\s|$)`, 'i');
+                const exactMatchInQuestion = wordRegex.test(questionLower);
+                const exactMatchInAnswer = wordRegex.test(answerLower);
+                
+                if (exactMatchInQuestion || exactMatchInAnswer) {
+                    keywordScore = 100; // 문제 키워드 기본 점수
+                    matched = true;
+                    if (exactMatchInQuestion && exactMatchInAnswer) {
+                        keywordScore = 150;
+                    }
+                } else {
+                    const keywordNoSpace = keywordLower.replace(/\s+/g, '');
+                    const questionNoSpace = questionLower.replace(/\s+/g, '');
+                    const answerNoSpace = answerLower.replace(/\s+/g, '');
+                    const noSpaceMatchInQuestion = questionNoSpace.includes(keywordNoSpace);
+                    const noSpaceMatchInAnswer = answerNoSpace.includes(keywordNoSpace);
+                    
+                    if (noSpaceMatchInQuestion || noSpaceMatchInAnswer) {
+                        keywordScore = 80;
+                        matched = true;
+                        if (noSpaceMatchInQuestion && noSpaceMatchInAnswer) {
+                            keywordScore = 120;
+                        }
+                    } else if (keyword.length >= 2) {
+                        if (questionLower.includes(keywordLower) || answerLower.includes(keywordLower)) {
+                            keywordScore = 30;
+                            matched = true;
+                        }
+                    }
+                }
+                
+                if (matched) {
+                    keywordScore *= (1 + keyword.length * 0.1);
+                    totalScore += keywordScore;
+                    matchedQuestionKeywords++;
+                }
+            });
+            
+            // 선택지 키워드 점수 계산 (낮은 가중치: 0.3배)
+            allChoiceKeywords.forEach(keyword => {
+                const keywordLower = keyword.toLowerCase();
+                let keywordScore = 0;
+                let matched = false;
+                
+                const escapedKeyword = escapeRegex(keyword);
+                const wordRegex = new RegExp(`(^|\\s)${escapedKeyword}(\\s|$)`, 'i');
+                const exactMatchInQuestion = wordRegex.test(questionLower);
+                const exactMatchInAnswer = wordRegex.test(answerLower);
+                
+                if (exactMatchInQuestion || exactMatchInAnswer) {
+                    keywordScore = 30; // 선택지 키워드 기본 점수 (문제의 30%)
+                    matched = true;
+                    if (exactMatchInQuestion && exactMatchInAnswer) {
+                        keywordScore = 45;
+                    }
+                } else {
+                    const keywordNoSpace = keywordLower.replace(/\s+/g, '');
+                    const questionNoSpace = questionLower.replace(/\s+/g, '');
+                    const answerNoSpace = answerLower.replace(/\s+/g, '');
+                    const noSpaceMatchInQuestion = questionNoSpace.includes(keywordNoSpace);
+                    const noSpaceMatchInAnswer = answerNoSpace.includes(keywordNoSpace);
+                    
+                    if (noSpaceMatchInQuestion || noSpaceMatchInAnswer) {
+                        keywordScore = 24;
+                        matched = true;
+                        if (noSpaceMatchInQuestion && noSpaceMatchInAnswer) {
+                            keywordScore = 36;
+                        }
+                    } else if (keyword.length >= 2) {
+                        if (questionLower.includes(keywordLower) || answerLower.includes(keywordLower)) {
+                            keywordScore = 9; // 선택지 부분 매칭 (문제의 30%)
+                            matched = true;
+                        }
+                    }
+                }
+                
+                if (matched) {
+                    keywordScore *= (1 + keyword.length * 0.1);
+                    totalScore += keywordScore;
+                    matchedChoiceKeywords++;
+                }
+            });
+            
+            // 매칭 비율 보너스 (문제 키워드에 더 높은 가중치)
+            const questionMatchRatio = allQuestionKeywords.length > 0 ? matchedQuestionKeywords / allQuestionKeywords.length : 0;
+            const choiceMatchRatio = allChoiceKeywords.length > 0 ? matchedChoiceKeywords / allChoiceKeywords.length : 0;
+            
+            // 문제 키워드 매칭 비율이 높을수록 보너스
+            totalScore += totalScore * (questionMatchRatio * 0.3);
+            totalScore += matchedQuestionKeywords * 10;
+            totalScore += matchedChoiceKeywords * 3; // 선택지 키워드는 낮은 보너스
+            
+            return totalScore;
+        }
+
         // OCR 결과를 검색창에 입력하고 검색 실행
         function processOCRResult(text, isAutoMode = false) {
             // 텍스트 정리 (이미 extractQuestion으로 처리된 경우도 있음)
             let cleanedText = text.trim().replace(/\s+/g, ' ').replace(/\n/g, ' ');
             
+            // 이미 |CHOICES| 구분자가 있으면 이미 처리된 텍스트
+            const isAlreadyProcessed = cleanedText.includes('|CHOICES|');
+            
             // 문제만 추출 (아직 처리되지 않은 경우)
-            if (!cleanedText.includes('?') || cleanedText.includes('문제') || cleanedText.includes('[')) {
-                cleanedText = extractQuestion(cleanedText);
+            if (!isAlreadyProcessed && (!cleanedText.includes('?') || cleanedText.includes('문제') || cleanedText.includes('['))) {
+                // 원본 텍스트를 originalText로 전달하여 선택지 추출 가능하도록 함
+                cleanedText = extractQuestion(cleanedText, text);
             }
             
             if (cleanedText && cleanedText.length > 0) {
-                // 키워드 추출
-                let keywords = extractKeywords(cleanedText);
+                // 키워드 추출 (가중치 적용 버전 사용)
+                const { questionKeywords, choiceKeywords } = extractKeywordsWithWeights(cleanedText);
                 
-                // 키워드 추출 실패 시 대체 로직
-                if (keywords.length === 0) {
-                    // 최소한의 정리만 수행하여 키워드 추출 재시도
+                // 검색창에는 문제 키워드만 표시
+                const allKeywords = [...questionKeywords, ...choiceKeywords];
+                const searchKeywords = questionKeywords.length > 0 ? questionKeywords : allKeywords;
+                
+                // 키워드 추출 실패 시 대체 로직 (기존 방식)
+                if (searchKeywords.length === 0) {
                     const fallbackText = cleanedText.replace(/[?.,!;:()[\]{}』」]/g, ' ').trim();
-                    keywords = fallbackText.split(' ')
+                    const fallbackKeywords = fallbackText.split(' ')
                         .filter(word => word.length >= 2)
                         .map(word => word.toLowerCase())
                         .filter(word => word.length > 0);
+                    questionKeywords.push(...fallbackKeywords);
                 }
                 
                 // 디버깅 로그 (개발 환경에서만)
                 if (!isAutoMode) {
                     console.log('OCR 결과:', text);
                     console.log('추출된 문제:', cleanedText);
-                    console.log('추출된 키워드:', keywords);
+                    console.log('문제 키워드:', questionKeywords);
+                    console.log('선택지 키워드:', choiceKeywords);
                 }
                 
-                // 키워드를 한 번에 검색창에 입력하고 검색
-                const searchTerm = keywords.join(' ');
+                // 검색창에는 문제 키워드만 표시
+                const searchTerm = questionKeywords.length > 0 ? questionKeywords.join(' ') : allKeywords.join(' ');
                 if (searchInput) {
                     searchInput.value = searchTerm;
                 }
@@ -2615,6 +2911,10 @@
                 if (clearSearchBtn) {
                     clearSearchBtn.classList.add('show');
                 }
+                
+                // 키워드 정보를 전역 변수에 저장 (performSearch에서 사용)
+                window.currentQuestionKeywords = questionKeywords;
+                window.currentChoiceKeywords = choiceKeywords;
                 
                 // 검색 실행
                 performSearch();
@@ -2783,10 +3083,29 @@
                 
                 // 자동족보 모드일 때 일치도 점수로 정렬
                 if (autoJokboEnabled && keywords.length > 0) {
-                    filtered = filtered.map(item => ({
-                        ...item,
-                        matchScore: calculateMatchScore(keywords, item.question, item.answer)
-                    })).sort((a, b) => {
+                    // 가중치 적용 버전 사용 (선택지 키워드가 있는 경우)
+                    // 전역 변수가 있고 유효한지 확인
+                    const useWeightedScore = window.currentQuestionKeywords && 
+                                            Array.isArray(window.currentQuestionKeywords) &&
+                                            window.currentChoiceKeywords && 
+                                            Array.isArray(window.currentChoiceKeywords) &&
+                                            window.currentChoiceKeywords.length > 0;
+                    
+                    filtered = filtered.map(item => {
+                        const matchScore = useWeightedScore
+                            ? calculateMatchScoreWithWeights(
+                                window.currentQuestionKeywords,
+                                window.currentChoiceKeywords,
+                                item.question,
+                                item.answer
+                              )
+                            : calculateMatchScore(keywords, item.question, item.answer);
+                        
+                        return {
+                            ...item,
+                            matchScore
+                        };
+                    }).sort((a, b) => {
                         // 일치도 점수가 높은 순으로 정렬
                         return b.matchScore - a.matchScore;
                     });
