@@ -891,7 +891,7 @@
         <div class="content">
             <div class="category-section" id="categorySection">
                 <div class="category-controls">
-                <select id="categorySelect" class="category-dropdown" disabled>
+                <select id="categorySelect" class="category-dropdown">
                     <option value="">카테고리를 선택하세요</option>
                 </select>
                     <select id="resultLimitSelect" class="result-limit-dropdown">
@@ -919,9 +919,8 @@
                             id="searchInput" 
                             class="search-box" 
                             placeholder="검색어를 입력하세요..."
-                            disabled
                         />
-                        <button id="cameraBtn" class="camera-btn" title="화면 캡처로 문제 인식" disabled>📷</button>
+                        <button id="cameraBtn" class="camera-btn" title="화면 캡처로 문제 인식">📷</button>
                     </div>
                     <button id="clearSearchBtn" class="clear-search-btn" title="검색어 지우기">지우기</button>
                 </div>
@@ -974,7 +973,7 @@
         const storage = typeof localStorage !== 'undefined' ? localStorage : null;
         
         const FEATURES = {
-            enableOcrPool: params.get('ocr_pool') === '1' || storage?.getItem('qplay:ocr_pool') === '1' || false,
+            enableOcrPool: params.get('ocr_pool') === '1' || storage?.getItem('qplay:ocr_pool') === '1' || true,
             enableFastSearch: params.get('fast') === '1' || storage?.getItem('qplay:fastsearch') === '1' || false,
             enableShadowTest: params.get('shadow') === '1' || storage?.getItem('qplay:shadow_test') === '1' || false,
             enableTelemetry: params.get('telemetry') === '1' || storage?.getItem('qplay:telemetry') === '1' || false,
@@ -1193,13 +1192,15 @@
                 const totalCount = selectedSheet 
                     ? questionsData.filter(item => item.sheet === selectedSheet).length 
                     : questionsData.length;
-                document.getElementById('results').innerHTML = 
-                    `<div class="results-count">총 ${totalCount}개의 문제가 로드되었습니다. ${selectedSheet ? `(카테고리: ${selectedSheet})` : ''} 검색어를 입력하여 검색해보세요.</div>`;
                 
-                // 검색 인덱스 구축 (Fast Search 활성화 시)
-                if (window.buildSearchIndex) {
-                    window.buildSearchIndex();
+                // 카테고리 정보 표시
+                let categoryInfo = '';
+                if (allSheetNames && allSheetNames.length > 0) {
+                    categoryInfo = ` (사용 가능한 카테고리: ${allSheetNames.join(', ')})`;
                 }
+                
+                document.getElementById('results').innerHTML = 
+                    `<div class="results-count">총 ${totalCount}개의 문제가 로드되었습니다. ${selectedSheet ? `(현재 카테고리: ${selectedSheet})` : ''}${categoryInfo} 검색어를 입력하여 검색해보세요.</div>`;
             } catch (error) {
                 document.getElementById('categorySection').classList.remove('active');
                 document.getElementById('results').innerHTML = 
@@ -1239,8 +1240,15 @@
                 const totalCount = selectedSheet 
                     ? questionsData.filter(item => item.sheet === selectedSheet).length 
                     : questionsData.length;
+                
+                // 카테고리 정보 표시
+                let categoryInfo = '';
+                if (allSheetNames && allSheetNames.length > 0) {
+                    categoryInfo = ` (사용 가능한 카테고리: ${allSheetNames.join(', ')})`;
+                }
+                
                 document.getElementById('results').innerHTML = 
-                    `<div class="results-count">총 ${totalCount}개의 문제가 로드되었습니다. ${selectedSheet ? `(카테고리: ${selectedSheet})` : ''} 검색어를 입력하여 검색해보세요.</div>`;
+                    `<div class="results-count">총 ${totalCount}개의 문제가 로드되었습니다. ${selectedSheet ? `(현재 카테고리: ${selectedSheet})` : ''}${categoryInfo} 검색어를 입력하여 검색해보세요.</div>`;
             } catch (error) {
                 document.getElementById('categorySection').classList.remove('active');
                 document.getElementById('results').innerHTML = 
@@ -1250,32 +1258,124 @@
         }
 
 
-        // 기본 데이터 자동 로드 함수 (JSON)
-        function loadDefaultData() {
-            document.getElementById('results').innerHTML = '<div class="loading">데이터를 로드하는 중...</div>';
+        // 로드된 카테고리 데이터 캐시
+        let loadedCategories = {};
+        
+        // 카테고리 데이터 로드 (지연 로딩)
+        async function loadCategoryData(categoryId) {
+            // 이미 로드된 경우 캐시에서 반환
+            if (loadedCategories[categoryId]) {
+                console.log(`✅ 캐시에서 ${categoryId} 로드`);
+                return loadedCategories[categoryId];
+            }
+            
+            try {
+                console.log(`📥 ${categoryId} 로드 중...`);
+                const response = await fetch(`categories/${categoryId}.json`);
+                if (!response.ok) {
+                    throw new Error(`${categoryId}.json을 찾을 수 없습니다.`);
+                }
+                const data = await response.json();
+                loadedCategories[categoryId] = data.data;
+                console.log(`✅ ${categoryId} 로드 완료: ${data.data.length}개`);
+                return data.data;
+            } catch (error) {
+                console.error(`❌ ${categoryId} 로드 실패:`, error);
+                throw error;
+            }
+        }
+
+        // 메타데이터 로드 및 카테고리 초기화
+        async function loadDefaultData() {
+            document.getElementById('results').innerHTML = '<div class="loading">메타데이터를 로드하는 중...</div>';
             document.getElementById('searchInput').disabled = true;
             
-            // 먼저 JSON 파일을 시도
-            fetch('data.json')
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('JSON 파일을 찾을 수 없습니다.');
+            try {
+                // metadata.json 로드
+                console.log('📂 metadata.json 로드 중...');
+                const response = await fetch('metadata.json');
+                if (!response.ok) {
+                    throw new Error('metadata.json을 찾을 수 없습니다.');
+                }
+                const metadata = await response.json();
+                
+                // 카테고리 목록 저장
+                allSheetNames = metadata.categories.map(cat => cat.name);
+                selectedSheet = allSheetNames.length > 0 ? allSheetNames[0] : null;
+                
+                console.log(`✅ 메타데이터 로드: ${allSheetNames.length}개 카테고리`);
+                
+                // 첫 번째 카테고리 데이터 로드 (빠른 초기 로드)
+                if (selectedSheet) {
+                    const categoryObj = metadata.categories.find(cat => cat.name === selectedSheet);
+                    if (categoryObj) {
+                        const categoryData = await loadCategoryData(categoryObj.id);
+                        questionsData = categoryData;
+                        window.questionsData = questionsData;
                     }
-                    return response.json();
-                })
-                .then(jsonData => {
-                    processJsonData(jsonData);
-                })
-                .catch(jsonError => {
-                    console.log('JSON 로드 실패:', jsonError);
-                    document.getElementById('results').innerHTML = 
-                        `<div class="no-results" style="text-align: center; padding: 40px;">
-                            <h3 style="margin-bottom: 20px; color: #000000;">Qplay 족보에 오신 것을 환영합니다!</h3>
-                            <p style="font-size: 1.1em; margin-bottom: 15px;">데이터 파일을 찾을 수 없습니다.</p>
-                            <p style="color: #666;">data.json 파일이 필요한 위치에 있는지 확인해주세요.</p>
-                        </div>`;
-                    document.getElementById('searchInput').disabled = true;
-                });
+                }
+                
+                // 카테고리 선택 UI 생성
+                createCategoryFilters();
+                
+                document.getElementById('searchInput').disabled = false;
+                document.getElementById('cameraBtn').disabled = false;
+                const totalCount = selectedSheet 
+                    ? questionsData.length
+                    : 0;
+                
+                // 카테고리 정보 표시
+                let categoryInfo = '';
+                if (allSheetNames && allSheetNames.length > 0) {
+                    categoryInfo = ` (사용 가능한 카테고리: ${allSheetNames.join(', ')})`;
+                }
+                
+                document.getElementById('results').innerHTML = 
+                    `<div class="results-count">총 ${metadata.total_items.toLocaleString()}개의 문제가 준비되어 있습니다. ${selectedSheet ? `(현재 카테고리: ${selectedSheet} - ${totalCount.toLocaleString()}개)` : ''}${categoryInfo} 검색어를 입력하여 검색해보세요.</div>`;
+                
+                // 검색 인덱스 구축 (Fast Search 활성화 시)
+                if (window.buildSearchIndex) {
+                    window.buildSearchIndex();
+                }
+                
+                // 카테고리 변경 시 해당 데이터 로드
+                window.onCategoryChange = async function(categoryName) {
+                    const categoryObj = metadata.categories.find(cat => cat.name === categoryName);
+                    if (categoryObj) {
+                        try {
+                            document.getElementById('results').innerHTML = `<div class="loading">${categoryName} 데이터를 로드하는 중...</div>`;
+                            const categoryData = await loadCategoryData(categoryObj.id);
+                            questionsData = categoryData;
+                            window.questionsData = questionsData;
+                            
+                            // 검색 인덱스 재구축
+                            if (window.buildSearchIndex) {
+                                window.buildSearchIndex();
+                            }
+                            
+                            // 검색 수행
+                            performSearch(true);
+                        } catch (error) {
+                            document.getElementById('results').innerHTML = 
+                                `<div class="error">${categoryName} 데이터를 로드할 수 없습니다: ${error.message}</div>`;
+                            console.error(error);
+                        }
+                    }
+                };
+                
+            } catch (error) {
+                console.error('데이터 로드 실패:', error);
+                document.getElementById('results').innerHTML = 
+                    `<div class="no-results" style="text-align: center; padding: 40px;">
+                        <h3 style="margin-bottom: 20px; color: #000000;">Qplay 족보에 오신 것을 환영합니다!</h3>
+                        <p style="font-size: 1.1em; margin-bottom: 15px;">데이터를 로드할 수 없습니다.</p>
+                        <p style="color: #666;">metadata.json 파일이 필요합니다. 파일 구조: metadata.json, categories/*.json</p>
+                        <p style="color: #999; font-size: 0.9em; margin-top: 20px;"><code>${error.message}</code></p>
+                    </div>`;
+                document.getElementById('searchInput').disabled = false;
+                document.getElementById('cameraBtn').disabled = false;
+                document.getElementById('categorySelect').disabled = false;
+            }
         }
 
         // 페이지 로드 시 자동으로 기본 파일 로드 시도
@@ -1285,7 +1385,7 @@
                 // 웹 서버 환경에서는 자동 로드 시도 (JSON)
                 loadDefaultData();
             } else {
-                // file:// 프로토콜인 경우 안내
+                // file:// 프로토콜인 경우 안내 및 카테고리 초기화
                 document.getElementById('results').innerHTML = 
                     `<div class="no-results" style="text-align: center; padding: 40px;">
                         <h3 style="margin-bottom: 20px; color: #667eea;">📚 Qplay 족보에 오신 것을 환영합니다!</h3>
@@ -1293,6 +1393,8 @@
                         <p style="color: #666;">로컬 서버를 실행하려면 터미널에서 다음 명령어를 실행하세요:</p>
                         <p style="color: #999; font-size: 0.9em; margin-top: 20px;">💡 <code style="background: #f0f0f0; padding: 2px 6px; border-radius: 4px;">python -m http.server 8000</code></p>
                     </div>`;
+                // 카테고리 섹션 표시 (로컬 파일이면 카테고리는 비활성)
+                document.getElementById('categorySection').classList.remove('active');
             }
         });
 
@@ -3334,12 +3436,18 @@
             };
         }
 
-        // 카테고리 선택 (단일 선택)
-        function selectCategory(sheetName) {
+        // 카테고리 선택 (단일 선택, 지연 로딩 적용)
+        async function selectCategory(sheetName) {
             selectedSheet = sheetName;
             displayedCount = 0; // 리셋
-            // 검색 다시 수행
-            performSearch(true);
+            
+            // 카테고리 변경 시 데이터 로드 (콜백 함수 호출)
+            if (window.onCategoryChange) {
+                await window.onCategoryChange(sheetName);
+            } else {
+                // 콜백 없으면 직접 검색 수행
+                performSearch(true);
+            }
         }
 
         // 사용방법 모달 기능

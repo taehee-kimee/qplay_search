@@ -1,0 +1,32 @@
+{
+  "version": "2.0",
+  "type": "category_split",
+  "total_items": 69419,
+  "categories": [
+    {
+      "id": "ox_xo",
+      "name": "ox,xo",
+      "count": 23648,
+      "file": "categories/ox_xo.json"
+    },
+    {
+      "id": "garoseseo",
+      "name": "가로세로",
+      "count": 24067,
+      "file": "categories/garoseseo.json"
+    },
+    {
+      "id": "ollaolla",
+      "name": "올라올라(꼬로록)",
+      "count": 21703,
+      "file": "categories/ollaolla.json"
+    },
+    {
+      "id": "kkong",
+      "name": "꽁꽁",
+      "count": 1,
+      "file": "categories/kkong.json"
+    }
+  ],
+  "generated_at": "2026-01-01"
+}
