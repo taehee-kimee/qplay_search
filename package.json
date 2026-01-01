@@ -1,6 +1,6 @@
 {
   "name": "qplay",
-  "version": "1.0.0",
+  "version": "5.0.0",
   "description": "Qplay 족보 검색 시스템",
   "type": "module",
   "scripts": {
