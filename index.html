@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ko">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -25,7 +26,7 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background-color:#333333;
+            background-color: #333333;
             min-height: 100vh;
             padding: 20px;
         }
@@ -419,7 +420,8 @@
             padding: 0;
             margin: -10px -10px 0 0;
             cursor: move;
-            user-select: none; /* 드래그 시 텍스트 선택 방지 */
+            user-select: none;
+            /* 드래그 시 텍스트 선택 방지 */
         }
 
         /* 드래그 중 시각적 피드백 */
@@ -661,6 +663,7 @@
             from {
                 opacity: 0;
             }
+
             to {
                 opacity: 1;
             }
@@ -671,6 +674,7 @@
                 opacity: 0;
                 transform: translate(-50%, -50%) scale(0.9);
             }
+
             to {
                 opacity: 1;
                 transform: translate(-50%, -50%) scale(1);
@@ -1093,6 +1097,7 @@
         }
     </style>
 </head>
+
 <body>
     <!-- Toast 공지 팝업 -->
     <div id="noticeToastOverlay" class="notice-toast-overlay"></div>
@@ -1104,17 +1109,17 @@
         <div class="notice-toast-content" id="noticeToastContent">
             <strong style="font-size: 1.3em;">🎉 Qplay 족보 v5.0 출시!</strong><br><br>
             <strong>2026년 1월 1일 업데이트</strong><br><br>
-            
+
             <strong style="font-size: 1.1em;">이번 업데이트에서 뭐가 달라졌나요?</strong><br><br>
-            
+
             <strong>🐛 문제 오류 수정</strong><br>
             - 잘못된 문제들을 수정했습니다<br>
             - 더 정확한 답변을 제공합니다<br><br>
-            
+
             <strong>⚡ 성능 대폭 개선</strong><br>
             - 검색이 훨씬 빨라졌습니다!<br>
             - 앱이 더 부드럽게 작동합니다<br><br>
-            
+
             <strong>✨ 신문제 추가!</strong><br>
             - 새로운 문제들이 많이 추가되었습니다<br>
             - 더 다양한 문제를 풀 수 있습니다
@@ -1133,11 +1138,14 @@
                 <li><strong>자동족보</strong> 체크박스를 활성화하세요.</li>
                 <li>검색창 옆 <strong>카메라 아이콘</strong>을 클릭하세요.</li>
                 <li>화면 공유 창에서 <strong>큐플레이 창</strong>을 선택하세요.<br>
-                    <small style="color: #999;">※ 크롬 브라우저의 화면 공유 권한이 허용되어야 합니다.</small></li>
+                    <small style="color: #999;">※ 크롬 브라우저의 화면 공유 권한이 허용되어야 합니다.</small>
+                </li>
                 <li>비디오 화면에서 <strong>문제가 표시되는 영역을 드래그</strong>하여 선택하세요.<br>
-                    <small style="color: #999;">※ 게임마다 문제 영역이 다르므로 정확히 선택해주세요.</small></li>
+                    <small style="color: #999;">※ 게임마다 문제 영역이 다르므로 정확히 선택해주세요.</small>
+                </li>
                 <li><strong>캡처 버튼</strong>을 클릭하면 자동 검색이 시작됩니다.<br>
-                    <small style="color: #999;">※ 계속 사용하려면 '중단없이' 체크박스를 활성화하세요.</small></li>
+                    <small style="color: #999;">※ 계속 사용하려면 '중단없이' 체크박스를 활성화하세요.</small>
+                </li>
             </ol>
             <div class="tip">
                 <strong>💡 Tip:</strong> 게임을 하지 않을 때는 잠시 중단해주세요. 브라우저 성능 저하로 텍스트 인식에 부하가 걸릴 수 있습니다.
@@ -1173,7 +1181,8 @@
                     <p style="margin: 5px 0 0 0; color: #ccc; font-size: 0.85em;">또는 Ctrl+V로 스크린샷 붙여넣기</p>
                     <input type="file" id="imageInput" accept="image/*" style="display: none;">
                 </div>
-                <div id="imagePreview" style="display: flex; flex-direction: column; align-items: center; gap: 10px;"></div>
+                <div id="imagePreview" style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
+                </div>
             </div>
 
             <div class="report-buttons">
@@ -1185,7 +1194,7 @@
 
     <div class="container">
         <div class="header">
-            <h2>💸그깽 족보💸 <span style="color: #999; font-size: 0.7em; font-weight: normal;">v4</span></h2>
+            <h2>💸그깽 족보💸 <span style="color: #999; font-size: 0.7em; font-weight: normal;">v5</span></h2>
             <div style="display: flex; gap: 10px;">
                 <button id="reportBtn" class="report-btn" aria-label="문제 제보">🐛 문제 제보</button>
                 <button id="helpBtn" class="help-btn" aria-label="자동족보 사용법">자동족보 사용법</button>
@@ -1195,9 +1204,9 @@
         <div class="content">
             <div class="category-section" id="categorySection">
                 <div class="category-controls">
-                <select id="categorySelect" class="category-dropdown">
-                    <option value="">카테고리를 선택하세요</option>
-                </select>
+                    <select id="categorySelect" class="category-dropdown">
+                        <option value="">카테고리를 선택하세요</option>
+                    </select>
                     <select id="resultLimitSelect" class="result-limit-dropdown">
                         <option value="10">10개</option>
                         <option value="30">30개</option>
@@ -1218,12 +1227,7 @@
             <div class="search-section">
                 <div class="search-container">
                     <div style="position: relative; flex: 1;">
-                        <input 
-                            type="text" 
-                            id="searchInput" 
-                            class="search-box" 
-                            placeholder="검색어를 입력하세요..."
-                        />
+                        <input type="text" id="searchInput" class="search-box" placeholder="검색어를 입력하세요..." />
                         <button id="cameraBtn" class="camera-btn" title="화면 캡처로 문제 인식">📷</button>
                     </div>
                     <button id="clearSearchBtn" class="clear-search-btn" title="검색어 지우기">지우기</button>
@@ -1272,10 +1276,10 @@
         // 주의: 브라우저에서 직접 TypeScript 모듈을 로드할 수 없으므로
         // JavaScript로 변환된 버전을 사용하거나 번들러가 필요합니다.
         // 여기서는 간단한 Feature Flag만 구현합니다.
-        
+
         const params = new URLSearchParams(location.search);
         const storage = typeof localStorage !== 'undefined' ? localStorage : null;
-        
+
         const FEATURES = {
             enableOcrPool: params.get('ocr_pool') === '1' || storage?.getItem('qplay:ocr_pool') === '1' || true,
             enableFastSearch: params.get('fast') === '1' || storage?.getItem('qplay:fastsearch') === '1' || false,
@@ -1283,25 +1287,25 @@
             enableTelemetry: params.get('telemetry') === '1' || storage?.getItem('qplay:telemetry') === '1' || false,
             maxConcurrentOcr: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ? 1 : 2
         };
-        
+
         window.QPLAY_FEATURES = FEATURES;
-        
+
         // Workers 초기화 (기본적으로 비활성화, 필요시 활성화)
         let ocrWorker = null;
         let searchWorker = null;
         let searchIndexBuilt = false;
-        
+
         async function initWorkers() {
             if (!FEATURES.enableOcrPool && !FEATURES.enableFastSearch) {
                 return;
             }
-            
+
             try {
                 if (FEATURES.enableOcrPool && typeof Worker !== 'undefined') {
                     ocrWorker = new Worker(new URL('./workers/ocr.worker.ts', import.meta.url), { type: 'module' });
                     ocrWorker.postMessage({ type: 'get-flags', id: 'init' });
                 }
-                
+
                 if (FEATURES.enableFastSearch && typeof Worker !== 'undefined') {
                     searchWorker = new Worker(new URL('./workers/search.worker.ts', import.meta.url), { type: 'module' });
                     searchWorker.postMessage({ type: 'get-flags', id: 'init' });
@@ -1310,31 +1314,31 @@
                 console.warn('Workers 초기화 실패, 기존 방식 사용:', error);
             }
         }
-        
+
         // 검색 인덱스 구축
         async function buildSearchIndex() {
             if (!searchWorker || !FEATURES.enableFastSearch || searchIndexBuilt) {
                 return;
             }
-            
+
             try {
                 const documents = (window.questionsData || []).map((item, index) => ({
                     id: String(index),
                     text: (item.question || '') + ' ' + (item.answer || ''),
                     payload: item
                 }));
-                
+
                 if (documents.length === 0) {
                     return;
                 }
-                
+
                 searchWorker.postMessage({
                     type: 'build-index',
                     id: 'build-' + Date.now(),
                     documents,
                     timeout: 10000
                 });
-                
+
                 const handler = (event) => {
                     if (event.data.type === 'index-ready') {
                         searchIndexBuilt = true;
@@ -1347,20 +1351,20 @@
                 console.warn('검색 인덱스 구축 실패:', error);
             }
         }
-        
+
         // Telemetry 로깅 (간단한 버전)
         function logTelemetry(event) {
             if (!FEATURES.enableTelemetry) {
                 return;
             }
-            
+
             try {
                 const eventData = {
                     ...event,
                     timestamp: Date.now(),
                     userAgent: navigator.userAgent
                 };
-                
+
                 // 로컬 스토리지에 버퍼링 (실제로는 서버로 전송)
                 const buffer = JSON.parse(localStorage.getItem('qplay:telemetry_buffer') || '[]');
                 buffer.push(eventData);
@@ -1372,13 +1376,13 @@
                 console.warn('Telemetry 로깅 실패:', error);
             }
         }
-        
+
         window.initWorkers = initWorkers;
         window.buildSearchIndex = buildSearchIndex;
         window.logTelemetry = logTelemetry;
         window.ocrWorker = ocrWorker;
         window.searchWorker = searchWorker;
-        
+
         // 페이지 로드 시 Workers 초기화
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => {
@@ -1402,7 +1406,7 @@
         const noticeToast = document.getElementById('noticeToast');
         const noticeToastClose = document.getElementById('noticeToastClose');
         const noticeToastContent = document.getElementById('noticeToastContent');
-        
+
         // 공지 내용의 해시값 계산 (간단한 해시 함수)
         function calculateContentHash(content) {
             let hash = 0;
@@ -1414,78 +1418,78 @@
             }
             return Math.abs(hash).toString(36);
         }
-        
+
         // 마크다운을 HTML로 변환 (필요시 사용)
         function markdownToHtml(markdown) {
             let html = markdown;
-            
+
             // 제목 변환
             html = html.replace(/^### (.*?)$/gm, '<strong style="font-size: 1.1em; color: #333;">$1</strong>');
             html = html.replace(/^## (.*?)$/gm, '<strong style="font-size: 1.2em; color: #333;">$1</strong>');
             html = html.replace(/^# (.*?)$/gm, '<strong style="font-size: 1.3em; color: #333;">$1</strong>');
-            
+
             // 굵은 텍스트
             html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
             html = html.replace(/__(.*?)__/g, '<strong>$1</strong>');
-            
+
             // 기울임
             html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
-            
+
             // 줄바꿈
             html = html.replace(/\n\n/g, '</p><p>');
             html = '<p>' + html + '</p>';
-            
+
             // 리스트 변환
             html = html.replace(/<p>- (.*?)<\/p>/g, '<ul style="margin-left: 20px;"><li>$1</li></ul>');
             html = html.replace(/<p>\d+\. (.*?)<\/p>/g, '<ol style="margin-left: 20px;"><li>$1</li></ol>');
-            
+
             // 구분선
             html = html.replace(/---/g, '<hr style="border: none; height: 1px; background: #e0e0e0; margin: 16px 0;">');
-            
+
             return html;
         }
-        
+
         // 공지 팝업 표시 (내용 해시 확인)
         function showNoticeToast() {
             if (!noticeToast || !noticeToastOverlay || !noticeToastContent) return;
-            
+
             // 공지 내용 가져오기
             const content = noticeToastContent.textContent || noticeToastContent.innerText || '';
             const contentHash = calculateContentHash(content);
-            
+
             // 저장된 해시값과 비교
             const savedHash = localStorage.getItem('noticeToastContentHash');
-            
+
             // 내용이 변경되었거나 처음 보는 경우 표시
             if (savedHash !== contentHash) {
                 noticeToastOverlay.classList.add('show');
                 noticeToast.classList.add('show');
             }
         }
-        
+
         // 공지 팝업 닫기
         function closeNoticeToast() {
             if (noticeToast && noticeToastOverlay && noticeToastContent) {
                 noticeToast.classList.remove('show');
                 noticeToastOverlay.classList.remove('show');
-                
+
                 // 현재 공지 내용의 해시값 저장
                 const content = noticeToastContent.textContent || noticeToastContent.innerText || '';
                 const contentHash = calculateContentHash(content);
                 localStorage.setItem('noticeToastContentHash', contentHash);
             }
         }
-        
+
         // 이벤트 리스너
         if (noticeToastClose) {
             noticeToastClose.addEventListener('click', closeNoticeToast);
         }
-        
+
         // 배경 클릭 시 닫기
         if (noticeToastOverlay) {
             noticeToastOverlay.addEventListener('click', closeNoticeToast);
         }
-        
+
         // 페이지 로드 시 공지 표시
         window.addEventListener('DOMContentLoaded', showNoticeToast);
 
@@ -1508,36 +1512,36 @@
                 questionsData = jsonData.data || [];
                 window.questionsData = questionsData; // Workers에서 접근 가능하도록
                 allSheetNames = jsonData.metadata?.sheets || [];
-                
+
                 // 시트 이름 추출 (데이터에서 고유한 시트 이름 찾기)
                 if (allSheetNames.length === 0) {
                     const uniqueSheets = new Set(jsonData.data.map(item => item.sheet));
                     allSheetNames = Array.from(uniqueSheets);
                 }
-                
+
                 // 초기화: 첫 번째 시트 선택
                 selectedSheet = allSheetNames.length > 0 ? allSheetNames[0] : null;
-                
+
                 // 카테고리 선택 UI 생성
                 createCategoryFilters();
-                
+
                 document.getElementById('searchInput').disabled = false;
                 document.getElementById('cameraBtn').disabled = false;
-                const totalCount = selectedSheet 
-                    ? questionsData.filter(item => item.sheet === selectedSheet).length 
+                const totalCount = selectedSheet
+                    ? questionsData.filter(item => item.sheet === selectedSheet).length
                     : questionsData.length;
-                
+
                 // 카테고리 정보 표시
                 let categoryInfo = '';
                 if (allSheetNames && allSheetNames.length > 0) {
                     categoryInfo = ` (사용 가능한 카테고리: ${allSheetNames.join(', ')})`;
                 }
-                
-                document.getElementById('results').innerHTML = 
+
+                document.getElementById('results').innerHTML =
                     `<div class="results-count">총 ${totalCount}개의 문제가 로드되었습니다. ${selectedSheet ? `(현재 카테고리: ${selectedSheet})` : ''}${categoryInfo} 검색어를 입력하여 검색해보세요.</div>`;
             } catch (error) {
                 document.getElementById('categorySection').classList.remove('active');
-                document.getElementById('results').innerHTML = 
+                document.getElementById('results').innerHTML =
                     `<div class="error">데이터를 읽는 중 오류가 발생했습니다: ${error.message}</div>`;
                 document.getElementById('searchInput').disabled = true;
             }
@@ -1548,44 +1552,44 @@
             try {
                 const data = new Uint8Array(fileData);
                 const workbook = XLSX.read(data, { type: 'array' });
-                
+
                 // 모든 시트 읽기
                 questionsData = [];
                 allSheetNames = workbook.SheetNames;
-                
+
                 // 각 시트를 순회하며 데이터 읽기
                 allSheetNames.forEach((sheetName, sheetIndex) => {
                     const worksheet = workbook.Sheets[sheetName];
                     const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
                     const sheetData = parseExcelData(jsonData, sheetName);
-                    
+
                     // 시트 이름을 포함하여 데이터 추가
                     questionsData = questionsData.concat(sheetData);
                 });
-                
+
                 // 초기화: 첫 번째 시트 선택
                 selectedSheet = allSheetNames.length > 0 ? allSheetNames[0] : null;
-                
+
                 // 카테고리 선택 UI 생성
                 createCategoryFilters();
-                
+
                 document.getElementById('searchInput').disabled = false;
                 document.getElementById('cameraBtn').disabled = false;
-                const totalCount = selectedSheet 
-                    ? questionsData.filter(item => item.sheet === selectedSheet).length 
+                const totalCount = selectedSheet
+                    ? questionsData.filter(item => item.sheet === selectedSheet).length
                     : questionsData.length;
-                
+
                 // 카테고리 정보 표시
                 let categoryInfo = '';
                 if (allSheetNames && allSheetNames.length > 0) {
                     categoryInfo = ` (사용 가능한 카테고리: ${allSheetNames.join(', ')})`;
                 }
-                
-                document.getElementById('results').innerHTML = 
+
+                document.getElementById('results').innerHTML =
                     `<div class="results-count">총 ${totalCount}개의 문제가 로드되었습니다. ${selectedSheet ? `(현재 카테고리: ${selectedSheet})` : ''}${categoryInfo} 검색어를 입력하여 검색해보세요.</div>`;
             } catch (error) {
                 document.getElementById('categorySection').classList.remove('active');
-                document.getElementById('results').innerHTML = 
+                document.getElementById('results').innerHTML =
                     `<div class="error">파일을 읽는 중 오류가 발생했습니다: ${error.message}</div>`;
                 document.getElementById('searchInput').disabled = true;
             }
@@ -1594,7 +1598,7 @@
 
         // 로드된 카테고리 데이터 캐시
         let loadedCategories = {};
-        
+
         // 카테고리 데이터 로드 (지연 로딩)
         async function loadCategoryData(categoryId) {
             // 이미 로드된 경우 캐시에서 반환
@@ -1602,7 +1606,7 @@
                 console.log(`✅ 캐시에서 ${categoryId} 로드`);
                 return loadedCategories[categoryId];
             }
-            
+
             try {
                 console.log(`📥 ${categoryId} 로드 중...`);
                 const response = await fetch(`categories/${categoryId}.json`);
@@ -1623,7 +1627,7 @@
         async function loadDefaultData() {
             document.getElementById('results').innerHTML = '<div class="loading">메타데이터를 로드하는 중...</div>';
             document.getElementById('searchInput').disabled = true;
-            
+
             try {
                 // metadata.json 로드
                 console.log('📂 metadata.json 로드 중...');
@@ -1632,13 +1636,13 @@
                     throw new Error('metadata.json을 찾을 수 없습니다.');
                 }
                 const metadata = await response.json();
-                
+
                 // 카테고리 목록 저장
                 allSheetNames = metadata.categories.map(cat => cat.name);
                 selectedSheet = allSheetNames.length > 0 ? allSheetNames[0] : null;
-                
+
                 console.log(`✅ 메타데이터 로드: ${allSheetNames.length}개 카테고리`);
-                
+
                 // 첫 번째 카테고리 데이터 로드 (빠른 초기 로드)
                 if (selectedSheet) {
                     const categoryObj = metadata.categories.find(cat => cat.name === selectedSheet);
@@ -1648,32 +1652,32 @@
                         window.questionsData = questionsData;
                     }
                 }
-                
+
                 // 카테고리 선택 UI 생성
                 createCategoryFilters();
-                
+
                 document.getElementById('searchInput').disabled = false;
                 document.getElementById('cameraBtn').disabled = false;
-                const totalCount = selectedSheet 
+                const totalCount = selectedSheet
                     ? questionsData.length
                     : 0;
-                
+
                 // 카테고리 정보 표시
                 let categoryInfo = '';
                 if (allSheetNames && allSheetNames.length > 0) {
                     categoryInfo = ` (사용 가능한 카테고리: ${allSheetNames.join(', ')})`;
                 }
-                
-                document.getElementById('results').innerHTML = 
+
+                document.getElementById('results').innerHTML =
                     `<div class="results-count">총 ${metadata.total_items.toLocaleString()}개의 문제가 준비되어 있습니다. ${selectedSheet ? `(현재 카테고리: ${selectedSheet} - ${totalCount.toLocaleString()}개)` : ''}${categoryInfo} 검색어를 입력하여 검색해보세요.</div>`;
-                
+
                 // 검색 인덱스 구축 (Fast Search 활성화 시)
                 if (window.buildSearchIndex) {
                     window.buildSearchIndex();
                 }
-                
+
                 // 카테고리 변경 시 해당 데이터 로드
-                window.onCategoryChange = async function(categoryName) {
+                window.onCategoryChange = async function (categoryName) {
                     const categoryObj = metadata.categories.find(cat => cat.name === categoryName);
                     if (categoryObj) {
                         try {
@@ -1681,25 +1685,25 @@
                             const categoryData = await loadCategoryData(categoryObj.id);
                             questionsData = categoryData;
                             window.questionsData = questionsData;
-                            
+
                             // 검색 인덱스 재구축
                             if (window.buildSearchIndex) {
                                 window.buildSearchIndex();
                             }
-                            
+
                             // 검색 수행
                             performSearch(true);
                         } catch (error) {
-                            document.getElementById('results').innerHTML = 
+                            document.getElementById('results').innerHTML =
                                 `<div class="error">${categoryName} 데이터를 로드할 수 없습니다: ${error.message}</div>`;
                             console.error(error);
                         }
                     }
                 };
-                
+
             } catch (error) {
                 console.error('데이터 로드 실패:', error);
-                document.getElementById('results').innerHTML = 
+                document.getElementById('results').innerHTML =
                     `<div class="no-results" style="text-align: center; padding: 40px;">
                         <h3 style="margin-bottom: 20px; color: #000000;">Qplay 족보에 오신 것을 환영합니다!</h3>
                         <p style="font-size: 1.1em; margin-bottom: 15px;">데이터를 로드할 수 없습니다.</p>
@@ -1713,14 +1717,14 @@
         }
 
         // 페이지 로드 시 자동으로 기본 파일 로드 시도
-        window.addEventListener('DOMContentLoaded', function() {
+        window.addEventListener('DOMContentLoaded', function () {
             // 로컬 서버 환경인지 확인 (http:// 또는 https://로 시작하는지)
             if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
                 // 웹 서버 환경에서는 자동 로드 시도 (JSON)
                 loadDefaultData();
             } else {
                 // file:// 프로토콜인 경우 안내 및 카테고리 초기화
-                document.getElementById('results').innerHTML = 
+                document.getElementById('results').innerHTML =
                     `<div class="no-results" style="text-align: center; padding: 40px;">
                         <h3 style="margin-bottom: 20px; color: #667eea;">📚 Qplay 족보에 오신 것을 환영합니다!</h3>
                         <p style="font-size: 1.1em; margin-bottom: 15px;">데이터를 로드하려면 로컬 웹 서버를 사용해주세요.</p>
@@ -1737,7 +1741,7 @@
             if (!jsonData || jsonData.length === 0) return [];
 
             const data = [];
-            
+
             // 첫 번째 행이 헤더인지 확인
             const firstRow = jsonData[0];
             let hasHeader = false;
@@ -1747,11 +1751,11 @@
             // 자동으로 문제/답 컬럼 찾기
             if (firstRow && firstRow.length > 0) {
                 const headers = firstRow.map(h => String(h || '').toLowerCase());
-                
+
                 // 헤더에서 문제/답 컬럼 찾기
                 const questionKeywords = ['문제', 'question', '질문', '문항', '문제내용', '문항내용', '내용'];
                 const answerKeywords = ['답', 'answer', '정답', '해답', '답안', '해설', '정답내용'];
-                
+
                 headers.forEach((h, idx) => {
                     if (questionKeywords.some(k => h.includes(k))) {
                         questionCol = idx;
@@ -1797,7 +1801,7 @@
             const notification = document.getElementById('notification');
             notification.textContent = message;
             notification.classList.add('show');
-            
+
             // 2초 후 자동으로 사라지기
             setTimeout(() => {
                 notification.classList.remove('show');
@@ -1872,7 +1876,7 @@
             // 체크박스 이벤트 리스너
             const autoCopyCheckbox = document.getElementById('autoCopyCheckbox');
             if (autoCopyCheckbox) {
-                autoCopyCheckbox.addEventListener('change', function(e) {
+                autoCopyCheckbox.addEventListener('change', function (e) {
                     autoCopyEnabled = e.target.checked;
                 });
             }
@@ -1880,14 +1884,14 @@
             // 자동지우기 체크박스 이벤트 리스너
             const autoClearCheckbox = document.getElementById('autoClearCheckbox');
             if (autoClearCheckbox) {
-                autoClearCheckbox.addEventListener('change', function(e) {
+                autoClearCheckbox.addEventListener('change', function (e) {
                     autoClearEnabled = e.target.checked;
                 });
             }
 
             const autoJokboCheckbox = document.getElementById('autoJokboCheckbox');
             if (autoJokboCheckbox) {
-                autoJokboCheckbox.addEventListener('change', function(e) {
+                autoJokboCheckbox.addEventListener('change', function (e) {
                     autoJokboEnabled = e.target.checked;
                     // 모드 변경 시 검색 재실행
                     displayedCount = 0;
@@ -1909,35 +1913,35 @@
 
             // 카메라 버튼 클릭 이벤트
             if (cameraBtn) {
-                cameraBtn.addEventListener('click', function() {
+                cameraBtn.addEventListener('click', function () {
                     openCamera();
                 });
             }
 
             // 카메라 닫기 버튼 클릭 이벤트
             if (cameraCloseBtn) {
-                cameraCloseBtn.addEventListener('click', function() {
+                cameraCloseBtn.addEventListener('click', function () {
                     closeCamera();
                 });
             }
 
             // 최소화 버튼 클릭 이벤트
             if (cameraMinimizeBtn) {
-                cameraMinimizeBtn.addEventListener('click', function() {
+                cameraMinimizeBtn.addEventListener('click', function () {
                     toggleMinimize();
                 });
             }
 
             // 최대화 버튼 클릭 이벤트
             if (cameraMaximizeBtn) {
-                cameraMaximizeBtn.addEventListener('click', function() {
+                cameraMaximizeBtn.addEventListener('click', function () {
                     toggleMinimize();
                 });
             }
 
             // 헤더 닫기 버튼 클릭 이벤트
             if (cameraCloseBtnHeader) {
-                cameraCloseBtnHeader.addEventListener('click', function() {
+                cameraCloseBtnHeader.addEventListener('click', function () {
                     closeCamera();
                 });
             }
@@ -1946,7 +1950,7 @@
 
             // 캡처 버튼 클릭 이벤트
             if (cameraCaptureBtn) {
-                cameraCaptureBtn.addEventListener('click', function() {
+                cameraCaptureBtn.addEventListener('click', function () {
                     if (isAutoCaptureMode) {
                         // 자동 모드 중이면 중지
                         stopAutoCapture();
@@ -1960,7 +1964,7 @@
             // result-item 클릭 이벤트 리스너 (이벤트 위임)
             const resultsDiv = document.getElementById('results');
             if (resultsDiv) {
-                resultsDiv.addEventListener('click', function(e) {
+                resultsDiv.addEventListener('click', function (e) {
                     const resultItem = e.target.closest('.result-item');
                     if (resultItem && autoCopyEnabled) {
                         const answer = resultItem.getAttribute('data-answer');
@@ -1978,11 +1982,11 @@
             // 출력 개수 드롭다운 이벤트 리스너
             const resultLimitSelect = document.getElementById('resultLimitSelect');
             if (resultLimitSelect) {
-                resultLimitSelect.addEventListener('change', function(e) {
+                resultLimitSelect.addEventListener('change', function (e) {
                     maxResults = parseInt(e.target.value, 10);
                     displayedCount = 0; // 리셋
-            performSearch();
-        });
+                    performSearch();
+                });
             }
 
             // 카메라 모달 드래그 기능 초기화
@@ -1993,48 +1997,48 @@
         function initDragFunctionality() {
             const header = document.querySelector('.camera-modal-header');
             if (!header || !cameraModal) return;
-            
+
             header.addEventListener('mousedown', (e) => {
                 // 버튼 클릭은 드래그로 처리하지 않음
                 if (e.target.closest('button')) return;
-                
+
                 // 최소화 상태에서는 드래그 비활성화
                 if (cameraModal.classList.contains('minimized')) return;
-                
+
                 isDragging = true;
                 const rect = cameraModal.getBoundingClientRect();
                 dragStartX = e.clientX;
                 dragStartY = e.clientY;
                 modalStartLeft = rect.left;
                 modalStartTop = rect.top;
-                
+
                 cameraModal.classList.add('dragging');
                 e.preventDefault();
                 e.stopPropagation(); // 다른 이벤트와 충돌 방지
             });
-            
+
             document.addEventListener('mousemove', (e) => {
                 if (!isDragging) return;
-                
+
                 const deltaX = e.clientX - dragStartX;
                 const deltaY = e.clientY - dragStartY;
-                
+
                 const newLeft = modalStartLeft + deltaX;
                 const newTop = modalStartTop + deltaY;
-                
+
                 // 화면 경계 체크
                 const maxLeft = window.innerWidth - cameraModal.offsetWidth;
                 const maxTop = window.innerHeight - cameraModal.offsetHeight;
-                
+
                 const clampedLeft = Math.max(0, Math.min(newLeft, maxLeft));
                 const clampedTop = Math.max(0, Math.min(newTop, maxTop));
-                
+
                 cameraModal.style.left = clampedLeft + 'px';
                 cameraModal.style.top = clampedTop + 'px';
                 cameraModal.style.right = 'auto';
                 cameraModal.style.bottom = 'auto';
             });
-            
+
             document.addEventListener('mouseup', (e) => {
                 if (isDragging) {
                     isDragging = false;
@@ -2047,9 +2051,9 @@
         function initSelectionArea() {
             selectionBox = document.getElementById('selectionBox');
             const videoContainer = document.querySelector('.camera-video-container');
-            
+
             if (!videoContainer || !selectionBox) return;
-            
+
             // 마우스 다운 - 선택 시작
             videoContainer.addEventListener('mousedown', (e) => {
                 if (!cameraStream) return;
@@ -2060,17 +2064,17 @@
                 selectionBox.style.display = 'block';
                 selectionBox.classList.add('active');
             });
-            
+
             // 마우스 이동 - 선택 영역 업데이트
             videoContainer.addEventListener('mousemove', (e) => {
                 if (!isSelecting || !cameraStream) return;
                 const rect = videoContainer.getBoundingClientRect();
                 selectionEnd.x = e.clientX - rect.left;
                 selectionEnd.y = e.clientY - rect.top;
-                
+
                 updateSelectionBox();
             });
-            
+
             // 마우스 업 - 선택 종료
             document.addEventListener('mouseup', () => {
                 if (isSelecting) {
@@ -2082,12 +2086,12 @@
         // 선택 박스 업데이트
         function updateSelectionBox() {
             if (!selectionBox) return;
-            
+
             const left = Math.min(selectionStart.x, selectionEnd.x);
             const top = Math.min(selectionStart.y, selectionEnd.y);
             const width = Math.abs(selectionEnd.x - selectionStart.x);
             const height = Math.abs(selectionEnd.y - selectionStart.y);
-            
+
             selectionBox.style.left = left + 'px';
             selectionBox.style.top = top + 'px';
             selectionBox.style.width = width + 'px';
@@ -2097,39 +2101,39 @@
         // 선택 영역 좌표를 비디오 좌표로 변환
         function getSelectionRect() {
             if (!cameraVideo || !selectionBox) return null;
-            
+
             // 최소화 상태 확인
             const isMinimized = cameraModal && cameraModal.classList.contains('minimized');
             if (isMinimized) {
                 return null; // 최소화 상태에서는 null 반환하여 savedSelectionRect 사용
             }
-            
+
             const videoRect = cameraVideo.getBoundingClientRect();
             const containerRect = selectionBox.parentElement.getBoundingClientRect();
-            
+
             // display: none인 경우 width/height가 0이 될 수 있음
             if (videoRect.width === 0 || videoRect.height === 0) {
                 return null;
             }
-            
+
             const scaleX = cameraVideo.videoWidth / videoRect.width;
             const scaleY = cameraVideo.videoHeight / videoRect.height;
-            
+
             // scale이 유효하지 않은 경우 (NaN, Infinity 등)
             if (!isFinite(scaleX) || !isFinite(scaleY)) {
                 return null;
             }
-            
+
             const left = Math.min(selectionStart.x, selectionEnd.x);
             const top = Math.min(selectionStart.y, selectionEnd.y);
             const width = Math.abs(selectionEnd.x - selectionStart.x);
             const height = Math.abs(selectionEnd.y - selectionStart.y);
-            
+
             // 영역이 너무 작으면 전체 화면 사용
             if (width < 10 || height < 10) {
                 return null;
             }
-            
+
             return {
                 x: left * scaleX,
                 y: top * scaleY,
@@ -2147,7 +2151,7 @@
                 }
 
                 // 화면 공유 요청 (스크린 캡처)
-                cameraStream = await navigator.mediaDevices.getDisplayMedia({ 
+                cameraStream = await navigator.mediaDevices.getDisplayMedia({
                     video: {
                         displaySurface: 'browser' // 브라우저 화면 캡처
                     },
@@ -2156,12 +2160,12 @@
                 cameraVideo.srcObject = cameraStream;
                 cameraModal.classList.add('show');
                 cameraCaptureBtn.disabled = false;
-                
+
                 // 영역 선택 초기화
                 setTimeout(() => {
                     initSelectionArea();
                 }, 100);
-                
+
                 // 스트림이 종료되면 모달 닫기
                 cameraStream.getVideoTracks()[0].addEventListener('ended', () => {
                     closeCamera();
@@ -2169,7 +2173,7 @@
             } catch (error) {
                 console.error('화면 공유 실패:', error);
                 let errorMessage = '화면 공유에 접근할 수 없습니다.';
-                
+
                 if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
                     errorMessage = '화면 공유 권한이 거부되었습니다. 브라우저 설정에서 화면 공유 권한을 허용해주세요.';
                 } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
@@ -2177,7 +2181,7 @@
                 } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
                     errorMessage = '화면이 다른 애플리케이션에서 사용 중입니다.';
                 }
-                
+
                 alert(errorMessage);
             }
         }
@@ -2185,7 +2189,7 @@
         // 카메라 최소화/최대화 토글 함수
         function toggleMinimize() {
             if (!cameraModal) return;
-            
+
             const isMinimized = cameraModal.classList.contains('minimized');
             if (isMinimized) {
                 cameraModal.classList.remove('minimized');
@@ -2198,7 +2202,7 @@
         function closeCamera() {
             // 자동 캡처 중지
             stopAutoCapture();
-            
+
             if (cameraStream) {
                 cameraStream.getTracks().forEach(track => track.stop());
                 cameraStream = null;
@@ -2209,12 +2213,12 @@
             cameraLoading.style.display = 'none';
             cameraCaptureBtn.disabled = false;
             cameraCaptureBtn.textContent = '캡처';
-            
+
             // 중단없이 체크박스 리셋
             if (cameraContinueCheckbox) {
                 cameraContinueCheckbox.checked = false;
             }
-            
+
             // 선택 영역 리셋
             if (selectionBox) {
                 selectionBox.style.display = 'none';
@@ -2223,7 +2227,7 @@
             isSelecting = false;
             lastOCRText = '';
             savedSelectionRect = null;
-            
+
             // 드래그 위치 리셋
             isDragging = false;
             cameraModal.classList.remove('dragging');
@@ -2237,11 +2241,11 @@
         // 자동 캡처 시작
         function startAutoCapture() {
             if (isAutoCaptureMode) return;
-            
+
             isAutoCaptureMode = true;
             cameraCaptureBtn.textContent = '자동 캡처 중...';
             cameraCaptureBtn.disabled = true;
-            
+
             // 2초마다 자동 캡처
             autoCaptureInterval = setInterval(() => {
                 if (cameraStream && isAutoCaptureMode) {
@@ -2253,7 +2257,7 @@
         // 자동 캡처 중지
         function stopAutoCapture() {
             if (!isAutoCaptureMode) return;
-            
+
             isAutoCaptureMode = false;
             if (autoCaptureInterval) {
                 clearInterval(autoCaptureInterval);
@@ -2267,7 +2271,7 @@
         async function captureAndOCR(isAutoMode = false) {
             // Feature Flag 확인
             const useWorker = window.QPLAY_FEATURES?.enableOcrPool && window.ocrWorker;
-            
+
             if (useWorker) {
                 try {
                     return await captureAndOCRWithWorker(isAutoMode);
@@ -2276,36 +2280,36 @@
                     return await captureAndOCRLegacy(isAutoMode);
                 }
             }
-            
+
             return await captureAndOCRLegacy(isAutoMode);
         }
-        
+
         // Workers를 사용한 OCR
         async function captureAndOCRWithWorker(isAutoMode = false) {
             if (!cameraStream || !window.ocrWorker) {
                 return await captureAndOCRLegacy(isAutoMode);
             }
-            
+
             const requestId = `ocr-${Date.now()}-${Math.random()}`;
             const startTime = performance.now();
-            
+
             try {
                 if (!isAutoMode) {
                     cameraCaptureBtn.disabled = true;
                 }
-                
+
                 const selectionRect = getSelectionRect();
                 const captureRect = isAutoMode && !selectionRect ? savedSelectionRect : selectionRect;
-                
+
                 if (!captureRect && !isAutoMode) {
                     alert('영역을 선택해주세요.');
                     cameraLoading.style.display = 'none';
                     cameraCaptureBtn.disabled = false;
                     return;
                 }
-                
+
                 const canvas = document.createElement('canvas');
-                
+
                 if (captureRect) {
                     canvas.width = captureRect.width;
                     canvas.height = captureRect.height;
@@ -2321,27 +2325,30 @@
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(cameraVideo, 0, 0, canvas.width, canvas.height);
                 }
-                
+
+                // 이미지 전처리 적용 (OCR 성능 향상)
+                preprocessImageForOCR(canvas);
+
                 const imageBitmap = await createImageBitmap(canvas);
-                
+
                 return new Promise((resolve, reject) => {
                     const timeout = setTimeout(() => {
                         reject(new Error('OCR 타임아웃'));
                     }, 30000);
-                    
+
                     const handler = (event) => {
                         if (event.data.id !== requestId) {
                             return;
                         }
-                        
+
                         clearTimeout(timeout);
                         window.ocrWorker.removeEventListener('message', handler);
-                        
+
                         if (event.data.type === 'ocr-error') {
                             reject(new Error(event.data.error));
                             return;
                         }
-                        
+
                         if (event.data.type === 'ocr-result') {
                             const ocrMs = performance.now() - startTime;
                             if (window.logTelemetry) {
@@ -2351,27 +2358,27 @@
                                     confidence: event.data.confidence
                                 });
                             }
-                            
+
                             let cleanedText = event.data.text.trim().replace(/\s+/g, ' ').replace(/\n/g, ' ');
-                            
+
                             // 특수문자 제거 (한글, 영문, 숫자, 기본 구두점만 유지)
                             cleanedText = cleanedText.replace(/[^가-힣a-zA-Z0-9\s?.,!;:()[\]{}』」]/g, ' ');
                             cleanedText = cleanedText.replace(/\s+/g, ' ').trim();
-                            
+
                             // OCR 후처리: 한자 → 한글 변환
                             cleanedText = postProcessOCRText(cleanedText);
-                            
+
                             // 음독 문제 감지
-                            const isPronunciationQuestion = cleanedText.includes('음독') || 
-                                                           cleanedText.includes('읽기') || 
-                                                           cleanedText.includes('독음') ||
-                                                           cleanedText.includes('읽으');
+                            const isPronunciationQuestion = cleanedText.includes('음독') ||
+                                cleanedText.includes('읽기') ||
+                                cleanedText.includes('독음') ||
+                                cleanedText.includes('읽으');
                             // 선택지 추출을 위해 항상 originalText 전달
                             const originalText = cleanedText;
-                            
+
                             // 문제만 추출 (OCR 결과에서 문제 부분만 추출, 원본 텍스트 전달)
                             cleanedText = extractQuestion(cleanedText, originalText);
-                            
+
                             if (isAutoMode) {
                                 if (cleanedText && cleanedText.length > 0 && cleanedText !== lastOCRText) {
                                     lastOCRText = cleanedText;
@@ -2385,16 +2392,16 @@
                                     startAutoCapture();
                                 }
                             }
-                            
+
                             cameraLoading.style.display = 'none';
                             if (!isAutoMode) {
                                 cameraCaptureBtn.disabled = false;
                             }
-                            
+
                             resolve();
                         }
                     };
-                    
+
                     window.ocrWorker.addEventListener('message', handler);
                     window.ocrWorker.postMessage({
                         type: 'ocr',
@@ -2411,7 +2418,60 @@
                 return await captureAndOCRLegacy(isAutoMode);
             }
         }
-        
+
+        // 이미지 전처리 함수 (OCR 성능 향상)
+        function preprocessImageForOCR(canvas) {
+            const ctx = canvas.getContext('2d');
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+
+            // 1. 그레이스케일 변환 + 대비 증가
+            const contrastFactor = 1.3; // 대비 증가 계수 (1.0 = 원본)
+
+            for (let i = 0; i < data.length; i += 4) {
+                // 그레이스케일 변환 (RGB를 밝기값으로)
+                const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+
+                // 대비 증가 적용
+                let adjusted = ((gray - 128) * contrastFactor) + 128;
+                adjusted = Math.max(0, Math.min(255, adjusted)); // 0-255 범위로 제한
+
+                // RGB 모두 같은 값으로 설정 (그레이스케일)
+                data[i] = adjusted;     // R
+                data[i + 1] = adjusted; // G
+                data[i + 2] = adjusted; // B
+                // data[i + 3]은 알파값이므로 그대로 유지
+            }
+
+            ctx.putImageData(imageData, 0, 0);
+
+            // 2. 크기 조정 (너무 크면 느리고, 너무 작으면 정확도 하락)
+            const maxWidth = 1600; // 최대 너비
+            if (canvas.width > maxWidth) {
+                const scale = maxWidth / canvas.width;
+                const newWidth = maxWidth;
+                const newHeight = canvas.height * scale;
+
+                // 임시 캔버스에 리사이징
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = newWidth;
+                tempCanvas.height = newHeight;
+                const tempCtx = tempCanvas.getContext('2d');
+
+                // 고품질 리사이징
+                tempCtx.imageSmoothingEnabled = true;
+                tempCtx.imageSmoothingQuality = 'high';
+                tempCtx.drawImage(canvas, 0, 0, newWidth, newHeight);
+
+                // 원본 캔버스 크기 변경 및 복사
+                canvas.width = newWidth;
+                canvas.height = newHeight;
+                ctx.drawImage(tempCanvas, 0, 0);
+            }
+
+            return canvas;
+        }
+
         // 기존 OCR 함수 (레거시)
         async function captureAndOCRLegacy(isAutoMode = false) {
             if (!cameraStream) return;
@@ -2425,20 +2485,20 @@
 
                 // 선택 영역 가져오기
                 const selectionRect = getSelectionRect();
-                
+
                 // 자동 모드이고 선택 영역이 없으면 저장된 영역 사용
                 const captureRect = isAutoMode && !selectionRect ? savedSelectionRect : selectionRect;
-                
+
                 if (!captureRect && !isAutoMode) {
                     alert('영역을 선택해주세요.');
                     cameraLoading.style.display = 'none';
                     cameraCaptureBtn.disabled = false;
                     return;
                 }
-                
+
                 // 비디오 프레임을 캔버스에 캡처
                 const canvas = document.createElement('canvas');
-                
+
                 if (captureRect) {
                     // 선택 영역만 캡처
                     canvas.width = captureRect.width;
@@ -2457,6 +2517,9 @@
                     ctx.drawImage(cameraVideo, 0, 0, canvas.width, canvas.height);
                 }
 
+                // 이미지 전처리 적용 (OCR 성능 향상)
+                preprocessImageForOCR(canvas);
+
                 // 캔버스를 이미지로 변환
                 const imageData = canvas.toDataURL('image/png');
 
@@ -2464,9 +2527,9 @@
                 const { data: { text } } = await Tesseract.recognize(imageData, 'kor+eng', {
                     logger: m => {
                         // OCR 처리 중 진행률 표시 숨김
-                    // if (m.status === 'recognizing text' && !isAutoMode) {
-                    //     cameraLoading.textContent = `OCR 처리 중... ${Math.round(m.progress * 100)}%`;
-                    // }
+                        // if (m.status === 'recognizing text' && !isAutoMode) {
+                        //     cameraLoading.textContent = `OCR 처리 중... ${Math.round(m.progress * 100)}%`;
+                        // }
                     },
                     // OCR 정확도 향상을 위한 옵션
                     tessedit_pageseg_mode: '6' // 단일 텍스트 블록으로 인식
@@ -2474,25 +2537,25 @@
 
                 // 텍스트 정리
                 let cleanedText = text.trim().replace(/\s+/g, ' ').replace(/\n/g, ' ');
-                
+
                 // 특수문자 제거 (한글, 영문, 숫자, 기본 구두점만 유지)
                 cleanedText = cleanedText.replace(/[^가-힣a-zA-Z0-9\s?.,!;:()[\]{}』」]/g, ' ');
                 cleanedText = cleanedText.replace(/\s+/g, ' ').trim();
-                
+
                 // OCR 후처리: 한자 → 한글 변환
                 cleanedText = postProcessOCRText(cleanedText);
-                
+
                 // 음독 문제 감지
-                const isPronunciationQuestion = cleanedText.includes('음독') || 
-                                               cleanedText.includes('읽기') || 
-                                               cleanedText.includes('독음') ||
-                                               cleanedText.includes('읽으');
+                const isPronunciationQuestion = cleanedText.includes('음독') ||
+                    cleanedText.includes('읽기') ||
+                    cleanedText.includes('독음') ||
+                    cleanedText.includes('읽으');
                 // 선택지 추출을 위해 항상 originalText 전달
                 const originalText = cleanedText;
-                
+
                 // 문제만 추출 (OCR 결과에서 문제 부분만 추출, 원본 텍스트 전달)
                 cleanedText = extractQuestion(cleanedText, originalText);
-                
+
                 // 자동 모드일 때만 텍스트 변경 확인
                 if (isAutoMode) {
                     // 텍스트가 변경되었는지 확인 (추출된 문제 기준)
@@ -2507,29 +2570,29 @@
                         lastOCRText = cleanedText;
                         savedSelectionRect = captureRect;
                         processOCRResult(cleanedText, false);
-                        
+
                         // 자동 캡처 모드 시작 (문제가 바뀔 때마다 자동 캡처)
                         startAutoCapture();
                     }
                 }
-                
+
                 cameraLoading.style.display = 'none';
-                
+
                 if (!isAutoMode) {
                     cameraCaptureBtn.disabled = false;
                 }
             } catch (error) {
                 console.error('OCR 처리 실패:', error);
-                
+
                 if (!isAutoMode) {
                     let errorMessage = 'OCR 처리 중 오류가 발생했습니다.';
-                    
+
                     if (error.message && error.message.includes('language')) {
                         errorMessage = 'OCR 언어 데이터를 로드할 수 없습니다. 인터넷 연결을 확인해주세요.';
                     } else if (error.message) {
                         errorMessage = 'OCR 처리 실패: ' + error.message;
                     }
-                    
+
                     alert(errorMessage);
                     cameraLoading.style.display = 'none';
                     cameraLoading.textContent = 'OCR 처리 중...';
@@ -2544,10 +2607,10 @@
         // OCR 후처리: 한자 → 한글 변환 (일반적인 사자성어)
         // 정규식 패턴 상수 (성능 최적화)
         const HANJA_PATTERN = /[\u4E00-\u9FFF]{2,}/g;
-        
+
         function postProcessOCRText(text) {
             if (!text) return text;
-            
+
             // 빠른 체크: 한자 문자가 있는지 먼저 확인 (성능 최적화)
             let hasHanja = false;
             for (let i = 0; i < text.length; i++) {
@@ -2557,10 +2620,10 @@
                     break;
                 }
             }
-            
+
             // 한자가 없으면 즉시 반환 (성능 최적화)
             if (!hasHanja) return text;
-            
+
             // 일반적인 사자성어 한자 → 한글 음독 매핑
             const hanjaToKorean = {
                 '自業自得': '자업자득',
@@ -2569,12 +2632,12 @@
                 '自業自造': '자업자조',
                 // 더 많은 매핑은 필요시 추가 가능
             };
-            
+
             let processedText = text;
-            
+
             // 한자 패턴 찾기 (유니코드 범위: \u4E00-\u9FFF)
             const hanjaMatches = text.match(HANJA_PATTERN);
-            
+
             if (hanjaMatches) {
                 hanjaMatches.forEach(hanja => {
                     if (hanjaToKorean[hanja]) {
@@ -2583,21 +2646,21 @@
                     }
                 });
             }
-            
+
             return processedText;
         }
 
         function extractQuestion(text, originalText = null) {
             if (!text) return '';
-            
+
             // 원본 텍스트가 없으면 현재 텍스트를 원본으로 사용
             const fullText = originalText || text;
-            
+
             let cleaned = text.trim();
-            
+
             // 1. 카테고리 정보 제거 (예: "클세사 : 규들레이")
             cleaned = cleaned.replace(/^[^:]*:\s*[^\[]*/g, '');
-            
+
             // 2. 문제 번호 제거 - 다양한 패턴 처리
             // [문제 1], [문제1], [1], 문제』, 문제」, 문제:, 문제 등
             // "내 문제 10" 같은 패턴도 제거 (앞뒤 공백 처리)
@@ -2605,19 +2668,19 @@
             cleaned = cleaned.replace(/\s*문제\s*\d+\s*/g, ' '); // "내 문제 10" 같은 패턴 제거
             cleaned = cleaned.replace(/문제[』」:：]\s*/g, ''); // 문제』, 문제」, 문제: 제거
             cleaned = cleaned.replace(/^문제\s+/g, ''); // 시작 부분의 "문제 " 제거
-            
+
             // 음독 문제 감지
-            const isPronunciationQuestion = cleaned.includes('음독') || 
-                                           cleaned.includes('읽기') || 
-                                           cleaned.includes('독음') ||
-                                           cleaned.includes('읽으');
-            
+            const isPronunciationQuestion = cleaned.includes('음독') ||
+                cleaned.includes('읽기') ||
+                cleaned.includes('독음') ||
+                cleaned.includes('읽으');
+
             // 3. 물음표를 기준으로 문제와 선택지/정답 분리 (가장 중요)
             const questionMarkIndex = cleaned.indexOf('?');
             let questionEndIndex = -1;
             let questionText = '';
             let choicesText = '';
-            
+
             if (questionMarkIndex !== -1) {
                 questionEndIndex = questionMarkIndex + 1;
                 questionText = cleaned.substring(0, questionEndIndex);
@@ -2638,33 +2701,33 @@
                     questionText = cleaned;
                 }
             }
-            
+
             // 원본 텍스트에서 선택지 영역 추출 (선택지 키워드 추출용)
             const fullCleaned = fullText.trim().replace(/\s+/g, ' ').replace(/\n/g, ' ');
-            const fullQuestionEndIndex = fullCleaned.indexOf('?') !== -1 
-                ? fullCleaned.indexOf('?') + 1 
-                : (fullCleaned.toLowerCase().indexOf('정답') !== -1 
-                    ? fullCleaned.toLowerCase().indexOf('정답') 
+            const fullQuestionEndIndex = fullCleaned.indexOf('?') !== -1
+                ? fullCleaned.indexOf('?') + 1
+                : (fullCleaned.toLowerCase().indexOf('정답') !== -1
+                    ? fullCleaned.toLowerCase().indexOf('정답')
                     : fullCleaned.length);
             const answerSection = fullCleaned.substring(fullQuestionEndIndex);
-            
+
             // 음독 문제인 경우 선택지에서 한글 음독 추출 (개선 버전)
             if (isPronunciationQuestion && questionEndIndex !== -1) {
                 // 1. 문제 텍스트에서 한자 제거 (한글만 남기기)
                 const questionWithoutHanja = questionText.replace(/[\u4E00-\u9FFF]/g, '').trim();
-                
+
                 // 2. 선택지 영역에서 한자 제거 (한글 음독만 남기기)
                 const answerSectionWithoutHanja = answerSection.replace(/[\u4E00-\u9FFF]/g, ' ').trim();
-                
+
                 // 3. 일반 문제와 동일한 선택지 패턴 매칭 사용 (더 정확함)
                 const choicePatterns = [
                     /\d+[\.\)]\s*([가-힣]{2,})/g,  // "1. 자업자득", "1) 자업자득"
                     /[①②③④⑤⑥⑦⑧⑨⑩]\s*([가-힣]{2,})/g,  // "① 자업자득"
                     /([가-힣]{3,8})(?=\s|$|,|\.|\))/g  // 연속된 한글 (사자성어)
                 ];
-                
+
                 const pronunciations = new Set();
-                
+
                 // 선택지 패턴으로 추출
                 choicePatterns.forEach(pattern => {
                     pattern.lastIndex = 0;
@@ -2676,7 +2739,7 @@
                         }
                     }
                 });
-                
+
                 // 한자 제거된 선택지 영역에서 직접 한글 추출 (백업)
                 if (pronunciations.size === 0) {
                     const directMatches = answerSectionWithoutHanja.match(/[가-힣]{3,8}/g);
@@ -2688,7 +2751,7 @@
                         });
                     }
                 }
-                
+
                 // 문제 텍스트에서 이미 추출된 한글 음독도 추가
                 const questionPronunciations = questionWithoutHanja.match(/[가-힣]{3,8}/g);
                 if (questionPronunciations) {
@@ -2698,7 +2761,7 @@
                         }
                     });
                 }
-                
+
                 // 최종 검색어 구성: 한자 제거된 문제 + 추출된 음독들
                 const extractedPronunciations = Array.from(pronunciations).slice(0, 6);
                 if (extractedPronunciations.length > 0) {
@@ -2711,14 +2774,14 @@
                 // 선택지에서 의미 있는 키워드 추출 (2글자 이상, 단일 문자 제외)
                 // answerSection을 우선 사용 (원본 텍스트에서 직접 추출)
                 const textToSearch = answerSection && answerSection.length > 0 ? answerSection : choicesText;
-                
+
                 if (textToSearch && textToSearch.length > 0) {
                     // 선택지 패턴: "1. 내용", "2. 내용", "① 내용", "② 내용" 등
                     const choicePatterns = [
                         /\d+\.\s*([가-힣a-zA-Z0-9]{2,})/g,  // "1. 내용"
                         /[①②③④⑤⑥⑦⑧⑨⑩]\s*([가-힣a-zA-Z0-9]{2,})/g  // "① 내용"
                     ];
-                    
+
                     const extractedChoices = [];
                     choicePatterns.forEach(pattern => {
                         // 정규식의 lastIndex 초기화
@@ -2732,7 +2795,7 @@
                             }
                         }
                     });
-                    
+
                     // 선택지 키워드를 문제 텍스트에 추가 (검색 정확도 향상)
                     if (extractedChoices.length > 0) {
                         // 중복 제거 후 추가 (구분자로 표시하여 나중에 가중치 적용)
@@ -2741,26 +2804,26 @@
                     }
                 }
             }
-            
+
             cleaned = questionText;
-            
+
             // 5. 정답 관련 키워드 제거 (물음표 이후에 남아있을 수 있는 경우)
             cleaned = cleaned.replace(/정답.*$/i, '');
             cleaned = cleaned.replace(/답.*$/i, '');
             cleaned = cleaned.replace(/해설.*$/i, '');
-            
+
             // 6. 불필요한 공백 정리
             cleaned = cleaned.replace(/\s+/g, ' ').trim();
-            
+
             // 7. OCR 오류 개선 (일반적인 패턴)
             cleaned = cleaned.replace(/FIFAEEY/gi, 'FIFA');
             cleaned = cleaned.replace(/월드\s*$/g, '월드컵');
-            
+
             // OCR 오류 패턴 교정 (띄어쓰기 오류 등)
             cleaned = cleaned.replace(/고\s*치약/g, '고치는 약');
             cleaned = cleaned.replace(/고치약/g, '고치는 약');
             cleaned = cleaned.replace(/\s*치약\s*없다/g, ' 약 없다');
-            
+
             // 8. 문제가 너무 짧으면 원본 반환 (필터링이 너무 강했을 경우)
             if (cleaned.length < 5) {
                 // 원본에서 최소한의 정리만 수행
@@ -2774,22 +2837,22 @@
                 cleaned = cleaned.replace(/문제[』」:：]\s*/g, '');
                 cleaned = cleaned.replace(/^문제\s+/g, '');
             }
-            
+
             return cleaned;
         }
 
         // 핵심 키워드만 추출하는 함수
         function extractKeywords(text) {
             if (!text) return [];
-            
+
             // 1. 문제만 추출 (이미 extractQuestion으로 처리된 경우)
             let cleaned = text.trim();
-            
+
             // 2. 물음표, 특수문자 제거 (단, 숫자는 유지)
             // 대괄호는 공백으로 변환하여 단어 분리 개선
             cleaned = cleaned.replace(/[?.,!;:(){}』」]/g, ' ');
             cleaned = cleaned.replace(/[\[\]]/g, ' '); // 대괄호는 공백으로
-            
+
             // 3. 접속사 및 불필요한 단어 제거 (단어 단위로)
             const conjunctions = ['그리고', '또한', '또는', '하지만', '그러나', '그런데', '따라서', '그래서', '그러므로', '그러면', '만약', '만일', '만약에'];
             conjunctions.forEach(conj => {
@@ -2798,7 +2861,7 @@
                 const regex = new RegExp(`(^|\\s)${escaped}(\\s|$)`, 'gi');
                 cleaned = cleaned.replace(regex, ' ');
             });
-            
+
             // 4. 조사 제거 제거 (테스트용 - 조사 제거 없이 검색)
             // 동사 어미 보호 리스트 (조사로 오인식 방지)
             // const verbEndings = ['고치는', '고치고', '고쳐서', '고쳐', '고친', '고칠', '고친다', '고친다면', '고치면', '고치니', '고치며', '고치면서'];
@@ -2820,22 +2883,22 @@
             //     const regex2 = new RegExp(`(^|\\s)${escapedParticle}(\\s|$)`, 'g');
             //     cleaned = cleaned.replace(regex2, ' ');
             // });
-            
+
             // 5. 공백 정리
             cleaned = cleaned.replace(/\s+/g, ' ').trim();
-            
+
             // 6. 키워드 추출 (1글자 필터링 완화, 선택지 노이즈 제거)
             const keywords = cleaned.split(' ')
                 .filter(word => {
                     const trimmed = word.trim();
                     // 빈 문자열 제거
                     if (trimmed.length === 0) return false;
-                    
+
                     // 단일 영문자 제거 (a, b, c, d 같은 선택지 번호)
                     if (trimmed.length === 1 && /^[a-z]$/i.test(trimmed)) {
                         return false;
                     }
-                    
+
                     // 1글자 단어 처리
                     if (trimmed.length === 1) {
                         // 숫자는 항상 포함
@@ -2844,18 +2907,18 @@
                         if (/^[가-힣]$/.test(trimmed)) return true;
                         return false;
                     }
-                    
+
                     // 2글자 이상인 경우
                     // 너무 짧은 영문 조합 제거 (aa, bb 같은 노이즈)
                     if (trimmed.length === 2 && /^[a-z]{2}$/i.test(trimmed) && trimmed[0] === trimmed[1]) {
                         return false;
                     }
-                    
+
                     return true;
                 })
                 .map(word => word.trim().toLowerCase())
                 .filter(word => word.length > 0);
-            
+
             // 7. 중복 제거
             return [...new Set(keywords)];
         }
@@ -2863,13 +2926,13 @@
         // 키워드 추출 헬퍼 함수 (기존 extractKeywords 로직 재사용)
         function extractKeywordsFromText(text) {
             if (!text) return [];
-            
+
             let cleaned = text.trim();
-            
+
             // 물음표, 특수문자 제거
             cleaned = cleaned.replace(/[?.,!;:(){}』」]/g, ' ');
             cleaned = cleaned.replace(/[\[\]]/g, ' ');
-            
+
             // 접속사 및 불필요한 단어 제거
             const conjunctions = ['그리고', '또한', '또는', '하지만', '그러나', '그런데', '따라서', '그래서', '그러므로', '그러면', '만약', '만일', '만약에'];
             conjunctions.forEach(conj => {
@@ -2877,7 +2940,7 @@
                 const regex = new RegExp(`(^|\\s)${escaped}(\\s|$)`, 'gi');
                 cleaned = cleaned.replace(regex, ' ');
             });
-            
+
             // 조사 제거 제거 (테스트용 - 조사 제거 없이 검색)
             // const verbEndings = ['고치는', '고치고', '고쳐서', '고쳐', '고친', '고칠', '고친다', '고친다면', '고치면', '고치니', '고치며', '고치면서'];
             // const particles = ['은', '는', '이', '가', '을', '를', '의', '에', '에서', '와', '과', '도', '만', '조차', '까지', '부터', '에게', '한테', '께', '로', '으로', '처럼', '같이', '만큼', '보다'];
@@ -2894,53 +2957,53 @@
             //     const regex2 = new RegExp(`(^|\\s)${escapedParticle}(\\s|$)`, 'g');
             //     cleaned = cleaned.replace(regex2, ' ');
             // });
-            
+
             // 공백 정리
             cleaned = cleaned.replace(/\s+/g, ' ').trim();
-            
+
             // 키워드 추출
             const keywords = cleaned.split(' ')
                 .filter(word => {
                     const trimmed = word.trim();
                     if (trimmed.length === 0) return false;
-                    
+
                     if (trimmed.length === 1 && /^[a-z]$/i.test(trimmed)) {
                         return false;
                     }
-                    
+
                     if (trimmed.length === 1) {
                         if (/^\d$/.test(trimmed)) return true;
                         if (/^[가-힣]$/.test(trimmed)) return true;
                         return false;
                     }
-                    
+
                     if (trimmed.length === 2 && /^[a-z]{2}$/i.test(trimmed) && trimmed[0] === trimmed[1]) {
                         return false;
                     }
-                    
+
                     return true;
                 })
                 .map(word => word.trim().toLowerCase())
                 .filter(word => word.length > 0);
-            
+
             return [...new Set(keywords)];
         }
 
         // 문제와 선택지 키워드를 구분하여 추출하는 함수 (가중치 적용용)
         function extractKeywordsWithWeights(text) {
             if (!text) return { questionKeywords: [], choiceKeywords: [] };
-            
+
             // 선택지 구분자로 분리
             const parts = text.split('|CHOICES|');
             const questionPart = parts[0]?.trim() || text;
             const choicePart = parts[1]?.trim() || '';
-            
+
             // 문제 키워드 추출
             const questionKeywords = extractKeywordsFromText(questionPart);
-            
+
             // 선택지 키워드 추출
             const choiceKeywords = choicePart ? extractKeywordsFromText(choicePart) : [];
-            
+
             return { questionKeywords, choiceKeywords };
         }
 
@@ -3048,23 +3111,23 @@
         // 키워드 기반 검색 함수 (정확히 일치하는 문제만 검색)
         function searchByKeywords(keywords, question, answer, isJokboMode = false) {
             if (keywords.length === 0) return false;
-            
+
             const questionLower = question.toLowerCase();
             const answerLower = answer.toLowerCase();
-            
+
             if (isJokboMode) {
                 // 자동족보 모드: 키워드 중 일부만 포함되어도 검색 (OR 조건)
                 // 또는 키워드의 일부만 매칭되어도 검색
                 return keywords.some(keyword => {
                     const keywordLower = keyword.toLowerCase();
-                    
+
                     // 1. 정확한 단어 매칭
                     const escapedKeyword = escapeRegex(keyword);
                     const wordRegex = new RegExp(`(^|\\s)${escapedKeyword}(\\s|$)`, 'i');
                     if (wordRegex.test(questionLower) || wordRegex.test(answerLower)) {
                         return true;
                     }
-                    
+
                     // 2. 공백 제거 버전으로 확인
                     const questionNoSpace = questionLower.replace(/\s+/g, '');
                     const answerNoSpace = answerLower.replace(/\s+/g, '');
@@ -3072,7 +3135,7 @@
                     if (questionNoSpace.includes(keywordNoSpace) || answerNoSpace.includes(keywordNoSpace)) {
                         return true;
                     }
-                    
+
                     // 3. 부분 문자열 매칭 (키워드의 일부만 포함되어도 검색)
                     // 키워드가 3글자 이상이면 2글자 이상 포함되어도 검색
                     if (keyword.length >= 3) {
@@ -3084,14 +3147,14 @@
                             }
                         }
                     }
-                    
+
                     // 4. 키워드가 2글자 이상이면 직접 포함 여부 확인
                     if (keyword.length >= 2) {
                         if (questionLower.includes(keywordLower) || answerLower.includes(keywordLower)) {
                             return true;
                         }
                     }
-                    
+
                     return false;
                 });
             } else {
@@ -3101,7 +3164,7 @@
                     const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                     const regex = new RegExp(`(^|\\s)${escapedKeyword}(\\s|$)`, 'i');
                     const exactMatch = regex.test(questionLower) || regex.test(answerLower);
-                    
+
                     // 정확한 단어 매칭이 실패했을 때, 공백 제거 버전으로도 확인
                     // 예: '근로자가연' 입력 시 '근로자가 연간'에서 공백 제거 후 '근로자가연간'과 비교
                     if (!exactMatch) {
@@ -3109,7 +3172,7 @@
                         const answerNoSpace = answerLower.replace(/\s+/g, '');
                         return questionNoSpace.includes(keyword) || answerNoSpace.includes(keyword);
                     }
-                    
+
                     return exactMatch;
                 });
             }
@@ -3118,37 +3181,37 @@
         // 일치도 점수 계산 함수 (자동족보 모드용)
         function calculateMatchScore(keywords, question, answer) {
             if (keywords.length === 0) return 0;
-            
+
             const questionLower = question.toLowerCase();
             const answerLower = answer.toLowerCase();
             let totalScore = 0;
             let matchedKeywords = 0;
-            
+
             // 검색어 전체를 하나의 문자열로 합친 버전도 고려
             const fullSearchTerm = keywords.join(' ').toLowerCase();
             const questionNoSpace = questionLower.replace(/\s+/g, '');
             const answerNoSpace = answerLower.replace(/\s+/g, '');
             const fullSearchNoSpace = fullSearchTerm.replace(/\s+/g, '');
-            
+
             // 전체 검색어가 포함되면 매우 높은 점수 (200점)
             if (questionLower.includes(fullSearchTerm) || answerLower.includes(fullSearchTerm)) {
                 totalScore += 200;
             } else if (questionNoSpace.includes(fullSearchNoSpace) || answerNoSpace.includes(fullSearchNoSpace)) {
                 totalScore += 150;
             }
-            
+
             // 각 키워드별 점수 계산
             keywords.forEach(keyword => {
                 const keywordLower = keyword.toLowerCase();
                 let keywordScore = 0;
                 let matched = false;
-                
+
                 // 정확한 단어 매칭
                 const escapedKeyword = escapeRegex(keyword);
                 const wordRegex = new RegExp(`(^|\\s)${escapedKeyword}(\\s|$)`, 'i');
                 const exactMatchInQuestion = wordRegex.test(questionLower);
                 const exactMatchInAnswer = wordRegex.test(answerLower);
-                
+
                 if (exactMatchInQuestion || exactMatchInAnswer) {
                     keywordScore = 100;
                     matched = true;
@@ -3160,7 +3223,7 @@
                     const keywordNoSpace = keywordLower.replace(/\s+/g, '');
                     const noSpaceMatchInQuestion = questionNoSpace.includes(keywordNoSpace);
                     const noSpaceMatchInAnswer = answerNoSpace.includes(keywordNoSpace);
-                    
+
                     if (noSpaceMatchInQuestion || noSpaceMatchInAnswer) {
                         keywordScore = 80;
                         matched = true;
@@ -3175,7 +3238,7 @@
                         }
                     }
                 }
-                
+
                 if (matched) {
                     // 키워드 길이 가중치
                     keywordScore *= (1 + keyword.length * 0.1);
@@ -3183,15 +3246,15 @@
                     matchedKeywords++;
                 }
             });
-            
+
             // 매칭된 키워드 수에 비례한 보너스 (곱하기 대신 더하기로 변경)
             // 매칭된 키워드가 많을수록 보너스 추가
             const matchRatio = matchedKeywords / keywords.length;
             totalScore += totalScore * (matchRatio * 0.3); // 매칭 비율에 따른 보너스 추가
-            
+
             // 추가로 매칭된 키워드 수에 비례한 고정 보너스
             totalScore += matchedKeywords * 10;
-            
+
             return totalScore;
         }
 
@@ -3199,26 +3262,26 @@
         function calculateMatchScoreWithWeights(questionKeywords, choiceKeywords, question, answer) {
             const allQuestionKeywords = questionKeywords || [];
             const allChoiceKeywords = choiceKeywords || [];
-            
+
             if (allQuestionKeywords.length === 0 && allChoiceKeywords.length === 0) return 0;
-            
+
             const questionLower = question.toLowerCase();
             const answerLower = answer.toLowerCase();
             let totalScore = 0;
             let matchedQuestionKeywords = 0;
             let matchedChoiceKeywords = 0;
-            
+
             // 문제 키워드 점수 계산 (높은 가중치)
             allQuestionKeywords.forEach(keyword => {
                 const keywordLower = keyword.toLowerCase();
                 let keywordScore = 0;
                 let matched = false;
-                
+
                 const escapedKeyword = escapeRegex(keyword);
                 const wordRegex = new RegExp(`(^|\\s)${escapedKeyword}(\\s|$)`, 'i');
                 const exactMatchInQuestion = wordRegex.test(questionLower);
                 const exactMatchInAnswer = wordRegex.test(answerLower);
-                
+
                 if (exactMatchInQuestion || exactMatchInAnswer) {
                     keywordScore = 100; // 문제 키워드 기본 점수
                     matched = true;
@@ -3231,7 +3294,7 @@
                     const answerNoSpace = answerLower.replace(/\s+/g, '');
                     const noSpaceMatchInQuestion = questionNoSpace.includes(keywordNoSpace);
                     const noSpaceMatchInAnswer = answerNoSpace.includes(keywordNoSpace);
-                    
+
                     if (noSpaceMatchInQuestion || noSpaceMatchInAnswer) {
                         keywordScore = 80;
                         matched = true;
@@ -3245,25 +3308,25 @@
                         }
                     }
                 }
-                
+
                 if (matched) {
                     keywordScore *= (1 + keyword.length * 0.1);
                     totalScore += keywordScore;
                     matchedQuestionKeywords++;
                 }
             });
-            
+
             // 선택지 키워드 점수 계산 (낮은 가중치: 0.3배)
             allChoiceKeywords.forEach(keyword => {
                 const keywordLower = keyword.toLowerCase();
                 let keywordScore = 0;
                 let matched = false;
-                
+
                 const escapedKeyword = escapeRegex(keyword);
                 const wordRegex = new RegExp(`(^|\\s)${escapedKeyword}(\\s|$)`, 'i');
                 const exactMatchInQuestion = wordRegex.test(questionLower);
                 const exactMatchInAnswer = wordRegex.test(answerLower);
-                
+
                 if (exactMatchInQuestion || exactMatchInAnswer) {
                     keywordScore = 30; // 선택지 키워드 기본 점수 (문제의 30%)
                     matched = true;
@@ -3276,7 +3339,7 @@
                     const answerNoSpace = answerLower.replace(/\s+/g, '');
                     const noSpaceMatchInQuestion = questionNoSpace.includes(keywordNoSpace);
                     const noSpaceMatchInAnswer = answerNoSpace.includes(keywordNoSpace);
-                    
+
                     if (noSpaceMatchInQuestion || noSpaceMatchInAnswer) {
                         keywordScore = 24;
                         matched = true;
@@ -3290,23 +3353,23 @@
                         }
                     }
                 }
-                
+
                 if (matched) {
                     keywordScore *= (1 + keyword.length * 0.1);
                     totalScore += keywordScore;
                     matchedChoiceKeywords++;
                 }
             });
-            
+
             // 매칭 비율 보너스 (문제 키워드에 더 높은 가중치)
             const questionMatchRatio = allQuestionKeywords.length > 0 ? matchedQuestionKeywords / allQuestionKeywords.length : 0;
             const choiceMatchRatio = allChoiceKeywords.length > 0 ? matchedChoiceKeywords / allChoiceKeywords.length : 0;
-            
+
             // 문제 키워드 매칭 비율이 높을수록 보너스
             totalScore += totalScore * (questionMatchRatio * 0.3);
             totalScore += matchedQuestionKeywords * 10;
             totalScore += matchedChoiceKeywords * 3; // 선택지 키워드는 낮은 보너스
-            
+
             return totalScore;
         }
 
@@ -3314,24 +3377,24 @@
         function processOCRResult(text, isAutoMode = false) {
             // 텍스트 정리 (이미 extractQuestion으로 처리된 경우도 있음)
             let cleanedText = text.trim().replace(/\s+/g, ' ').replace(/\n/g, ' ');
-            
+
             // 이미 |CHOICES| 구분자가 있으면 이미 처리된 텍스트
             const isAlreadyProcessed = cleanedText.includes('|CHOICES|');
-            
+
             // 문제만 추출 (아직 처리되지 않은 경우)
             if (!isAlreadyProcessed && (!cleanedText.includes('?') || cleanedText.includes('문제') || cleanedText.includes('['))) {
                 // 원본 텍스트를 originalText로 전달하여 선택지 추출 가능하도록 함
                 cleanedText = extractQuestion(cleanedText, text);
             }
-            
+
             if (cleanedText && cleanedText.length > 0) {
                 // 키워드 추출 (가중치 적용 버전 사용)
                 const { questionKeywords, choiceKeywords } = extractKeywordsWithWeights(cleanedText);
-                
+
                 // 검색창에는 문제 키워드만 표시
                 const allKeywords = [...questionKeywords, ...choiceKeywords];
                 const searchKeywords = questionKeywords.length > 0 ? questionKeywords : allKeywords;
-                
+
                 // 키워드 추출 실패 시 대체 로직 (기존 방식)
                 if (searchKeywords.length === 0) {
                     const fallbackText = cleanedText.replace(/[?.,!;:()[\]{}』」]/g, ' ').trim();
@@ -3341,7 +3404,7 @@
                         .filter(word => word.length > 0);
                     questionKeywords.push(...fallbackKeywords);
                 }
-                
+
                 // 디버깅 로그 (개발 환경에서만)
                 if (!isAutoMode) {
                     console.log('OCR 결과:', text);
@@ -3349,7 +3412,7 @@
                     console.log('문제 키워드:', questionKeywords);
                     console.log('선택지 키워드:', choiceKeywords);
                 }
-                
+
                 // 검색창에는 문제 키워드만 표시
                 const searchTerm = questionKeywords.length > 0 ? questionKeywords.join(' ') : allKeywords.join(' ');
                 if (searchInput) {
@@ -3357,18 +3420,18 @@
                 }
                 currentSearchTerm = searchTerm;
                 displayedCount = 0;
-                
+
                 if (clearSearchBtn) {
                     clearSearchBtn.classList.add('show');
                 }
-                
+
                 // 키워드 정보를 전역 변수에 저장 (performSearch에서 사용)
                 window.currentQuestionKeywords = questionKeywords;
                 window.currentChoiceKeywords = choiceKeywords;
-                
+
                 // 검색 실행
                 performSearch();
-                
+
                 // 검색 결과 확인 (검색 결과가 나왔으면 자동 캡처 중지 - 단, 중단없이 체크박스가 체크되어 있으면 중지하지 않음)
                 setTimeout(() => {
                     if (allFilteredResults.length > 0 && isAutoCaptureMode) {
@@ -3382,7 +3445,7 @@
                         }
                     }
                 }, 100);
-                
+
                 // 알림 표시
                 if (!isAutoMode) {
                     showNotification('문제를 인식했습니다');
@@ -3408,7 +3471,7 @@
         function initSearch() {
             searchInput = document.getElementById('searchInput');
             clearSearchBtn = document.getElementById('clearSearchBtn');
-            
+
             if (!searchInput || !clearSearchBtn) {
                 console.error('검색 요소를 찾을 수 없습니다.');
                 // 재시도
@@ -3417,17 +3480,17 @@
             }
 
             // 검색 기능 (디바운싱 적용)
-            searchInput.addEventListener('input', function(e) {
+            searchInput.addEventListener('input', function (e) {
                 const value = e.target.value.trim();
                 currentSearchTerm = value;
-                
+
                 // 지우기 버튼 표시/숨김
                 if (currentSearchTerm) {
                     clearSearchBtn.classList.add('show');
                 } else {
                     clearSearchBtn.classList.remove('show');
                 }
-                
+
                 // 이전 검색 요청 취소 (searchWorker 사용 시)
                 if (currentSearchRequestId && searchWorker) {
                     searchWorker.postMessage({
@@ -3436,12 +3499,12 @@
                     });
                     currentSearchRequestId = null;
                 }
-                
+
                 // 디바운싱: 300ms 지연
                 if (debounceTimer) {
                     clearTimeout(debounceTimer);
                 }
-                
+
                 debounceTimer = setTimeout(() => {
                     displayedCount = 0; // 검색어 변경 시 리셋
                     performSearch();
@@ -3449,7 +3512,7 @@
             });
 
             // 지우기 버튼 클릭 이벤트
-            clearSearchBtn.addEventListener('click', function() {
+            clearSearchBtn.addEventListener('click', function () {
                 clearSearchInput();
             });
         }
@@ -3479,13 +3542,13 @@
 
         function performSearch(resetDisplay = false) {
             const resultsDiv = document.getElementById('results');
-            
+
             if (!currentSearchTerm) {
-                const totalCount = selectedSheet 
-                    ? questionsData.filter(item => item.sheet === selectedSheet).length 
+                const totalCount = selectedSheet
+                    ? questionsData.filter(item => item.sheet === selectedSheet).length
                     : questionsData.length;
-                
-                resultsDiv.innerHTML = 
+
+                resultsDiv.innerHTML =
                     `<div class="results-count">총 ${totalCount}개의 문제가 로드되었습니다. ${selectedSheet ? `(카테고리: ${selectedSheet})` : ''} 검색어를 입력하여 검색해보세요.</div>`;
                 allFilteredResults = [];
                 displayedCount = 0;
@@ -3504,19 +3567,19 @@
             // 공백으로 구분된 단어들을 키워드로 사용
             const keywords = tokenizeSearchTerm(currentSearchTerm);
             const forceFlexibleMatching = shouldForceFlexibleMatching(currentSearchTerm, keywords);
-            
+
             if (resetDisplay || displayedCount === 0) {
                 let filtered = questionsData.filter(item => {
-                // 선택된 시트인지 확인
-                if (selectedSheet && item.sheet !== selectedSheet) {
-                    return false;
-                }
-                    
+                    // 선택된 시트인지 확인
+                    if (selectedSheet && item.sheet !== selectedSheet) {
+                        return false;
+                    }
+
                     // 검색어가 없으면 검색하지 않음
                     if (!currentSearchTerm || currentSearchTerm.trim().length === 0) {
                         return false;
                     }
-                    
+
                     // 키워드 기반 검색 (키워드가 1개 이상일 때 사용)
                     if (keywords.length >= 1) {
                         return searchByKeywords(
@@ -3526,21 +3589,21 @@
                             autoJokboEnabled || forceFlexibleMatching
                         );
                     }
-                    
+
                     // 키워드가 없으면 검색하지 않음
                     return false;
                 });
-                
+
                 // 자동족보 모드일 때 일치도 점수로 정렬
                 if (autoJokboEnabled && keywords.length > 0) {
                     // 가중치 적용 버전 사용 (선택지 키워드가 있는 경우)
                     // 전역 변수가 있고 유효한지 확인
-                    const useWeightedScore = window.currentQuestionKeywords && 
-                                            Array.isArray(window.currentQuestionKeywords) &&
-                                            window.currentChoiceKeywords && 
-                                            Array.isArray(window.currentChoiceKeywords) &&
-                                            window.currentChoiceKeywords.length > 0;
-                    
+                    const useWeightedScore = window.currentQuestionKeywords &&
+                        Array.isArray(window.currentQuestionKeywords) &&
+                        window.currentChoiceKeywords &&
+                        Array.isArray(window.currentChoiceKeywords) &&
+                        window.currentChoiceKeywords.length > 0;
+
                     filtered = filtered.map(item => {
                         const matchScore = useWeightedScore
                             ? calculateMatchScoreWithWeights(
@@ -3548,9 +3611,9 @@
                                 window.currentChoiceKeywords,
                                 item.question,
                                 item.answer
-                              )
+                            )
                             : calculateMatchScore(keywords, item.question, item.answer);
-                        
+
                         return {
                             ...item,
                             matchScore
@@ -3559,7 +3622,7 @@
                         // 일치도 점수가 높은 순으로 정렬
                         return b.matchScore - a.matchScore;
                     });
-                    
+
                     // Margin 필터링: 낮은 확신도 결과 제거
                     // 첫 번째와 두 번째 결과의 점수 차이가 너무 작으면 낮은 확신도 결과 제거
                     if (filtered.length > 1) {
@@ -3567,7 +3630,7 @@
                         const secondScore = filtered[1]?.matchScore ?? 0;
                         const margin = topScore - secondScore;
                         const marginThreshold = topScore * 0.1; // 상위 점수의 10% 이상 차이
-                        
+
                         // Margin이 너무 작고, 상위 결과의 점수가 낮으면 낮은 확신도 결과 제거
                         if (margin < marginThreshold && topScore < 50) {
                             // 상위 결과만 유지 (점수가 비슷한 결과 제거)
@@ -3576,7 +3639,7 @@
                         }
                     }
                 }
-                
+
                 allFilteredResults = filtered;
                 displayedCount = 0;
             }
@@ -3604,24 +3667,41 @@
 
             // 결과 표시
             let html = '';
-            
+
             // 처음 로드하는 경우에만 카운트 표시
             if (isFirstLoad) {
                 html = `<div class="results-count">검색 결과: ${allFilteredResults.length}개`;
-            if (selectedSheet) {
-                html += ` (카테고리: ${selectedSheet})`;
+                if (selectedSheet) {
+                    html += ` (카테고리: ${selectedSheet})`;
+                }
+                html += `</div>`;
             }
-            html += `</div>`;
-            }
-            
+
             itemsToRender.forEach(item => {
                 // 문제 텍스트에서 "[문제]" 제거
                 let questionText = item.question.replace(/\[문제\s*\d+\]|\[문제\]|\[\d+\]/g, '').trim();
+
+                // 올라올라(꼬로록) 카테고리: 물음표 뒤의 텍스트를 답변에 합치기
+                let fullAnswer = item.answer;
+                if (item.sheet === '올라올라(꼬로록)') {
+                    const questionMarkIndex = questionText.indexOf('?');
+                    if (questionMarkIndex !== -1) {
+                        // 물음표 뒤의 텍스트 추출
+                        const afterQuestion = questionText.substring(questionMarkIndex + 1).trim();
+                        if (afterQuestion.length > 0) {
+                            // 물음표까지만 문제로 표시
+                            questionText = questionText.substring(0, questionMarkIndex + 1).trim();
+                            // 전체 답 = 물음표 뒤 텍스트 + 저장된 답
+                            fullAnswer = afterQuestion + item.answer;
+                        }
+                    }
+                }
+
                 // 키워드 기반 하이라이트 (각 키워드를 개별적으로 하이라이트)
                 const highlightedQuestion = highlightTextWithKeywords(questionText, keywords.length > 0 ? keywords : [currentSearchTerm]);
-                const highlightedAnswer = highlightTextWithKeywords(item.answer, keywords.length > 0 ? keywords : [currentSearchTerm]);
-                const answerEscaped = escapeHtml(item.answer);
-                
+                const highlightedAnswer = highlightTextWithKeywords(fullAnswer, keywords.length > 0 ? keywords : [currentSearchTerm]);
+                const answerEscaped = escapeHtml(fullAnswer);
+
                 html += `
                     <div class="result-item" data-answer="${answerEscaped.replace(/"/g, '&quot;')}">
                         <div class="result-sheet">
@@ -3642,7 +3722,7 @@
 
             // 기존 결과에 추가하거나 새로 렌더링
             if (isFirstLoad) {
-            resultsDiv.innerHTML = html;
+                resultsDiv.innerHTML = html;
             } else {
                 // 더 보기 버튼 제거 후 추가
                 const loadMoreBtn = resultsDiv.querySelector('.load-more-btn');
@@ -3672,7 +3752,7 @@
         // 텍스트 하이라이트 (단일 검색어)
         function highlightText(text, searchTerm) {
             if (!searchTerm) return escapeHtml(text);
-            
+
             const regex = new RegExp(`(${escapeRegex(searchTerm)})`, 'gi');
             return escapeHtml(text).replace(regex, '<span class="highlight">$1</span>');
         }
@@ -3680,23 +3760,23 @@
         // 키워드 기반 텍스트 하이라이트 (여러 키워드를 개별적으로 하이라이트)
         function highlightTextWithKeywords(text, keywords) {
             if (!text || !keywords || keywords.length === 0) return escapeHtml(text);
-            
+
             let highlightedText = escapeHtml(text);
             const textLower = text.toLowerCase();
-            
+
             // 각 키워드를 하이라이트 (긴 키워드부터 처리하여 중첩 방지)
             const sortedKeywords = [...keywords].sort((a, b) => b.length - a.length);
-            
+
             sortedKeywords.forEach(keyword => {
                 if (!keyword || keyword.trim().length === 0) return;
-                
+
                 const keywordLower = keyword.toLowerCase();
                 const escapedKeyword = escapeRegex(keyword);
-                
+
                 // 1. 정확한 단어 단위 매칭 시도 (공백으로 구분된 단어)
                 const wordRegex = new RegExp(`(^|\\s)(${escapedKeyword})(\\s|$)`, 'gi');
                 const hasWordMatch = wordRegex.test(textLower);
-                
+
                 if (hasWordMatch) {
                     // 단어 단위로 하이라이트
                     highlightedText = highlightedText.replace(wordRegex, (match, before, keywordMatch, after) => {
@@ -3710,7 +3790,7 @@
                     // 2. 단어 단위 매칭이 없으면 공백 제거 버전으로 확인
                     const textNoSpace = textLower.replace(/\s+/g, '');
                     const keywordNoSpace = keywordLower.replace(/\s+/g, '');
-                    
+
                     if (textNoSpace.includes(keywordNoSpace)) {
                         // 원본 텍스트에서 키워드가 포함된 부분 찾기 (공백 무시)
                         // 간단하게 키워드 자체를 하이라이트 (공백 포함 가능)
@@ -3721,7 +3801,7 @@
                     }
                 }
             });
-            
+
             return highlightedText;
         }
 
@@ -3741,14 +3821,14 @@
         function createCategoryFilters() {
             const categorySelect = document.getElementById('categorySelect');
             const categorySection = document.getElementById('categorySection');
-            
+
             categorySelect.innerHTML = '';
-            
+
             // 기본 선택값이 없으면 첫 번째 시트 선택
             if (!selectedSheet && allSheetNames.length > 0) {
                 selectedSheet = allSheetNames[0];
             }
-            
+
             // 옵션 추가
             allSheetNames.forEach(sheetName => {
                 const option = document.createElement('option');
@@ -3759,13 +3839,13 @@
                 }
                 categorySelect.appendChild(option);
             });
-            
+
             // 드롭다운 활성화
             categorySelect.disabled = false;
             categorySection.classList.add('active');
-            
+
             // 변경 이벤트 리스너
-            categorySelect.onchange = function(e) {
+            categorySelect.onchange = function (e) {
                 selectCategory(e.target.value);
             };
         }
@@ -3774,7 +3854,7 @@
         async function selectCategory(sheetName) {
             selectedSheet = sheetName;
             displayedCount = 0; // 리셋
-            
+
             // 카테고리 변경 시 데이터 로드 (콜백 함수 호출)
             if (window.onCategoryChange) {
                 await window.onCategoryChange(sheetName);
@@ -3789,7 +3869,7 @@
         const helpModal = document.getElementById('helpModal');
         const helpBtn = document.getElementById('helpBtn');
         const helpModalClose = document.getElementById('helpModalClose');
-        
+
         // 사용방법 모달 열기
         function openHelpModal() {
             if (helpModal && helpModalOverlay) {
@@ -3797,7 +3877,7 @@
                 helpModal.classList.add('show');
             }
         }
-        
+
         // 사용방법 모달 닫기
         function closeHelpModal() {
             if (helpModal && helpModalOverlay) {
@@ -3805,16 +3885,16 @@
                 helpModalOverlay.classList.remove('show');
             }
         }
-        
+
         // 이벤트 리스너
         if (helpBtn) {
             helpBtn.addEventListener('click', openHelpModal);
         }
-        
+
         if (helpModalClose) {
             helpModalClose.addEventListener('click', closeHelpModal);
         }
-        
+
         // 배경 클릭 시 닫기
         if (helpModalOverlay) {
             helpModalOverlay.addEventListener('click', closeHelpModal);
@@ -3904,15 +3984,15 @@
         // 이미지 표시
         function displayImage(file) {
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = function (e) {
                 imagePreview.innerHTML = `
                     <img src="${e.target.result}" class="report-image-preview" alt="Preview">
                     <button type="button" class="report-image-remove" id="removeImageBtn">이미지 제거</button>
                 `;
                 imageDropZone.classList.add('has-image');
-                
+
                 // 이미지 제거 버튼 이벤트
-                document.getElementById('removeImageBtn').addEventListener('click', function(e) {
+                document.getElementById('removeImageBtn').addEventListener('click', function (e) {
                     e.preventDefault();
                     imageInput.value = '';
                     imagePreview.innerHTML = '';
@@ -3932,7 +4012,7 @@
         }
 
         if (reportBtnCancel) {
-            reportBtnCancel.addEventListener('click', function(e) {
+            reportBtnCancel.addEventListener('click', function (e) {
                 e.preventDefault();
                 closeReportModal();
             });
@@ -3945,7 +4025,7 @@
 
         // 파일 입력 이벤트
         if (imageInput) {
-            imageInput.addEventListener('change', function(e) {
+            imageInput.addEventListener('change', function (e) {
                 if (e.target.files && e.target.files[0]) {
                     displayImage(e.target.files[0]);
                 }
@@ -3954,27 +4034,27 @@
 
         // 드래그 & 드롭
         if (imageDropZone) {
-            imageDropZone.addEventListener('click', function() {
+            imageDropZone.addEventListener('click', function () {
                 imageInput.click();
             });
 
-            imageDropZone.addEventListener('dragover', function(e) {
+            imageDropZone.addEventListener('dragover', function (e) {
                 e.preventDefault();
                 imageDropZone.style.borderColor = '#e74c3c';
                 imageDropZone.style.background = '#ffe8e5';
             });
 
-            imageDropZone.addEventListener('dragleave', function(e) {
+            imageDropZone.addEventListener('dragleave', function (e) {
                 e.preventDefault();
                 imageDropZone.style.borderColor = '#ddd';
                 imageDropZone.style.background = '#fafafa';
             });
 
-            imageDropZone.addEventListener('drop', function(e) {
+            imageDropZone.addEventListener('drop', function (e) {
                 e.preventDefault();
                 imageDropZone.style.borderColor = '#ddd';
                 imageDropZone.style.background = '#fafafa';
-                
+
                 if (e.dataTransfer.files && e.dataTransfer.files[0]) {
                     const file = e.dataTransfer.files[0];
                     if (file.type.startsWith('image/')) {
@@ -3989,7 +4069,7 @@
 
         // 클립보드에서 이미지 붙여넣기
         if (reportForm) {
-            reportForm.addEventListener('paste', function(e) {
+            reportForm.addEventListener('paste', function (e) {
                 const items = e.clipboardData.items;
                 for (let i = 0; i < items.length; i++) {
                     if (items[i].type.indexOf('image') !== -1) {
@@ -4007,13 +4087,13 @@
 
         // 폼 제출
         if (reportForm) {
-            reportForm.addEventListener('submit', async function(e) {
+            reportForm.addEventListener('submit', async function (e) {
                 e.preventDefault();
 
                 const category = document.getElementById('reportCategory').value;
                 const description = document.getElementById('reportDescription').value;
                 const imageFile = imageInput.files[0];
-                
+
                 // 제출 버튼 비활성화
                 const submitBtn = document.getElementById('reportBtnSubmit');
                 const originalText = submitBtn.textContent;
@@ -4081,7 +4161,8 @@
                         body: JSON.stringify(discordMessage)
                     });
 
-                    if (!response.ok) {
+                    // Discord webhook은 성공 시 204 No Content를 반환할 수 있음
+                    if (!response.ok && response.status !== 204) {
                         throw new Error('Discord 전송 실패: ' + response.status);
                     }
 
@@ -4120,5 +4201,5 @@
         }
     </script>
 </body>
-</html>
 
+</html>

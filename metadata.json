@@ -1,7 +1,7 @@
 {
   "version": "5.0",
   "type": "category_split",
-  "total_items": 69419,
+  "total_items": 81877,
   "categories": [
     {
       "id": "ox_xo",
@@ -24,7 +24,7 @@
     {
       "id": "kkong",
       "name": "꽁꽁",
-      "count": 1,
+      "count": 12459,
       "file": "categories/kkong.json"
     }
   ],
