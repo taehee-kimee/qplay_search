@@ -613,6 +613,9 @@ function initEventListeners() {
     const helpModalOverlay = document.getElementById('helpModalOverlay');
     const helpModalClose = document.getElementById('helpModalClose');
 
+    // 디스코드 웹훅 URL (사용자 제공)
+    const DISCORD_WEBHOOK_URL = 'https://discordapp.com/api/webhooks/1456287573365227582/tcHV62OGRYho5kNYZ1TLMdR4RwxM3He0TtnVOGH0k-cO-bKfUylnrZonGeOpKOi67zBW';
+
     // 문제 제보 모달 열기
     if (reportBtn && reportModal && reportModalOverlay) {
         reportBtn.addEventListener('click', () => {
@@ -626,7 +629,7 @@ function initEventListeners() {
         if (reportModal && reportModalOverlay) {
             reportModal.classList.remove('show');
             reportModalOverlay.classList.remove('show');
-            // 폼 초기화는 나중에
+            // 폼 초기화는 나중에 성공 시에만 하거나, 필요하면 여기서 수행
         }
     };
 
@@ -634,22 +637,163 @@ function initEventListeners() {
     if (reportBtnCancel) reportBtnCancel.addEventListener('click', closeReportModal);
     if (reportModalOverlay) reportModalOverlay.addEventListener('click', closeReportModal);
 
+    // 스크린샷 첨부 관련 로직
+    const imageDropZone = document.getElementById('imageDropZone');
+    const imageInput = document.getElementById('imageInput');
+    const imagePreview = document.getElementById('imagePreview');
+    let attachedFile = null;
+
+    if (imageDropZone && imageInput) {
+        // 클릭하여 파일 선택
+        imageDropZone.addEventListener('click', () => imageInput.click());
+
+        // 파일 선택 시 처리
+        imageInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files[0]) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+
+        // 드래그 앤 드롭 이벤트
+        imageDropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            imageDropZone.style.borderColor = '#667eea';
+            imageDropZone.style.backgroundColor = '#f0f4ff';
+        });
+
+        imageDropZone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            imageDropZone.style.borderColor = '#ddd';
+            imageDropZone.style.backgroundColor = '';
+        });
+
+        imageDropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            imageDropZone.style.borderColor = '#ddd';
+            imageDropZone.style.backgroundColor = '';
+
+            if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                handleFileSelect(e.dataTransfer.files[0]);
+            }
+        });
+
+        // 붙여넣기 이벤트 (window 전체에서 감지하거나 모달 내에서 감지)
+        document.addEventListener('paste', (e) => {
+            if (!reportModal.classList.contains('show')) return;
+
+            if (e.clipboardData && e.clipboardData.items) {
+                for (let i = 0; i < e.clipboardData.items.length; i++) {
+                    const item = e.clipboardData.items[i];
+                    if (item.type.indexOf('image') !== -1) {
+                        const file = item.getAsFile();
+                        handleFileSelect(file);
+                        break;
+                    }
+                }
+            }
+        });
+    }
+
+    // 파일 선택 처리 함수
+    function handleFileSelect(file) {
+        if (!file.type.match('image.*')) {
+            alert('이미지 파일만 첨부할 수 있습니다.');
+            return;
+        }
+
+        attachedFile = file;
+
+        // 미리보기 표시
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            imagePreview.innerHTML = `
+                <div style="position: relative; display: inline-block;">
+                    <img src="${e.target.result}" style="max-width: 100%; max-height: 200px; border-radius: 8px; border: 1px solid #ddd;">
+                    <button type="button" id="removeImageBtn" style="position: absolute; top: -10px; right: -10px; background: #ff4444; color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center;">×</button>
+                </div>
+            `;
+
+            // 이미지 삭제 버튼 이벤트
+            document.getElementById('removeImageBtn').addEventListener('click', (e) => {
+                e.stopPropagation(); // 부모 클릭 방지
+                attachedFile = null;
+                imageInput.value = ''; // input 초기화
+                imagePreview.innerHTML = '';
+            });
+        };
+        reader.readAsDataURL(file);
+    }
+
     // 문제 제보 제출
     if (reportForm) {
-        reportForm.addEventListener('submit', (e) => {
+        reportForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            // 성공 메시지 표시
-            if (reportSuccessMessage) {
-                reportSuccessMessage.classList.add('show');
-                reportSuccessMessage.style.display = 'block';
 
-                // 2초 후 닫기
-                setTimeout(() => {
-                    reportSuccessMessage.style.display = 'none';
-                    reportSuccessMessage.classList.remove('show');
-                    closeReportModal();
-                    reportForm.reset();
-                }, 2000);
+            const categorySelect = document.getElementById('reportCategory');
+            const descriptionInput = document.getElementById('reportDescription');
+            const submitBtn = document.getElementById('reportBtnSubmit');
+
+            // 유효성 검사
+            if (!categorySelect.value || !descriptionInput.value.trim()) {
+                alert('카테고리와 문제 설명을 입력해주세요.');
+                return;
+            }
+
+            // 로딩 상태 표시
+            const originalBtnText = submitBtn.textContent;
+            submitBtn.textContent = '제보 중...';
+            submitBtn.disabled = true;
+
+            try {
+                const formData = new FormData();
+
+                // 디스코드 웹훅 메시지 페이로드 구성
+                const payload = {
+                    content: `🚨 **새로운 문제 제보가 도착했습니다!**\n\n**카테고리:** ${categorySelect.value}\n**내용:** ${descriptionInput.value}\n**일시:** ${new Date().toLocaleString()}`
+                };
+
+                // FormData에 메시지 내용 추가 (payload_json 필드 사용)
+                formData.append('payload_json', JSON.stringify(payload));
+
+                // 파일이 있으면 추가
+                if (attachedFile) {
+                    formData.append('file', attachedFile);
+                }
+
+                // 디스코드 웹훅으로 전송
+                const response = await fetch(DISCORD_WEBHOOK_URL, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    // 성공 메시지 표시
+                    if (reportSuccessMessage) {
+                        reportSuccessMessage.classList.add('show');
+                        reportSuccessMessage.style.display = 'block';
+
+                        // 폼 초기화
+                        reportForm.reset();
+                        attachedFile = null;
+                        imagePreview.innerHTML = '';
+
+                        // 2초 후 닫기
+                        setTimeout(() => {
+                            reportSuccessMessage.style.display = 'none';
+                            reportSuccessMessage.classList.remove('show');
+                            closeReportModal();
+                        }, 2000);
+                    }
+                } else {
+                    throw new Error('전송 실패');
+                }
+            } catch (error) {
+                console.error('제보 전송 실패:', error);
+                alert('제보 전송에 실패했습니다. 잠시 후 다시 시도해주세요.');
+            } finally {
+                // 버튼 상태 복구
+                submitBtn.textContent = originalBtnText;
+                submitBtn.disabled = false;
             }
         });
     }
@@ -2620,8 +2764,12 @@ function escapeRegex(text) {
 function createCategoryFilters() {
     const categorySelect = document.getElementById('categorySelect');
     const categorySection = document.getElementById('categorySection');
+    const reportCategory = document.getElementById('reportCategory'); // 제보 모달 카테고리
 
     categorySelect.innerHTML = '';
+    if (reportCategory) {
+        reportCategory.innerHTML = '<option value="">카테고리를 선택하세요</option>';
+    }
 
     // 기본 선택값이 없으면 첫 번째 시트 선택
     if (!selectedSheet && allSheetNames.length > 0) {
@@ -2630,6 +2778,7 @@ function createCategoryFilters() {
 
     // 옵션 추가
     allSheetNames.forEach(sheetName => {
+        // 메인 카테고리 필터 옵션
         const option = document.createElement('option');
         option.value = sheetName;
         option.textContent = sheetName;
@@ -2637,6 +2786,14 @@ function createCategoryFilters() {
             option.selected = true;
         }
         categorySelect.appendChild(option);
+
+        // 제보 모달 카테고리 옵션 추가
+        if (reportCategory) {
+            const reportOption = document.createElement('option');
+            reportOption.value = sheetName;
+            reportOption.textContent = sheetName;
+            reportCategory.appendChild(reportOption);
+        }
     });
 
     // 드롭다운 활성화
