@@ -2,7 +2,7 @@
   "metadata": {
     "category_id": "kkong",
     "category_name": "꽁꽁",
-    "count": 12459,
+    "count": 12461,
     "source": "kkong.md.txt"
   },
   "data": [
@@ -74759,6 +74759,18 @@
       "answer": "안견",
       "index": 12545,
       "sheet": "꽁꽁"
+    },
+    {
+      "question": "음속 또는 초음속으로 비행하는 비행기가 공기를 밀어내 만들어지는 충격파로 인해 굉음이 들리는 현상은 무엇인가?",
+      "answer": "소닉붐",
+      "sheet": "꽁꽁",
+      "index": 12546
+    },
+    {
+      "question": "1910년대 임병찬이 조직한 복벽주의를 지향한 단체의 명칭은?",
+      "answer": "독립의군부",
+      "sheet": "꽁꽁",
+      "index": 12547
     }
   ]
 }

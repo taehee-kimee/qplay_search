@@ -2,7 +2,7 @@
   "metadata": {
     "category_id": "ollaolla",
     "category_name": "올라올라(꼬로록)",
-    "count": 21703,
+    "count": 21720,
     "source": "data.json"
   },
   "data": [
@@ -130223,6 +130223,108 @@
       "answer": "망토-",
       "index": 21703,
       "sheet": "올라올라(꼬로록)"
+    },
+    {
+      "question": "인간의 ABO식 혈액형을 발견한 사람은?",
+      "answer": "카를 란트슈타이너",
+      "index": 21704,
+      "sheet": "올라올라(꼬로록)"
+    },
+    {
+      "question": "백가지 과일이 죽기 직전을 다른 말로하면?",
+      "answer": "백과사전",
+      "index": 21705,
+      "sheet": "올라올라(꼬로록)"
+    },
+    {
+      "question": "다음 중 걸스데이의 히트곡은 무엇일까요?",
+      "answer": "Something",
+      "index": 21706,
+      "sheet": "올라올라(꼬로록)"
+    },
+    {
+      "question": "다음은 \"한글맞춤법\" 에 관한 문제입니다. 다음 중 올바른 외래어표기법은?",
+      "answer": "레인보우",
+      "index": 21707,
+      "sheet": "올라올라(꼬로록)"
+    },
+    {
+      "question": "고양이가 가장 좋아하는 소리는?",
+      "answer": "캔 따는 소리",
+      "index": 21708,
+      "sheet": "올라올라(꼬로록)"
+    },
+    {
+      "question": "The board members agreed that the decline in sales could partly be attributed__inconsistent branding across regions.",
+      "answer": "to",
+      "index": 21709,
+      "sheet": "올라올라(꼬로록)"
+    },
+    {
+      "question": "누리호 개발의 주관 기관은 어디인가?",
+      "answer": "한국항공우주연구원",
+      "index": 21710,
+      "sheet": "올라올라(꼬로록)"
+    },
+    {
+      "question": "사이클 경기의 경기장을 무엇이라 하는가?",
+      "answer": "벨로드롬",
+      "index": 21711,
+      "sheet": "올라올라(꼬로록)"
+    },
+    {
+      "question": "다음 중 2025년 성수동 팝업스토어와 관련된 장소로 올바르게 연결된 것은?",
+      "answer": "토로토로 성수점",
+      "sheet": "올라올라(꼬로록)",
+      "index": 21712
+    },
+    {
+      "question": "인간의 ABO식 혈액형을 발견한 사람은?",
+      "answer": "카를 란트슈타이너",
+      "sheet": "올라올라(꼬로록)",
+      "index": 21713
+    },
+    {
+      "question": "백가지 과일이 죽기 직전을 다른 말로하면?",
+      "answer": "백과사전",
+      "sheet": "올라올라(꼬로록)",
+      "index": 21714
+    },
+    {
+      "question": "다음 중 걸스데이의 히트곡은 무엇일까요?",
+      "answer": "Something",
+      "sheet": "올라올라(꼬로록)",
+      "index": 21715
+    },
+    {
+      "question": "다음은 \"한글맞춤법\" 에 관한 문제입니다. 다음 중 올바른 외래어표기법은?",
+      "answer": "레인보우",
+      "sheet": "올라올라(꼬로록)",
+      "index": 21716
+    },
+    {
+      "question": "고양이가 가장 좋아하는 소리는?",
+      "answer": "캔 따는 소리",
+      "sheet": "올라올라(꼬로록)",
+      "index": 21717
+    },
+    {
+      "question": "The board members agreed that the decline in sales could partly be attributed__inconsistent branding across regions. ",
+      "answer": "to",
+      "sheet": "올라올라(꼬로록)",
+      "index": 21718
+    },
+    {
+      "question": "누리호 개발의 주관 기관은 어디인가?",
+      "answer": "한국항공우주연구원",
+      "sheet": "올라올라(꼬로록)",
+      "index": 21719
+    },
+    {
+      "question": "사이클 경기의 경기장을 무엇이라 하는가?",
+      "answer": "벨로드롬",
+      "sheet": "올라올라(꼬로록)",
+      "index": 21720
     }
   ]
 }
