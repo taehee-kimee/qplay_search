@@ -2621,12 +2621,16 @@ function performSearch(resetDisplay = false) {
     }
 
     itemsToRender.forEach(item => {
-        // 문제 텍스트에서 "[문제]" 제거
-        let questionText = item.question.replace(/\[문제\s*\d+\]|\[문제\]|\[\d+\]/g, '').trim();
+        // 문제 텍스트에서 불필요한 문구 제거
+        let questionText = item.question
+            .replace(/\[문제\s*\d+\]|\[문제\]|\[\d+\]/g, '') // [문제], [문제 1], [1] 등 제거
+            .replace(/일반\s*상식(에\s*관한\s*)?(문제입니다|문제이다)\.?\s*/gi, '') // 일반 상식 관련 문구 제거
+            .trim();
 
-        // 올라올라(꼬로록) 카테고리: 물음표 뒤의 텍스트를 답변에 합치기
+        // 특정 카테고리: 물음표 뒤의 텍스트를 답변에 합치기
         let fullAnswer = item.answer;
-        if (item.sheet === '올라올라(꼬로록)') {
+        const categoriesToProcess = ['올라올라(꼬로록)', '꽁꽁', 'ox,xo', '가로세로'];
+        if (categoriesToProcess.includes(item.sheet)) {
             const questionMarkIndex = questionText.indexOf('?');
             if (questionMarkIndex !== -1) {
                 // 물음표 뒤의 텍스트 추출
