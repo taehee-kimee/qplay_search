@@ -749,15 +749,18 @@ function initEventListeners() {
 
                 // 디스코드 웹훅 메시지 페이로드 구성
                 const payload = {
+                    username: 'Qplay 문제 제보',
                     content: `🚨 **새로운 문제 제보가 도착했습니다!**\n\n**카테고리:** ${categorySelect.value}\n**내용:** ${descriptionInput.value}\n**일시:** ${new Date().toLocaleString()}`
                 };
 
                 // FormData에 메시지 내용 추가 (payload_json 필드 사용)
                 formData.append('payload_json', JSON.stringify(payload));
 
-                // 파일이 있으면 추가
+                // 파일이 있으면 추가 (파일명을 명시적으로 설정)
                 if (attachedFile) {
-                    formData.append('file', attachedFile);
+                    // 파일명이 없는 경우 기본 파일명 설정
+                    const fileName = attachedFile.name || `screenshot_${Date.now()}.png`;
+                    formData.append('file', attachedFile, fileName);
                 }
 
                 // 디스코드 웹훅으로 전송
