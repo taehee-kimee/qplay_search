@@ -16,6 +16,14 @@ const FEATURES = {
 
 window.QPLAY_FEATURES = FEATURES;
 
+// 디버그 모드 (URL 파라미터 ?debug=1 또는 localStorage에 qplay:debug=1 설정)
+window.QPLAY_DEBUG = params.get('debug') === '1' || storage?.getItem('qplay:debug') === '1' || false;
+
+if (window.QPLAY_DEBUG) {
+    console.log('🔍 Qplay 디버그 모드 활성화');
+    console.log('디버그 모드를 비활성화하려면: localStorage.removeItem("qplay:debug")');
+}
+
 // Workers 초기화 (기본적으로 비활성화, 필요시 활성화)
 let ocrWorker = null;
 let searchWorker = null;
@@ -2061,45 +2069,70 @@ function searchByKeywords(keywords, question, answer, isJokboMode = false) {
     if (isJokboMode) {
         // 자동족보 모드: 키워드 중 일부만 포함되어도 검색 (OR 조건)
         // 또는 키워드의 일부만 매칭되어도 검색
-        return keywords.some(keyword => {
+        const result = keywords.some(keyword => {
             const keywordLower = keyword.toLowerCase();
+            let matched = false;
+            let matchType = '';
 
             // 1. 정확한 단어 매칭
             const escapedKeyword = escapeRegex(keyword);
-            const wordRegex = new RegExp(`(^|\\s)${escapedKeyword}(\\s|$)`, 'i');
+            const wordRegex = new RegExp(`(^|\\s)${escapedKeyword}(\\s|[?!.,;]|$)`, 'i');
             if (wordRegex.test(questionLower) || wordRegex.test(answerLower)) {
-                return true;
+                matched = true;
+                matchType = '정확한 단어 매칭';
             }
 
             // 2. 공백 제거 버전으로 확인
-            const questionNoSpace = questionLower.replace(/\s+/g, '');
-            const answerNoSpace = answerLower.replace(/\s+/g, '');
-            const keywordNoSpace = keywordLower.replace(/\s+/g, '');
-            if (questionNoSpace.includes(keywordNoSpace) || answerNoSpace.includes(keywordNoSpace)) {
-                return true;
+            if (!matched) {
+                const questionNoSpace = questionLower.replace(/\s+/g, '');
+                const answerNoSpace = answerLower.replace(/\s+/g, '');
+                const keywordNoSpace = keywordLower.replace(/\s+/g, '');
+                if (questionNoSpace.includes(keywordNoSpace) || answerNoSpace.includes(keywordNoSpace)) {
+                    matched = true;
+                    matchType = '공백 제거 매칭';
+                }
             }
 
             // 3. 부분 문자열 매칭 (키워드의 일부만 포함되어도 검색)
             // 키워드가 3글자 이상이면 2글자 이상 포함되어도 검색
-            if (keyword.length >= 3) {
+            if (!matched && keyword.length >= 3) {
                 const minLength = Math.max(2, Math.floor(keyword.length * 0.5)); // 최소 50% 이상
                 for (let i = 0; i <= keyword.length - minLength; i++) {
                     const substring = keyword.substring(i, i + minLength);
                     if (questionLower.includes(substring) || answerLower.includes(substring)) {
-                        return true;
+                        matched = true;
+                        matchType = '부분 문자열 매칭';
+                        break;
                     }
                 }
             }
 
             // 4. 키워드가 2글자 이상이면 직접 포함 여부 확인
-            if (keyword.length >= 2) {
+            if (!matched && keyword.length >= 2) {
                 if (questionLower.includes(keywordLower) || answerLower.includes(keywordLower)) {
-                    return true;
+                    matched = true;
+                    matchType = '직접 포함 매칭';
                 }
             }
 
-            return false;
+            // 디버깅 로그 (자동족보 모드에서만)
+            if (window.QPLAY_DEBUG) {
+                console.log(`[검색 디버그] 키워드: "${keyword}" | 매칭: ${matched ? '✅' : '❌'} | 방식: ${matchType || '매칭 실패'}`);
+                if (!matched) {
+                    console.log(`  - 문제: "${question.substring(0, 50)}..."`);
+                    console.log(`  - 답: "${answer}"`);
+                }
+            }
+
+            return matched;
         });
+
+        // 전체 결과 로그
+        if (window.QPLAY_DEBUG && result) {
+            console.log(`[검색 디버그] ✅ 최종 매칭 성공 | 문제: "${question.substring(0, 50)}..."`);
+        }
+
+        return result;
     } else {
         // 기존 로직: 모든 키워드가 포함되어야 함 (AND 조건)
         return keywords.every(keyword => {
