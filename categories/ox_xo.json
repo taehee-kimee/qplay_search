@@ -141053,6 +141053,12 @@
       "answer": "O",
       "index": 23649,
       "sheet": "ox,xo"
+    },
+        {
+      "question": "흰개미는 개미가 아니다?",
+      "answer": "O",
+      "index": 23649,
+      "sheet": "ox,xo"
     }
   ]
 }
