@@ -332,8 +332,56 @@ function processExcelFile(fileData) {
 // 로드된 카테고리 데이터 캐시
 let loadedCategories = {};
 
+// CSV 파일 파싱 함수
+function parseCSV(csvText, sheetName) {
+    const lines = csvText.split('\n');
+    const data = [];
+
+    lines.forEach((line, index) => {
+        if (!line.trim()) return; // 빈 줄 건너뛰기
+        if (index === 0 && (line.includes('Question') || line.includes('질문'))) return; // 헤더 건너뛰기
+
+        // 탭으로 구분된 형식 (TSV) 먼저 확인
+        if (line.includes('\t')) {
+            const parts = line.split('\t');
+            if (parts.length >= 2) {
+                const question = parts[0].trim();
+                const answer = parts[1].trim();
+
+                if (question && answer) {
+                    data.push({
+                        question: question,
+                        answer: answer,
+                        index: index + 1,
+                        sheet: sheetName || '꽁꽁'
+                    });
+                }
+                return;
+            }
+        }
+
+        // "질문? 답" 형식으로 파싱 (기존 로직)
+        const questionMarkIndex = line.lastIndexOf('?');
+        if (questionMarkIndex === -1) return; // ? 가 없으면 건너뛰기
+
+        const question = line.substring(0, questionMarkIndex + 1).trim();
+        const answer = line.substring(questionMarkIndex + 1).trim();
+
+        if (question && answer) {
+            data.push({
+                question: question,
+                answer: answer,
+                index: index + 1,
+                sheet: sheetName || '올라올라(꼬로록)'
+            });
+        }
+    });
+
+    return data;
+}
+
 // 카테고리 데이터 로드 (지연 로딩)
-async function loadCategoryData(categoryId) {
+async function loadCategoryData(categoryId, categoryName, fileExtension) {
     // 이미 로드된 경우 캐시에서 반환
     if (loadedCategories[categoryId]) {
         console.log(`✅ 캐시에서 ${categoryId} 로드`);
@@ -342,14 +390,30 @@ async function loadCategoryData(categoryId) {
 
     try {
         console.log(`📥 ${categoryId} 로드 중...`);
-        const response = await fetch(`categories/${categoryId}.json`);
+
+        // 파일 확장자 확인 (기본값은 .json)
+        const extension = fileExtension || 'json';
+        const response = await fetch(`categories/${categoryId}.${extension}`);
+
         if (!response.ok) {
-            throw new Error(`${categoryId}.json을 찾을 수 없습니다.`);
+            throw new Error(`${categoryId}.${extension}를 찾을 수 없습니다.`);
         }
-        const data = await response.json();
-        loadedCategories[categoryId] = data.data;
-        console.log(`✅ ${categoryId} 로드 완료: ${data.data.length}개`);
-        return data.data;
+
+        let parsedData;
+        if (extension === 'csv') {
+            // CSV 파일 파싱
+            const csvText = await response.text();
+            parsedData = parseCSV(csvText, categoryName || categoryId);
+            console.log(`✅ ${categoryId}.csv 로드 완료: ${parsedData.length}개`);
+        } else {
+            // JSON 파일 파싱
+            const jsonData = await response.json();
+            parsedData = jsonData;
+            console.log(`✅ ${categoryId}.json 로드 완료: ${parsedData.length}개`);
+        }
+
+        loadedCategories[categoryId] = parsedData;
+        return parsedData;
     } catch (error) {
         console.error(`❌ ${categoryId} 로드 실패:`, error);
         throw error;
@@ -380,7 +444,8 @@ async function loadDefaultData() {
         if (selectedSheet) {
             const categoryObj = metadata.categories.find(cat => cat.name === selectedSheet);
             if (categoryObj) {
-                const categoryData = await loadCategoryData(categoryObj.id);
+                const fileExtension = categoryObj.file.split('.').pop(); // 파일 확장자 추출
+                const categoryData = await loadCategoryData(categoryObj.id, categoryObj.name, fileExtension);
                 questionsData = categoryData;
                 window.questionsData = questionsData;
             }
@@ -415,7 +480,8 @@ async function loadDefaultData() {
             if (categoryObj) {
                 try {
                     document.getElementById('results').innerHTML = `<div class="loading">${categoryName} 데이터를 로드하는 중...</div>`;
-                    const categoryData = await loadCategoryData(categoryObj.id);
+                    const fileExtension = categoryObj.file.split('.').pop(); // 파일 확장자 추출
+                    const categoryData = await loadCategoryData(categoryObj.id, categoryObj.name, fileExtension);
                     questionsData = categoryData;
                     window.questionsData = questionsData;
 
