@@ -2209,10 +2209,12 @@ function searchByKeywords(keywords, question, answer, isJokboMode = false) {
 
             // 정확한 단어 매칭이 실패했을 때, 공백 제거 버전으로도 확인
             // 예: '근로자가연' 입력 시 '근로자가 연간'에서 공백 제거 후 '근로자가연간'과 비교
+            // 또는 'a>b' 검색 시 'a> b'를 찾을 수 있도록 키워드에서도 공백 제거
             if (!exactMatch) {
                 const questionNoSpace = questionLower.replace(/\s+/g, '');
                 const answerNoSpace = answerLower.replace(/\s+/g, '');
-                return questionNoSpace.includes(keyword) || answerNoSpace.includes(keyword);
+                const keywordNoSpace = keyword.replace(/\s+/g, '');
+                return questionNoSpace.includes(keywordNoSpace) || answerNoSpace.includes(keywordNoSpace);
             }
 
             return exactMatch;
