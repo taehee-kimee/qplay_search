@@ -3264,3 +3264,22 @@ if (reportForm) {
     });
 }
 
+// 팝업 모드 버튼 이벤트 리스너
+document.addEventListener('DOMContentLoaded', function () {
+    const popupModeBtn = document.getElementById('popupModeBtn');
+
+    if (popupModeBtn) {
+        popupModeBtn.addEventListener('click', function () {
+            // 새 창으로 심플 모드 열기
+            const width = 800;
+            const height = 600;
+            const left = (screen.width - width) / 2;
+            const top = (screen.height - height) / 2;
+
+            const features = `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,status=yes`;
+
+            window.open('simple.html', 'QplaySimpleMode', features);
+        });
+    }
+});
+

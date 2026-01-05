@@ -26,26 +26,28 @@
     <div id="noticeToastOverlay" class="notice-toast-overlay"></div>
     <div id="noticeToast" class="notice-toast">
         <div class="notice-toast-header">
-            <div class="notice-toast-title">📢 업데이트 공지</div>
+            <div class="notice-toast-title">📢 업데이트 공지 (2026.01.05)</div>
             <button class="notice-toast-close" id="noticeToastClose" aria-label="닫기">×</button>
         </div>
         <div class="notice-toast-content" id="noticeToastContent">
-            <strong style="font-size: 1.3em;">🎉 Qplay 족보 v5.0 출시!</strong><br><br>
+            <strong style="font-size: 1.3em;">🎉 새로운 기능!</strong><br><br>
             <strong>2026년 1월 1일 업데이트</strong><br><br>
 
             <strong style="font-size: 1.1em;">이번 업데이트에서 뭐가 달라졌나요?</strong><br><br>
 
-            <strong>🐛 문제 오류 수정</strong><br>
-            - 잘못된 문제들을 수정했습니다<br>
-            - 더 정확한 답변을 제공합니다<br><br>
-
-            <strong>⚡ 성능 대폭 개선</strong><br>
-            - 검색이 훨씬 빨라졌습니다!<br>
-            - 앱이 더 부드럽게 작동합니다<br><br>
+            <strong>✨ 심플모드 추가!</strong><br>
+            - **검색과 자동족보에 집중**할 수 있는 새로운 심플 모드가 추가되었습니다!<br>
+            - 모바일 환경에 최적화되어 더욱 편리하게 사용할 수 있습니다<br>
+            - 자동족보 사용법 우측 아이콘 버튼을 클릭하면 진입할 수 있습니다<br>
 
             <strong>✨ 신문제 추가!</strong><br>
-            - 새로운 문제들이 많이 추가되었습니다<br>
-            - 더 다양한 문제를 풀 수 있습니다
+            - hiquiz 신문제가 추가되었습니다<br>
+
+            <strong>🔧 개선 사항</strong><br>
+            - 헤더와 푸터의 border-radius 제거로 더 깔끔한 디자인<br>
+            - 모바일 환경에 최적화된 디자인<br>
+            - body padding 제거로 전체 화면 활용도 향상<br>
+
         </div>
     </div>
 
@@ -117,10 +119,18 @@
 
     <div class="container">
         <div class="header">
-            <h2>💸그깽 족보💸 <span style="color: #999; font-size: 0.7em; font-weight: normal;">v5</span></h2>
-            <div style="display: flex; gap: 10px;">
+            <h2>💸그깽 족보💸 <span style="color: #999; font-size: 0.7em; font-weight: normal;">v6</span></h2>
+            <div style="display: flex; gap: 10px; align-items: center;">
                 <button id="reportBtn" class="report-btn" aria-label="문제 제보">🐛 문제 제보</button>
                 <button id="helpBtn" class="help-btn" aria-label="자동족보 사용법">자동족보 사용법</button>
+                <div class="header-divider"></div>
+                <button id="popupModeBtn" class="popup-mode-btn" aria-label="심플 모드로 열기" title="심플 모드로 열기">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="9" y1="3" x2="9" y2="21"></line>
+                    </svg>
+                </button>
             </div>
         </div>
 

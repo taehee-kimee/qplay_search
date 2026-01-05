@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/tesseract.min.js"></script>
+    <script src="js/app.js"></script>
+    <style>
+        /* 심플 모드 전용 스타일 */
+        body {
+            background: #ffffff;
+            padding: 0;
+            margin: 0;
+        }
+
+        .simple-container {
+            max-width: 100%;
+            padding: 16px;
+            min-height: 100vh;
+        }
+
+        .simple-header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .simple-header h1 {
+            font-size: 1.5em;
+            margin: 0;
+            color: #333;
+        }
+
+        .simple-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+
+        .simple-search-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .simple-search-wrapper {
+            position: relative;
+            flex: 1;
+        }
+
+        .simple-options-row {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .simple-category {
+            flex: 1;
+            min-width: 150px;
+        }
+
+        /* 모바일 최적화 */
+        @media (max-width: 768px) {
+            .simple-container {
+                padding: 12px;
+            }
+
+            .simple-header h1 {
+                font-size: 1.3em;
+            }
+
+            .search-box {
+                font-size: 16px;
+                /* iOS 줌 방지 */
+            }
+
+            .result-item {
+                padding: 16px;
+            }
+
+            .result-question {
+                font-size: 1em;
+            }
+
+            .result-answer {
+                font-size: 0.95em;
+            }
+        }
+
+        /* 터치 최적화 */
+        .camera-btn,
+        .clear-search-btn,
+        .auto-copy-checkbox {
+            min-height: 44px;
+            min-width: 44px;
+        }
+
+        .auto-copy-checkbox label {
+            padding: 8px;
+        }
+
+        /* 카메라 모달 모바일 최적화 */
+        @media (max-width: 768px) {
+            .camera-modal {
+                bottom: 0;
+                right: 0;
+                left: 0;
+                width: 100%;
+            }
+
+            .camera-modal-content {
+                max-width: 100%;
+                border-radius: 12px 12px 0 0;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Toast 공지 팝업 (기존과 동일) -->
+    <div id="noticeToastOverlay" class="notice-toast-overlay"></div>
+    <div id="noticeToast" class="notice-toast">
+        <div class="notice-toast-header">
+            <div class="notice-toast-title">📢 심플 모드</div>
+            <button class="notice-toast-close" id="noticeToastClose" aria-label="닫기">×</button>
+        </div>
+        <div class="notice-toast-content" id="noticeToastContent">
+            <strong>🎉 심플 모드에 오신 것을 환영합니다!</strong><br><br>
+            검색과 자동족보 기능에 집중할 수 있는 모드입니다.<br>
+            모바일에서도 최적화되어 있습니다!
+        </div>
+    </div>
+
+    <div class="simple-container">
+
+        <!-- 검색 및 옵션 -->
+        <div class="simple-controls">
+
+            <!-- 옵션 행 -->
+            <div class="simple-options-row">
+                <select id="categorySelect" class="category-dropdown simple-category">
+                    <option value="">카테고리 선택</option>
+                </select>
+
+                <div class="auto-copy-checkbox">
+                    <input type="checkbox" id="autoCopyCheckbox">
+                    <label for="autoCopyCheckbox">자동복사</label>
+                </div>
+
+                <div class="auto-copy-checkbox">
+                    <input type="checkbox" id="autoJokboCheckbox">
+                    <label for="autoJokboCheckbox">자동족보</label>
+                </div>
+            </div>
+        </div>
+
+        <!-- 검색창 행 -->
+        <div class="simple-search-row">
+            <div class="simple-search-wrapper">
+                <input type="text" id="searchInput" class="search-box" placeholder="검색어를 입력하세요..." />
+                <button id="cameraBtn" class="camera-btn" title="화면 캡처로 문제 인식">📷</button>
+            </div>
+            <button id="clearSearchBtn" class="clear-search-btn" title="검색어 지우기">지우기</button>
+        </div>
+
+        <!-- 결과 표시 -->
+        <div class="results-section">
+            <div id="results"></div>
+        </div>
+    </div>
+
+    <!-- 알림 -->
+    <div id="notification" class="notification"></div>
+
+    <!-- 카메라 모달 (기존과 동일) -->
+    <div id="cameraModal" class="camera-modal">
+        <div class="camera-modal-content">
+            <div class="camera-modal-header">
+                <button id="cameraMinimizeBtn" class="camera-minimize-btn" title="최소화">−</button>
+                <button id="cameraCloseBtnHeader" class="camera-minimize-btn" title="닫기">×</button>
+            </div>
+            <div class="camera-video-container">
+                <video id="cameraVideo" autoplay playsinline></video>
+                <div class="selection-overlay">
+                    <div id="selectionBox" class="selection-box"></div>
+                </div>
+            </div>
+            <div class="camera-controls">
+                <label class="camera-continue-checkbox">
+                    <input type="checkbox" id="cameraContinueCheckbox">
+                    <span>중단없이</span>
+                </label>
+                <button id="cameraCaptureBtn" class="camera-capture-btn">캡처</button>
+                <button id="cameraCloseBtn" class="camera-close-btn">닫기</button>
+            </div>
+            <div id="cameraLoading" class="camera-loading" style="display: none;">
+                OCR 처리 중...
+            </div>
+            <div class="camera-minimized-controls">
+                <button id="cameraMaximizeBtn" class="camera-icon-btn" title="최대화">□</button>
+            </div>
+        </div>
+    </div>
+
+</body>
+
+</html>
