@@ -135,11 +135,6 @@ if (document.readyState === 'loading') {
 }
 
 // Toast 공지 팝업 기능
-const noticeToastOverlay = document.getElementById('noticeToastOverlay');
-const noticeToast = document.getElementById('noticeToast');
-const noticeToastClose = document.getElementById('noticeToastClose');
-const noticeToastContent = document.getElementById('noticeToastContent');
-
 // 공지 내용의 해시값 계산 (간단한 해시 함수)
 function calculateContentHash(content) {
     let hash = 0;
@@ -184,6 +179,11 @@ function markdownToHtml(markdown) {
 
 // 공지 팝업 표시 (내용 해시 확인)
 function showNoticeToast() {
+    // DOM 요소들을 함수 내부에서 가져오기 (DOMContentLoaded 이후 실행되므로 안전)
+    const noticeToastOverlay = document.getElementById('noticeToastOverlay');
+    const noticeToast = document.getElementById('noticeToast');
+    const noticeToastContent = document.getElementById('noticeToastContent');
+
     if (!noticeToast || !noticeToastOverlay || !noticeToastContent) return;
 
     // 공지 내용 가져오기
@@ -202,6 +202,10 @@ function showNoticeToast() {
 
 // 공지 팝업 닫기
 function closeNoticeToast() {
+    const noticeToast = document.getElementById('noticeToast');
+    const noticeToastOverlay = document.getElementById('noticeToastOverlay');
+    const noticeToastContent = document.getElementById('noticeToastContent');
+
     if (noticeToast && noticeToastOverlay && noticeToastContent) {
         noticeToast.classList.remove('show');
         noticeToastOverlay.classList.remove('show');
@@ -213,18 +217,24 @@ function closeNoticeToast() {
     }
 }
 
-// 이벤트 리스너
-if (noticeToastClose) {
-    noticeToastClose.addEventListener('click', closeNoticeToast);
-}
+// 페이지 로드 시 이벤트 리스너 등록 및 공지 표시
+window.addEventListener('DOMContentLoaded', function () {
+    // 이벤트 리스너 등록
+    const noticeToastClose = document.getElementById('noticeToastClose');
+    const noticeToastOverlay = document.getElementById('noticeToastOverlay');
 
-// 배경 클릭 시 닫기
-if (noticeToastOverlay) {
-    noticeToastOverlay.addEventListener('click', closeNoticeToast);
-}
+    if (noticeToastClose) {
+        noticeToastClose.addEventListener('click', closeNoticeToast);
+    }
 
-// 페이지 로드 시 공지 표시
-window.addEventListener('DOMContentLoaded', showNoticeToast);
+    // 배경 클릭 시 닫기
+    if (noticeToastOverlay) {
+        noticeToastOverlay.addEventListener('click', closeNoticeToast);
+    }
+
+    // 공지 표시
+    showNoticeToast();
+});
 
 let questionsData = [];
 window.questionsData = questionsData; // Workers에서 접근 가능하도록
@@ -381,7 +391,7 @@ function parseCSV(csvText, sheetName) {
 }
 
 // 카테고리 데이터 로드 (지연 로딩)
-async function loadCategoryData(categoryId, categoryName, fileExtension) {
+async function loadCategoryData(categoryId, categoryName, filePath) {
     // 이미 로드된 경우 캐시에서 반환
     if (loadedCategories[categoryId]) {
         console.log(`✅ 캐시에서 ${categoryId} 로드`);
@@ -391,25 +401,27 @@ async function loadCategoryData(categoryId, categoryName, fileExtension) {
     try {
         console.log(`📥 ${categoryId} 로드 중...`);
 
-        // 파일 확장자 확인 (기본값은 .json)
-        const extension = fileExtension || 'json';
-        const response = await fetch(`categories/${categoryId}.${extension}`);
+        // filePath를 직접 사용 (metadata.json에서 전체 경로 제공)
+        const response = await fetch(filePath);
 
         if (!response.ok) {
-            throw new Error(`${categoryId}.${extension}를 찾을 수 없습니다.`);
+            throw new Error(`${filePath}를 찾을 수 없습니다.`);
         }
 
         let parsedData;
+        // 파일 확장자 확인
+        const extension = filePath.split('.').pop().toLowerCase();
+
         if (extension === 'csv') {
             // CSV 파일 파싱
             const csvText = await response.text();
             parsedData = parseCSV(csvText, categoryName || categoryId);
-            console.log(`✅ ${categoryId}.csv 로드 완료: ${parsedData.length}개`);
+            console.log(`✅ ${filePath} 로드 완료: ${parsedData.length}개`);
         } else {
             // JSON 파일 파싱
             const jsonData = await response.json();
             parsedData = jsonData;
-            console.log(`✅ ${categoryId}.json 로드 완료: ${parsedData.length}개`);
+            console.log(`✅ ${filePath} 로드 완료: ${parsedData.length}개`);
         }
 
         loadedCategories[categoryId] = parsedData;
@@ -444,8 +456,7 @@ async function loadDefaultData() {
         if (selectedSheet) {
             const categoryObj = metadata.categories.find(cat => cat.name === selectedSheet);
             if (categoryObj) {
-                const fileExtension = categoryObj.file.split('.').pop(); // 파일 확장자 추출
-                const categoryData = await loadCategoryData(categoryObj.id, categoryObj.name, fileExtension);
+                const categoryData = await loadCategoryData(categoryObj.id, categoryObj.name, categoryObj.file);
                 questionsData = categoryData;
                 window.questionsData = questionsData;
             }
@@ -480,8 +491,7 @@ async function loadDefaultData() {
             if (categoryObj) {
                 try {
                     document.getElementById('results').innerHTML = `<div class="loading">${categoryName} 데이터를 로드하는 중...</div>`;
-                    const fileExtension = categoryObj.file.split('.').pop(); // 파일 확장자 추출
-                    const categoryData = await loadCategoryData(categoryObj.id, categoryObj.name, fileExtension);
+                    const categoryData = await loadCategoryData(categoryObj.id, categoryObj.name, categoryObj.file);
                     questionsData = categoryData;
                     window.questionsData = questionsData;
 
@@ -1861,6 +1871,29 @@ function extractQuestion(text, originalText = null) {
     return cleaned;
 }
 
+// 연속된 1글자 한글을 병합하는 함수 (OCR 띄어쓰기 문제 해결)
+function mergeConsecutiveSingleChars(keywords) {
+    const merged = [];
+    let buffer = '';
+
+    keywords.forEach(keyword => {
+        if (keyword.length === 1 && /^[가-힣]$/.test(keyword)) {
+            buffer += keyword;
+        } else {
+            if (buffer.length >= 2) {
+                merged.push(buffer);
+            }
+            buffer = '';
+        }
+    });
+
+    if (buffer.length >= 2) {
+        merged.push(buffer);
+    }
+
+    return merged;
+}
+
 // 핵심 키워드만 추출하는 함수
 function extractKeywords(text) {
     if (!text) return [];
@@ -1907,6 +1940,9 @@ function extractKeywords(text) {
     // 5. 공백 정리
     cleaned = cleaned.replace(/\s+/g, ' ').trim();
 
+    // 5-1. 공백 제거 버전 생성 (OCR 띄어쓰기 대응)
+    const cleanedNoSpace = cleaned.replace(/\s+/g, '');
+
     // 6. 키워드 추출 (1글자 필터링 완화, 선택지 노이즈 제거)
     const keywords = cleaned.split(' ')
         .filter(word => {
@@ -1923,8 +1959,7 @@ function extractKeywords(text) {
             if (trimmed.length === 1) {
                 // 숫자는 항상 포함
                 if (/^\d$/.test(trimmed)) return true;
-                // 한글 1글자도 포함 (의미 있는 단어일 수 있음)
-                if (/^[가-힣]$/.test(trimmed)) return true;
+                // 한글 1글자는 제거 (병합 버전이 있으므로)
                 return false;
             }
 
@@ -1939,7 +1974,18 @@ function extractKeywords(text) {
         .map(word => word.trim().toLowerCase())
         .filter(word => word.length > 0);
 
-    // 7. 중복 제거
+    // 7. 연속된 1글자 한글 병합 (OCR 띄어쓰기 대응)
+    const singleChars = cleaned.split(' ')
+        .filter(w => w.length === 1 && /^[가-힣]$/.test(w));
+    const mergedKeywords = mergeConsecutiveSingleChars(singleChars);
+    keywords.push(...mergedKeywords);
+
+    // 8. 공백 제거 버전 추가 (OCR 띄어쓰기 대응)
+    if (cleanedNoSpace.length >= 2) {
+        keywords.push(cleanedNoSpace);
+    }
+
+    // 9. 중복 제거
     return [...new Set(keywords)];
 }
 
@@ -2163,9 +2209,19 @@ function searchByKeywords(keywords, question, answer, isJokboMode = false) {
             }
 
             // 3. 부분 문자열 매칭 (키워드의 일부만 포함되어도 검색)
-            // 키워드가 3글자 이상이면 2글자 이상 포함되어도 검색
-            if (!matched && keyword.length >= 3) {
-                const minLength = Math.max(2, Math.floor(keyword.length * 0.5)); // 최소 50% 이상
+            // 키워드 길이에 따라 차등 적용
+            if (!matched && keyword.length >= 4) {
+                // 키워드 길이별 최소 매칭 비율
+                let minMatchRatio;
+                if (keyword.length <= 3) {
+                    minMatchRatio = 1.0;  // 100% 매칭 필요
+                } else if (keyword.length <= 6) {
+                    minMatchRatio = 0.8;  // 80% 매칭
+                } else {
+                    minMatchRatio = 0.7;  // 70% 매칭
+                }
+                const minLength = Math.max(3, Math.floor(keyword.length * minMatchRatio));
+
                 for (let i = 0; i <= keyword.length - minLength; i++) {
                     const substring = keyword.substring(i, i + minLength);
                     if (questionLower.includes(substring) || answerLower.includes(substring)) {
@@ -2874,6 +2930,11 @@ function createCategoryFilters() {
     const categorySection = document.getElementById('categorySection');
     const reportCategory = document.getElementById('reportCategory'); // 제보 모달 카테고리
 
+    if (!categorySelect) {
+        console.warn('categorySelect 요소를 찾을 수 없습니다.');
+        return;
+    }
+
     categorySelect.innerHTML = '';
     if (reportCategory) {
         reportCategory.innerHTML = '<option value="">카테고리를 선택하세요</option>';
@@ -2906,7 +2967,11 @@ function createCategoryFilters() {
 
     // 드롭다운 활성화
     categorySelect.disabled = false;
-    categorySection.classList.add('active');
+
+    // categorySection이 존재할 때만 active 클래스 추가
+    if (categorySection) {
+        categorySection.classList.add('active');
+    }
 
     // 변경 이벤트 리스너
     categorySelect.onchange = function (e) {
