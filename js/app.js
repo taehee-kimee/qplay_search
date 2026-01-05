@@ -16,6 +16,14 @@ const FEATURES = {
 
 window.QPLAY_FEATURES = FEATURES;
 
+// 디버그 모드 (URL 파라미터 ?debug=1 또는 localStorage에 qplay:debug=1 설정)
+window.QPLAY_DEBUG = params.get('debug') === '1' || storage?.getItem('qplay:debug') === '1' || false;
+
+if (window.QPLAY_DEBUG) {
+    console.log('🔍 Qplay 디버그 모드 활성화');
+    console.log('디버그 모드를 비활성화하려면: localStorage.removeItem("qplay:debug")');
+}
+
 // Workers 초기화 (기본적으로 비활성화, 필요시 활성화)
 let ocrWorker = null;
 let searchWorker = null;
@@ -324,8 +332,56 @@ function processExcelFile(fileData) {
 // 로드된 카테고리 데이터 캐시
 let loadedCategories = {};
 
+// CSV 파일 파싱 함수
+function parseCSV(csvText, sheetName) {
+    const lines = csvText.split('\n');
+    const data = [];
+
+    lines.forEach((line, index) => {
+        if (!line.trim()) return; // 빈 줄 건너뛰기
+        if (index === 0 && (line.includes('Question') || line.includes('질문'))) return; // 헤더 건너뛰기
+
+        // 탭으로 구분된 형식 (TSV) 먼저 확인
+        if (line.includes('\t')) {
+            const parts = line.split('\t');
+            if (parts.length >= 2) {
+                const question = parts[0].trim();
+                const answer = parts[1].trim();
+
+                if (question && answer) {
+                    data.push({
+                        question: question,
+                        answer: answer,
+                        index: index + 1,
+                        sheet: sheetName || '꽁꽁'
+                    });
+                }
+                return;
+            }
+        }
+
+        // "질문? 답" 형식으로 파싱 (기존 로직)
+        const questionMarkIndex = line.lastIndexOf('?');
+        if (questionMarkIndex === -1) return; // ? 가 없으면 건너뛰기
+
+        const question = line.substring(0, questionMarkIndex + 1).trim();
+        const answer = line.substring(questionMarkIndex + 1).trim();
+
+        if (question && answer) {
+            data.push({
+                question: question,
+                answer: answer,
+                index: index + 1,
+                sheet: sheetName || '올라올라(꼬로록)'
+            });
+        }
+    });
+
+    return data;
+}
+
 // 카테고리 데이터 로드 (지연 로딩)
-async function loadCategoryData(categoryId) {
+async function loadCategoryData(categoryId, categoryName, fileExtension) {
     // 이미 로드된 경우 캐시에서 반환
     if (loadedCategories[categoryId]) {
         console.log(`✅ 캐시에서 ${categoryId} 로드`);
@@ -334,14 +390,30 @@ async function loadCategoryData(categoryId) {
 
     try {
         console.log(`📥 ${categoryId} 로드 중...`);
-        const response = await fetch(`categories/${categoryId}.json`);
+
+        // 파일 확장자 확인 (기본값은 .json)
+        const extension = fileExtension || 'json';
+        const response = await fetch(`categories/${categoryId}.${extension}`);
+
         if (!response.ok) {
-            throw new Error(`${categoryId}.json을 찾을 수 없습니다.`);
+            throw new Error(`${categoryId}.${extension}를 찾을 수 없습니다.`);
         }
-        const data = await response.json();
-        loadedCategories[categoryId] = data.data;
-        console.log(`✅ ${categoryId} 로드 완료: ${data.data.length}개`);
-        return data.data;
+
+        let parsedData;
+        if (extension === 'csv') {
+            // CSV 파일 파싱
+            const csvText = await response.text();
+            parsedData = parseCSV(csvText, categoryName || categoryId);
+            console.log(`✅ ${categoryId}.csv 로드 완료: ${parsedData.length}개`);
+        } else {
+            // JSON 파일 파싱
+            const jsonData = await response.json();
+            parsedData = jsonData;
+            console.log(`✅ ${categoryId}.json 로드 완료: ${parsedData.length}개`);
+        }
+
+        loadedCategories[categoryId] = parsedData;
+        return parsedData;
     } catch (error) {
         console.error(`❌ ${categoryId} 로드 실패:`, error);
         throw error;
@@ -372,7 +444,8 @@ async function loadDefaultData() {
         if (selectedSheet) {
             const categoryObj = metadata.categories.find(cat => cat.name === selectedSheet);
             if (categoryObj) {
-                const categoryData = await loadCategoryData(categoryObj.id);
+                const fileExtension = categoryObj.file.split('.').pop(); // 파일 확장자 추출
+                const categoryData = await loadCategoryData(categoryObj.id, categoryObj.name, fileExtension);
                 questionsData = categoryData;
                 window.questionsData = questionsData;
             }
@@ -407,7 +480,8 @@ async function loadDefaultData() {
             if (categoryObj) {
                 try {
                     document.getElementById('results').innerHTML = `<div class="loading">${categoryName} 데이터를 로드하는 중...</div>`;
-                    const categoryData = await loadCategoryData(categoryObj.id);
+                    const fileExtension = categoryObj.file.split('.').pop(); // 파일 확장자 추출
+                    const categoryData = await loadCategoryData(categoryObj.id, categoryObj.name, fileExtension);
                     questionsData = categoryData;
                     window.questionsData = questionsData;
 
@@ -2064,45 +2138,70 @@ function searchByKeywords(keywords, question, answer, isJokboMode = false) {
     if (isJokboMode) {
         // 자동족보 모드: 키워드 중 일부만 포함되어도 검색 (OR 조건)
         // 또는 키워드의 일부만 매칭되어도 검색
-        return keywords.some(keyword => {
+        const result = keywords.some(keyword => {
             const keywordLower = keyword.toLowerCase();
+            let matched = false;
+            let matchType = '';
 
             // 1. 정확한 단어 매칭
             const escapedKeyword = escapeRegex(keyword);
-            const wordRegex = new RegExp(`(^|\\s)${escapedKeyword}(\\s|$)`, 'i');
+            const wordRegex = new RegExp(`(^|\\s)${escapedKeyword}(\\s|[?!.,;]|$)`, 'i');
             if (wordRegex.test(questionLower) || wordRegex.test(answerLower)) {
-                return true;
+                matched = true;
+                matchType = '정확한 단어 매칭';
             }
 
             // 2. 공백 제거 버전으로 확인
-            const questionNoSpace = questionLower.replace(/\s+/g, '');
-            const answerNoSpace = answerLower.replace(/\s+/g, '');
-            const keywordNoSpace = keywordLower.replace(/\s+/g, '');
-            if (questionNoSpace.includes(keywordNoSpace) || answerNoSpace.includes(keywordNoSpace)) {
-                return true;
+            if (!matched) {
+                const questionNoSpace = questionLower.replace(/\s+/g, '');
+                const answerNoSpace = answerLower.replace(/\s+/g, '');
+                const keywordNoSpace = keywordLower.replace(/\s+/g, '');
+                if (questionNoSpace.includes(keywordNoSpace) || answerNoSpace.includes(keywordNoSpace)) {
+                    matched = true;
+                    matchType = '공백 제거 매칭';
+                }
             }
 
             // 3. 부분 문자열 매칭 (키워드의 일부만 포함되어도 검색)
             // 키워드가 3글자 이상이면 2글자 이상 포함되어도 검색
-            if (keyword.length >= 3) {
+            if (!matched && keyword.length >= 3) {
                 const minLength = Math.max(2, Math.floor(keyword.length * 0.5)); // 최소 50% 이상
                 for (let i = 0; i <= keyword.length - minLength; i++) {
                     const substring = keyword.substring(i, i + minLength);
                     if (questionLower.includes(substring) || answerLower.includes(substring)) {
-                        return true;
+                        matched = true;
+                        matchType = '부분 문자열 매칭';
+                        break;
                     }
                 }
             }
 
             // 4. 키워드가 2글자 이상이면 직접 포함 여부 확인
-            if (keyword.length >= 2) {
+            if (!matched && keyword.length >= 2) {
                 if (questionLower.includes(keywordLower) || answerLower.includes(keywordLower)) {
-                    return true;
+                    matched = true;
+                    matchType = '직접 포함 매칭';
                 }
             }
 
-            return false;
+            // 디버깅 로그 (자동족보 모드에서만)
+            if (window.QPLAY_DEBUG) {
+                console.log(`[검색 디버그] 키워드: "${keyword}" | 매칭: ${matched ? '✅' : '❌'} | 방식: ${matchType || '매칭 실패'}`);
+                if (!matched) {
+                    console.log(`  - 문제: "${question.substring(0, 50)}..."`);
+                    console.log(`  - 답: "${answer}"`);
+                }
+            }
+
+            return matched;
         });
+
+        // 전체 결과 로그
+        if (window.QPLAY_DEBUG && result) {
+            console.log(`[검색 디버그] ✅ 최종 매칭 성공 | 문제: "${question.substring(0, 50)}..."`);
+        }
+
+        return result;
     } else {
         // 기존 로직: 모든 키워드가 포함되어야 함 (AND 조건)
         return keywords.every(keyword => {
@@ -2113,10 +2212,12 @@ function searchByKeywords(keywords, question, answer, isJokboMode = false) {
 
             // 정확한 단어 매칭이 실패했을 때, 공백 제거 버전으로도 확인
             // 예: '근로자가연' 입력 시 '근로자가 연간'에서 공백 제거 후 '근로자가연간'과 비교
+            // 또는 'a>b' 검색 시 'a> b'를 찾을 수 있도록 키워드에서도 공백 제거
             if (!exactMatch) {
                 const questionNoSpace = questionLower.replace(/\s+/g, '');
                 const answerNoSpace = answerLower.replace(/\s+/g, '');
-                return questionNoSpace.includes(keyword) || answerNoSpace.includes(keyword);
+                const keywordNoSpace = keyword.replace(/\s+/g, '');
+                return questionNoSpace.includes(keywordNoSpace) || answerNoSpace.includes(keywordNoSpace);
             }
 
             return exactMatch;

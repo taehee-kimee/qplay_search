@@ -284,9 +284,10 @@ async function performLegacySearch(query: string, limit: number): Promise<Search
   const queryLower = query.toLowerCase();
 
   documents.forEach((document, index) => {
-    const text = document.text.toLowerCase();
-    if (text.includes(queryLower)) {
-      const score = text.indexOf(queryLower) === 0 ? 1.0 : 0.8;
+    const normalizedText = normalizedDocuments[index] ?? document.text.toLowerCase();
+    const matchIndex = normalizedText.indexOf(queryLower);
+    if (matchIndex !== -1) {
+      const score = matchIndex === 0 ? 1.0 : 0.8;
       results.push({
         id: document.id,
         text: document.text,
@@ -460,17 +461,7 @@ function normalizeKo(source: string): string {
   // 구두점 제거 (검색 시 구두점 차이로 인한 매칭 실패 방지)
   const withoutPunctuation = replaced.replace(/[?.,!;:(){}[\]'"＂'""]/g, '');
   
-  // 공백 제거 후 길이로 판단 (공백 제거 전 길이로 판단하면 '안드로이드 법칙' 같은 경우 문제 발생)
   const withoutWhitespace = withoutPunctuation.replace(/\s+/g, '');
-  const isShort = withoutWhitespace.length < 6;
-  
-  if (isShort) {
-    // 공백은 하나로 정규화하되 제거하지 않음
-    const normalized = withoutPunctuation.replace(/\s+/g, ' ').trim();
-    return normalized.toLowerCase();
-  }
-  
-  // 긴 문장은 기존대로 공백 제거
   return withoutWhitespace.toLowerCase();
 }
 
@@ -531,4 +522,3 @@ function isWorkerMessage(value: unknown): value is WorkerMessage {
 }
 
 export {};
-
