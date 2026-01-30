@@ -609,6 +609,84 @@ body {
     animation: fadeIn 0.3s ease-out;
 }
 
+/* Flashy Notice Styles */
+.notice-image {
+    width: 100%;
+    border-radius: 8px;
+    margin: 15px 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border: 1px solid #eee;
+}
+
+.notice-special-badge {
+    display: inline-block;
+    background: linear-gradient(135deg, #FF6B6B, #FF8E53);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.8em;
+    font-weight: bold;
+    margin-right: 8px;
+    box-shadow: 0 2px 4px rgba(255, 107, 107, 0.3);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.05);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+.notice-feature-list {
+    background: #f8f9fa;
+    border-left: 4px solid #FF6B6B;
+    padding: 15px;
+    margin: 15px 0;
+    list-style-type: none;
+}
+
+.notice-feature-list li {
+    margin-bottom: 8px;
+    padding-left: 20px;
+    position: relative;
+}
+
+.notice-feature-list li:before {
+    content: "✓";
+    position: absolute;
+    left: 0;
+    color: #FF6B6B;
+    font-weight: bold;
+}
+
+.notice-download-btn {
+    display: block;
+    width: 100%;
+    margin-top: 20px;
+    background: linear-gradient(135deg, #000000, #333333);
+    color: #ffffff;
+    text-align: center;
+    padding: 12px;
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: bold;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.notice-download-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    color: #fff;
+}
+
 .notice-toast-overlay.show {
     display: block;
 }
