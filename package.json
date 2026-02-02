@@ -13,11 +13,10 @@
     "typescript": "^5.3.3"
   },
   "dependencies": {
+    "@vercel/analytics": "^1.6.1",
     "tesseract.js": "^4.1.1"
   },
   "optionalDependencies": {
     "@types/tesseract.js": "*"
   }
 }
-
-
