@@ -45,6 +45,10 @@ Thumbs.db
 .env
 .env.local
 
+# Node.js
+node_modules/
+package-lock.json
+
 # 변환된 파일 (선택사항)
 # excel_data.js
 # excel_data.json
