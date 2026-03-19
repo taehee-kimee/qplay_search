@@ -9,13 +9,12 @@
     "dev": "python server.py",
     "start": "python server.py"
   },
-  "devDependencies": {
-    "typescript": "^5.3.3"
-  },
   "dependencies": {
     "@vercel/analytics": "^1.6.1",
-    "tesseract.js": "^4.1.1"
+    "tesseract.js": "^4.1.1",
+    "typescript": "^5.3.3"
   },
+  "devDependencies": {},
   "optionalDependencies": {
     "@types/tesseract.js": "*"
   }
