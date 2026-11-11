@@ -246,6 +246,8 @@
         let afterMarker = text.substring(marker);
         // 깨진 표시 조각("쁘 제끼 ", "2H 1 ")을 본문 앞에서 떼기
         if (markerless) afterMarker = afterMarker.replace(/^\s*(?:\S{1,3}\s+)?\S{0,2}제\S{0,2}\s+(?=\S)/, '');
+        // "[문제 5]"의 꼬리만 남은 경우 ("5] 고구려 고분벽화에…")
+        if (markerless) afterMarker = afterMarker.replace(/^\s*\d{1,2}\s*[\]>)|]\s*/, '');
         if (/이미지\s*속?\s*(의\s*)?한글/.test(afterMarker)) return { captcha: true };
 
         const { choices, firstIndex } = extractNumberedChoices(afterMarker);
@@ -718,6 +720,7 @@
         // 표시용 정리 (예전에 띄어 읽힌 채 저장된 문제도 보기 좋게): 루틴의 tidy_text와 같은 규칙
         tidy: (text, isQuestion) => {
             let t = fixSpacing(String(text || '').replace(/\s+/g, ' '), isQuestion ? 3 : 2);
+            if (isQuestion) t = t.replace(/^\s*\d{1,2}\s*[\]>|]\s*/, ''); // 문제 번호 표시의 꼬리 ("5] …")
             if (!isQuestion) t = t.replace(/[\s\-–_|>]+$/, ''); // 답 끝의 "-", "|" 같은 부스러기
             if (isQuestion) {
                 t = t.replace(/([?？])\s*\S{0,2}\s*[1-4](?:\s*[.,)]|\s).*$/, '$1')
