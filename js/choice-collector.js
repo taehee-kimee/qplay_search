@@ -615,6 +615,41 @@
         return before - (store[sheet] || []).length;
     }
 
+    // '모은 문제'에서 직접 고치기: 이 브라우저 목록을 바꾸고, 서버에는 예전 것을 취소한 뒤 고친 것을 새로 보낸다
+    function editCollected(sheet, oldQuestion, oldAnswer, newQuestion, newAnswer) {
+        const clean = v => String(v || '').replace(/[\t\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+        newQuestion = clean(newQuestion);
+        newAnswer = clean(newAnswer);
+        if (newQuestion.length < 4 || !newAnswer) return { ok: false, error: 'too-short' };
+        const same = (q, a) => compactKey(q) === compactKey(oldQuestion) && compactKey(a) === compactKey(oldAnswer);
+        const store = loadStore();
+        const list = Array.isArray(store[sheet]) ? store[sheet] : [];
+        const item = list.find(c => same(c.question, c.answer));
+        if (!item) return { ok: false, error: 'not-found' };
+        if (item.question === newQuestion && item.answer === newAnswer) return { ok: true, changed: false };
+        // 이미 같은 문제·답이 목록에 따로 있으면 이 줄만 지운다
+        const dupe = list.find(c => c !== item && compactKey(c.question) === compactKey(newQuestion) && compactKey(c.answer) === compactKey(newAnswer));
+        if (dupe) store[sheet] = list.filter(c => c !== item);
+        else {
+            item.question = newQuestion;
+            item.answer = newAnswer;
+            item.note = /직접수정/.test(item.note || '') ? item.note : `${item.note ? item.note + ' ' : ''}직접수정`;
+        }
+        saveStore(store);
+        // 띄어쓰기·기호만 바뀐 경우: 서버의 병합 루틴은 어차피 같은 문제로 보니 다시 보낼 필요 없음
+        if (same(newQuestion, newAnswer)) return { ok: true, changed: true };
+        // 예전 내용: 아직 안 보냈으면 대기열에서 빼고, 보냈을 수 있으니 취소도 알린다
+        writeJson(OUTBOX_KEY, readJson(OUTBOX_KEY, []).filter(it => !(it.sheet === sheet && same(it.question, it.answer))));
+        const box = readJson(RETRACT_KEY, []);
+        box.push({ sheet, question: oldQuestion, answer: oldAnswer, note: '' });
+        writeJson(RETRACT_KEY, box.slice(-200));
+        flushRetracts();
+        // 취소가 먼저 서버에 닿도록 조금 뒤에 새 내용을 보낸다 (병합 루틴은 보낸 순서대로 처리)
+        const fresh = { sheet, question: newQuestion, answer: newAnswer, note: dupe ? (dupe.note || '') : item.note };
+        setTimeout(() => enqueueForServer(fresh), 1500);
+        return { ok: true, changed: true };
+    }
+
     let retracting = false;
     async function flushRetracts() {
         if (retracting || typeof fetch === 'undefined') return;
@@ -678,6 +713,7 @@
         flushOutbox,
         uploadNow,
         removeCollected,
+        editCollected,
         pendingUploads: () => readJson(OUTBOX_KEY, []).length,
         // 표시용 정리 (예전에 띄어 읽힌 채 저장된 문제도 보기 좋게): 루틴의 tidy_text와 같은 규칙
         tidy: (text, isQuestion) => {

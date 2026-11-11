@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>모은 문제 · 그깽 족보</title>
     <link rel="stylesheet" href="styles.css">
-    <script src="js/choice-collector.js?v=20261112d"></script>
+    <script src="js/choice-collector.js?v=20261112e"></script>
     <style>
         .cc-wrap { padding: 20px; }
         .cc-lead { color: #666; font-size: 0.92em; line-height: 1.6; margin-bottom: 18px; }
@@ -25,6 +25,12 @@
         .cc-msg.err { color: #c62828; }
         .cc-del { border: 1px solid #ddd; background: #fff; color: #999; padding: 2px 8px; font-size: 0.8em; cursor: pointer; white-space: nowrap; }
         .cc-del:hover { border-color: #c62828; color: #c62828; }
+        .cc-acts { white-space: nowrap; }
+        .cc-acts .cc-del + .cc-del { margin-left: 4px; }
+        .cc-edit:hover, .cc-save:hover { border-color: #000; color: #000; }
+        .cc-save { border-color: #000; color: #000; }
+        .cc-input { width: 100%; min-width: 120px; padding: 6px 8px; border: 1px solid #000; font: inherit; box-sizing: border-box; resize: vertical; }
+        tr.editing td { background: #fffbe6; }
         .cc-section { margin-top: 26px; }
         .cc-section h3 { font-size: 1.05em; margin-bottom: 10px; }
         .cc-section h3 .count { color: #999; font-weight: 400; font-size: 0.85em; margin-left: 4px; }
@@ -163,7 +169,9 @@
                     var ans = tidy(m.c.answer, false);
                     return '<tr><td>' + esc(m.c.time || '') + '</td><td>' + esc(m.sheet) + '</td><td>' + esc(q) +
                         '</td><td class="ans">' + esc(ans) + '</td><td>' + badge + '</td>' +
-                        '<td><button class="cc-del" type="button" data-i="' + idx + '" title="이 문제 지우기">삭제</button></td></tr>';
+                        '<td class="cc-acts">' +
+                        (badge.indexOf('merged') < 0 ? '<button class="cc-del cc-edit" type="button" data-i="' + idx + '" title="질문·답 고치기">수정</button>' : '') +
+                        '<button class="cc-del" type="button" data-i="' + idx + '" title="이 문제 지우기">삭제</button></td></tr>';
                 });
 
                 document.getElementById('cards').innerHTML = [
@@ -206,7 +214,45 @@
             document.getElementById('filter').addEventListener('input', applyFilter);
 
             // 삭제: 잘못 읽힌 문제 등을 지운다. 아직 족보에 안 들어간 것은 서버 제출도 취소된다
+            // 수정: 질문·답 칸을 입력칸으로 바꿔 직접 고친다 (족보에 이미 들어간 줄은 버튼이 없다)
+            function startEdit(tr, m) {
+                if (tr.classList.contains('editing')) return;
+                tr.classList.add('editing');
+                var tidy = window.QplayCollect.tidy;
+                var qCell = tr.cells[2], aCell = tr.cells[3], actCell = tr.cells[5];
+                qCell.innerHTML = '<textarea class="cc-input" rows="2"></textarea>';
+                aCell.innerHTML = '<input class="cc-input" type="text">';
+                qCell.firstChild.value = tidy(m.c.question, true);
+                aCell.firstChild.value = tidy(m.c.answer, false);
+                actCell.innerHTML = '<button class="cc-del cc-save" type="button">저장</button><button class="cc-del cc-cancel" type="button">취소</button>';
+                qCell.firstChild.focus();
+                function save() {
+                    var r = window.QplayCollect.editCollected(m.sheet, m.c.question, m.c.answer, qCell.firstChild.value, aCell.firstChild.value);
+                    if (!r.ok) {
+                        say(r.error === 'too-short' ? '질문은 4글자 이상, 답은 비우지 말아 주세요.' : '이 문제를 찾지 못했어요. 새로고침 후 다시 해 주세요.', true);
+                        return;
+                    }
+                    say(r.changed ? '고쳤어요. 서버에도 고친 내용으로 다시 보내요.' : '바뀐 내용이 없어요.');
+                    render(lastStatus);
+                }
+                actCell.querySelector('.cc-save').addEventListener('click', save);
+                actCell.querySelector('.cc-cancel').addEventListener('click', function () { render(lastStatus); });
+                [qCell.firstChild, aCell.firstChild].forEach(function (el) {
+                    el.addEventListener('keydown', function (ev) {
+                        if (ev.key === 'Enter' && !ev.shiftKey && !ev.isComposing) { ev.preventDefault(); save(); }
+                        else if (ev.key === 'Escape') render(lastStatus);
+                    });
+                });
+            }
+
             document.getElementById('mine').addEventListener('click', function (e) {
+                var editBtn = e.target.closest && e.target.closest('.cc-edit');
+                if (editBtn && window.QplayCollect && window.QplayCollect.editCollected) {
+                    var em = mineList[Number(editBtn.getAttribute('data-i'))];
+                    if (em) startEdit(editBtn.closest('tr'), em);
+                    return;
+                }
+                if (e.target.closest && e.target.closest('.cc-save, .cc-cancel')) return;
                 var btn = e.target.closest && e.target.closest('.cc-del');
                 if (!btn || !window.QplayCollect || !window.QplayCollect.removeCollected) return;
                 var m = mineList[Number(btn.getAttribute('data-i'))];
