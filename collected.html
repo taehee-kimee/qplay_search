@@ -120,17 +120,24 @@
 
                 var tidy = (window.QplayCollect && window.QplayCollect.tidy) || function (s) { return s; };
                 // 족보에 들어간 문제는 정리·교정된 질문으로 저장되므로, 정리한 질문끼리 비교한다
-                var mergedQs = merged.map(function (m) { return qk(m.q); });
-                function isMerged(question) {
+                // 질문만 비슷하면 '수입의 예'와 '수출의 예'처럼 한 글자 다른 다른 문제를 같다고 보므로, 답도 맞아야 반영된 것으로 본다
+                var mergedKeys = merged.map(function (m) { return { q: qk(m.q), a: qk(tidy(m.a, false)) }; });
+                function nearlySame(x, y, minContain) {
+                    if (x === y) return true;
+                    if (Math.min(x.length, y.length) >= minContain && (x.indexOf(y) >= 0 || y.indexOf(x) >= 0)) return true;
+                    if (x.length !== y.length) return false;
+                    var diff = 0; // 한두 글자만 다른 경우 (손으로 고친 오타: 빚은 → 빛은, 노량대접 → 노량대첩)
+                    for (var i = 0; i < x.length && diff <= 2; i++) if (x[i] !== y[i]) diff++;
+                    return diff <= (x.length >= 4 ? 2 : 1);
+                }
+                function isMerged(question, answer) {
                     var k = qk(tidy(question, true));
-                    if (k.length < 4) return false;
-                    return mergedQs.some(function (mk) {
-                        if (mk === k) return true;
-                        if (Math.min(mk.length, k.length) >= 8 && (mk.indexOf(k) >= 0 || k.indexOf(mk) >= 0)) return true;
-                        if (mk.length !== k.length) return false;
-                        var diff = 0; // 한두 글자만 다른 경우 (손으로 고친 오타: 빚은 → 빛은)
-                        for (var i = 0; i < k.length && diff <= 2; i++) if (k[i] !== mk[i]) diff++;
-                        return diff <= 2;
+                    var a = qk(tidy(answer, false));
+                    if (k.length < 4 || !a) return false;
+                    return mergedKeys.some(function (m) {
+                        // 질문이 글자까지 같으면 반영된 것 (깨져 읽힌 답을 손으로 고친 경우: 카 카 오 복 베 → 카카오톡)
+                        if (m.q === k) return true;
+                        return nearlySame(m.q, k, 8) && nearlySame(m.a, a, 2);
                     });
                 }
                 var outboxKeys = {};
@@ -148,7 +155,7 @@
                 var mineRows = mine.map(function (m, idx) {
                     var key = qk(m.c.question) + '|' + ak(m.c.answer);
                     var badge;
-                    if (isMerged(m.c.question)) { badge = '<span class="cc-badge merged">족보에 반영됨</span>'; mergedMine++; }
+                    if (isMerged(m.c.question, m.c.answer)) { badge = '<span class="cc-badge merged">족보에 반영됨</span>'; mergedMine++; }
                     else if (outboxKeys[key]) { badge = '<span class="cc-badge waiting">전송 대기</span>'; waiting++; }
                     else { badge = '<span class="cc-badge sent">서버로 보냄</span>'; }
                     if (badge.indexOf('merged') < 0) unmerged.push({ sheet: m.sheet, question: m.c.question, answer: m.c.answer, note: m.c.note || '' });
