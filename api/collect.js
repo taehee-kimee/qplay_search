@@ -5,7 +5,7 @@
 // GET  /api/collect?key=...&cursor=...
 //   족보 병합 루틴(관리자)만 읽는다. key는 관리자 PC에만 있고, 여기에는 해시만 둔다.
 //
-// 필요 설정: Vercel 대시보드에서 Blob 스토어를 만들어 이 프로젝트에 연결 (BLOB_READ_WRITE_TOKEN 자동 생성)
+// 필요 설정: Vercel 대시보드에서 Blob 스토어를 만들어 이 프로젝트에 연결 (BLOB_STORE_ID 자동 생성, 인증은 OIDC)
 import crypto from 'node:crypto';
 
 const ADMIN_KEY_SHA256 = '9589b6af72b43970e160a4a5483b7099e3908fa6fe282647ea898a7e6e240233';
@@ -66,7 +66,8 @@ export function createHandler(getBlob) {
         setCors(req, res);
         if (req.method === 'OPTIONS') return res.status(204).end();
 
-        if (!process.env.BLOB_READ_WRITE_TOKEN) {
+        // 새 Vercel Blob은 BLOB_STORE_ID + 자동 로그인(OIDC), 예전 방식은 BLOB_READ_WRITE_TOKEN
+        if (!process.env.BLOB_STORE_ID && !process.env.BLOB_READ_WRITE_TOKEN) {
             return res.status(503).json({ ok: false, error: 'storage-not-configured' });
         }
         const blob = await getBlob();
