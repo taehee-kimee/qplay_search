@@ -166,10 +166,17 @@
 
     // "1. 진주대첩 3. 노량대첩 2. 한산도대첩 4. 행주대첩" → {1:..., 2:..., 3:..., 4:...}
     function extractNumberedChoices(text) {
+        // 번호 뒤 구분자는 . ) , 모두 허용 (OCR이 점을 쉼표로 읽는 경우)
+        const plain = collectChoices(text, /(?<!\d)([1-4])\s*[.),]\s*(\D{1,30}?)\s*(?=(?<!\d)[1-4]\s*[.),]|$)/g);
+        if (Object.keys(plain.choices).length >= 2) return plain;
+        // 보기에 숫자가 들어간 경우 ("1. 1972 뮌헨 2. 1984 LA"): 번호 앞에 공백이 있을 때만 번호로 본다
+        const withDigits = collectChoices(text, /(?:^|\s)([1-4])\s*[.),]\s*(.{1,30}?)\s*(?=\s[1-4]\s*[.),]|$)/g);
+        return Object.keys(withDigits.choices).length > Object.keys(plain.choices).length ? withDigits : plain;
+    }
+
+    function collectChoices(text, re) {
         const choices = {};
         let firstIndex = -1;
-        // 번호 뒤 구분자는 . ) , 모두 허용 (OCR이 점을 쉼표로 읽는 경우)
-        const re = /(?<!\d)([1-4])\s*[.),]\s*(\D{1,30}?)\s*(?=(?<!\d)[1-4]\s*[.),]|$)/g;
         let m;
         while ((m = re.exec(text)) !== null) {
             const n = parseInt(m[1], 10);
