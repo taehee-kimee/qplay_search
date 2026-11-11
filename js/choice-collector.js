@@ -134,11 +134,11 @@
 
     // Tesseract가 "지 진 계"처럼 한글을 한 글자씩 띄어 읽은 경우 붙인다.
     // 한글 토큰 대부분이 한 글자일 때만 동작 (정상 띄어쓰기 문장은 그대로 둔다)
-    function fixSpacing(text) {
+    function fixSpacing(text, minTokens = 3) {
         if (!text) return text;
         const tokens = text.split(/\s+/).filter(Boolean);
         const hangulTokens = tokens.filter(t => /[가-힣]/.test(t));
-        if (hangulTokens.length < 3) return text.trim();
+        if (hangulTokens.length < minTokens) return text.trim();
         const single = hangulTokens.filter(t => /^[가-힣]$/.test(t)).length;
         if (single / hangulTokens.length < 0.6) return text.trim();
         return text.trim().replace(/([가-힣])\s+(?=[가-힣](\s|$|[?.,!)]))/g, '$1');
@@ -173,7 +173,7 @@
         let m;
         while ((m = re.exec(text)) !== null) {
             const n = parseInt(m[1], 10);
-            const value = fixSpacing(m[2].trim());
+            const value = fixSpacing(m[2].trim(), 2); // 보기는 짧으니 "박 쥐"도 붙인다
             if (!value || choices[n]) continue;
             if (firstIndex < 0) firstIndex = m.index;
             choices[n] = value;
