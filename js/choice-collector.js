@@ -529,6 +529,55 @@
         }
     }
 
+    // '서버에 바로 올리기' 버튼: 주어진 문제(없으면 이 브라우저에서 모은 전부)를 지금 바로 보낸다.
+    // 같은 브라우저가 같은 문제를 다시 보내도 병합 루틴이 보낸 사람 기준으로 한 번만 센다.
+    async function uploadNow(items) {
+        if (typeof fetch === 'undefined') return { sent: 0, failed: 0, error: 'no-fetch' };
+        if (!Array.isArray(items)) {
+            items = [];
+            for (const [sheet, list] of Object.entries(loadStore())) {
+                for (const c of list || []) items.push({ sheet, question: c.question, answer: c.answer, note: c.note || '' });
+            }
+        }
+        // 대기열에 남은 것도 함께 (중복은 질문+답으로 걸러냄)
+        const seen = new Set();
+        const all = [];
+        for (const it of items.concat(readJson(OUTBOX_KEY, []))) {
+            const k = `${it.sheet}|${compactKey(it.question)}|${compactKey(it.answer)}`;
+            if (seen.has(k)) continue;
+            seen.add(k);
+            all.push({ sheet: it.sheet, question: it.question, answer: it.answer, note: it.note || '' });
+        }
+        let sent = 0, rejected = 0, failed = 0, error = null;
+        for (let i = 0; i < all.length; i += 20) {
+            const batch = all.slice(i, i + 20);
+            try {
+                const res = await fetch(COLLECT_ENDPOINT, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ client: clientId(), items: batch })
+                });
+                if (res.ok) {
+                    const body = await res.json().catch(() => ({}));
+                    const n = typeof body.count === 'number' ? body.count : batch.length;
+                    sent += n;
+                    rejected += batch.length - n;
+                } else if (res.status === 400) {
+                    rejected += batch.length;
+                } else {
+                    failed += batch.length;
+                    error = `server-${res.status}`;
+                }
+            } catch (e) {
+                failed += batch.length;
+                error = 'network';
+            }
+        }
+        // 보내기에 성공(또는 서버가 형식 거절)했으면 대기열 비우기
+        if (!failed) writeJson(OUTBOX_KEY, []);
+        return { sent, rejected, failed, error, total: all.length };
+    }
+
     function recordDebug(text) {
         const log = readJson(DEBUG_KEY, []);
         log.push({ t: new Date().toISOString().slice(5, 19), s: text.slice(0, 240) });
@@ -547,6 +596,7 @@
         totalCount,
         toTsv,
         flushOutbox,
+        uploadNow,
         pendingUploads: () => readJson(OUTBOX_KEY, []).length,
         // 표시용 정리 (예전에 띄어 읽힌 채 저장된 문제도 보기 좋게): 루틴의 tidy_text와 같은 규칙
         tidy: (text, isQuestion) => {
