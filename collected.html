@@ -62,7 +62,6 @@
 
             <div class="cc-tools">
                 <input id="filter" type="search" placeholder="질문이나 답으로 찾기...">
-                <button class="cc-btn primary" id="uploadBtn" type="button">⬆ 서버에 바로 올리기</button>
                 <button class="cc-btn primary" id="mergeBtn" type="button" hidden>⚡ 족보에 바로 반영하기</button>
                 <button class="cc-btn" id="downloadBtn" type="button">파일로 내려받기</button>
             </div>
@@ -227,7 +226,6 @@
             function showAdmin() {
                 var isAdmin = !!getAdminKey();
                 mergeBtn.hidden = !isAdmin;
-                document.getElementById('uploadBtn').hidden = isAdmin; // 반영하기가 올리기까지 한다
                 document.getElementById('adminBox').hidden = location.hash !== '#admin';
             }
             function say(text, isErr) { uploadMsg.className = isErr ? 'cc-msg err' : 'cc-msg'; uploadMsg.textContent = text; }
@@ -341,35 +339,20 @@
                 return tick();
             }
 
-            // 서버에 바로 올리기: 아직 족보에 안 들어간 문제를 밤까지 기다리지 않고 지금 보낸다
-            var uploadBtn = document.getElementById('uploadBtn');
             var uploadMsg = document.getElementById('uploadMsg');
-            uploadBtn.addEventListener('click', function () {
-                if (!window.QplayCollect || !window.QplayCollect.uploadNow) return;
-                var items = unmerged.slice();
-                if (!items.length && !window.QplayCollect.pendingUploads()) {
-                    uploadMsg.className = 'cc-msg';
-                    uploadMsg.textContent = '올릴 문제가 없어요. 모은 문제가 모두 족보에 반영됐어요.';
-                    return;
-                }
-                uploadBtn.disabled = true;
-                uploadMsg.className = 'cc-msg';
-                uploadMsg.textContent = '올리는 중...';
-                window.QplayCollect.uploadNow(items).then(function (r) {
-                    uploadBtn.disabled = false;
-                    if (r.failed) {
-                        uploadMsg.className = 'cc-msg err';
-                        uploadMsg.textContent = (r.sent ? r.sent + '개는 올렸지만 ' : '') + r.failed + '개를 못 올렸어요' +
-                            (r.error === 'network' ? ' (인터넷 연결을 확인해 주세요).' : ' (' + r.error + '). 잠시 후 다시 눌러 주세요.');
-                    } else {
-                        uploadMsg.className = 'cc-msg';
-                        uploadMsg.textContent = r.sent + '개를 서버에 올렸어요.' +
-                            (r.rejected ? ' (' + r.rejected + '개는 형식이 맞지 않아 빠졌어요)' : '') +
-                            ' 오늘 밤 족보에 합쳐집니다.';
-                    }
+
+            // 공유 수집 기능이 생기기 전에 모은 문제는 서버로 간 적이 없다 → 브라우저마다 한 번만 조용히 보낸다
+            // (같은 브라우저가 다시 보내도 병합 루틴이 보낸 사람 기준으로 한 번만 센다)
+            var BACKFILL_KEY = 'qplay:collected:backfilled';
+            function backfillOnce() {
+                if (!window.QplayCollect || !window.QplayCollect.uploadNow || !unmerged.length) return;
+                try { if (localStorage.getItem(BACKFILL_KEY)) return; } catch (e) { return; }
+                window.QplayCollect.uploadNow(unmerged.slice()).then(function (r) {
+                    if (!r.failed) { try { localStorage.setItem(BACKFILL_KEY, new Date().toISOString()); } catch (e) { /* ignore */ } }
                     render(lastStatus);
                 });
-            });
+            }
+
             document.getElementById('downloadBtn').addEventListener('click', function () {
                 if (!window.QplayCollect) return;
                 var blob = new Blob(['﻿' + window.QplayCollect.toTsv()], { type: 'text/tab-separated-values;charset=utf-8' });
@@ -389,6 +372,7 @@
                 .catch(function () { return null; })
                 .then(function (status) {
                     render(status || { merged: [], merged_total: 0, pending_count: 0, last_merge: null });
+                    if (status) backfillOnce(); // 족보 반영 여부를 안 뒤에 (이미 반영된 건 보낼 필요 없음)
                 });
             // 못 보낸 문제가 있으면 다시 보내고 상태 갱신
             if (window.QplayCollect && window.QplayCollect.pendingUploads() > 0) {
