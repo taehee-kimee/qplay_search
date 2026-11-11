@@ -1,7 +1,7 @@
 // 모든 사용자가 모은 문제를 한곳에 모으는 API (Vercel 함수 + Vercel Blob)
 //
 // POST /api/collect  { client, items: [{ sheet, question, answer, note }] }
-//   웹 수집기가 정답 화면으로 확정한 문제를 보낸다. 제출 1건 = Blob 파일 1개 (덮어쓰기 경쟁 없음).
+//   웹 수집기가 정답 화면으로 확정한 문제를 보낸다. retract: true 면 예전에 보낸 문제를 취소한다. 제출 1건 = Blob 파일 1개 (덮어쓰기 경쟁 없음).
 // GET  /api/collect?key=...&cursor=...
 //   족보 병합 루틴(관리자)만 읽는다. key는 관리자 PC에만 있고, 여기에는 해시만 둔다.
 //
@@ -89,6 +89,8 @@ export function createHandler(getBlob) {
                 source: crypto.createHash('sha256').update(`qplay:${ip}`).digest('hex').slice(0, 16),
                 items
             };
+            // retract: 사용자가 '모은 문제'에서 지운 문제 → 병합 루틴이 같은 보낸 사람의 제출을 취소한다
+            if (body.retract === true) record.retract = true;
             const day = record.at.slice(0, 10);
             await blob.put(`submissions/${day}/${Date.now()}.json`, JSON.stringify(record), {
                 access: 'public',

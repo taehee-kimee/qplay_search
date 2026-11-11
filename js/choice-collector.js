@@ -11,6 +11,7 @@
     const STORAGE_KEY = 'qplay:collected:v1';
     const OUTBOX_KEY = 'qplay:collected:outbox';   // 서버로 보낼 대기열
     const CLIENT_KEY = 'qplay:client-id';
+    const RETRACT_KEY = 'qplay:collected:retract'; // 지웠다고 서버에 알릴 대기열
     const DEBUG_KEY = 'qplay:collect:debug';       // 최근 원본 OCR 30개 (수집이 안 될 때 원인 확인용)
     // 모든 사용자의 수집분을 모으는 곳 (GitHub Pages에서도 같은 주소로 보낸다)
     const COLLECT_ENDPOINT = 'https://qplay-search.vercel.app/api/collect';
@@ -578,6 +579,48 @@
         return { sent, rejected, failed, error, total: all.length };
     }
 
+    // '모은 문제'에서 지우기: 이 브라우저 목록·전송 대기열에서 빼고, 이미 보낸 것은 서버에 취소를 알린다
+    function removeCollected(sheet, question, answer) {
+        const same = it => it.sheet === sheet && compactKey(it.question) === compactKey(question) &&
+            compactKey(it.answer) === compactKey(answer);
+        const store = loadStore();
+        const before = (store[sheet] || []).length;
+        store[sheet] = (store[sheet] || []).filter(c => !same({ sheet, question: c.question, answer: c.answer }));
+        if (!store[sheet].length) delete store[sheet];
+        saveStore(store);
+        writeJson(OUTBOX_KEY, readJson(OUTBOX_KEY, []).filter(it => !same(it)));
+        const box = readJson(RETRACT_KEY, []);
+        box.push({ sheet, question, answer, note: '' });
+        writeJson(RETRACT_KEY, box.slice(-200));
+        flushRetracts();
+        return before - (store[sheet] || []).length;
+    }
+
+    let retracting = false;
+    async function flushRetracts() {
+        if (retracting || typeof fetch === 'undefined') return;
+        const box = readJson(RETRACT_KEY, []);
+        if (!box.length) return;
+        retracting = true;
+        try {
+            const batch = box.slice(0, 20);
+            const res = await fetch(COLLECT_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ client: clientId(), retract: true, items: batch })
+            });
+            if (res.ok || res.status === 400) {
+                const rest = readJson(RETRACT_KEY, []).slice(batch.length);
+                writeJson(RETRACT_KEY, rest);
+                if (rest.length) setTimeout(flushRetracts, 1000);
+            }
+        } catch (e) {
+            /* 오프라인 등: 다음 기회에 */
+        } finally {
+            retracting = false;
+        }
+    }
+
     function recordDebug(text) {
         const log = readJson(DEBUG_KEY, []);
         log.push({ t: new Date().toISOString().slice(5, 19), s: text.slice(0, 240) });
@@ -586,7 +629,7 @@
 
     // 페이지를 열 때 못 보낸 것들 다시 보내기
     if (typeof window !== 'undefined' && window.addEventListener) {
-        window.addEventListener('load', () => setTimeout(flushOutbox, 3000));
+        window.addEventListener('load', () => setTimeout(() => { flushOutbox(); flushRetracts(); }, 3000));
     }
 
     window.QplayCollect = {
@@ -597,6 +640,7 @@
         toTsv,
         flushOutbox,
         uploadNow,
+        removeCollected,
         pendingUploads: () => readJson(OUTBOX_KEY, []).length,
         // 표시용 정리 (예전에 띄어 읽힌 채 저장된 문제도 보기 좋게): 루틴의 tidy_text와 같은 규칙
         tidy: (text, isQuestion) => {

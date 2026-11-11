@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>모은 문제 · 그깽 족보</title>
     <link rel="stylesheet" href="styles.css">
-    <script src="js/choice-collector.js?v=20261112b"></script>
+    <script src="js/choice-collector.js?v=20261112c"></script>
     <style>
         .cc-wrap { padding: 20px; }
         .cc-lead { color: #666; font-size: 0.92em; line-height: 1.6; margin-bottom: 18px; }
@@ -23,6 +23,8 @@
         .cc-btn:disabled { opacity: 0.5; cursor: default; }
         .cc-msg { font-size: 0.88em; color: #444; min-height: 1.2em; margin: 4px 0 0; }
         .cc-msg.err { color: #c62828; }
+        .cc-del { border: 1px solid #ddd; background: #fff; color: #999; padding: 2px 8px; font-size: 0.8em; cursor: pointer; white-space: nowrap; }
+        .cc-del:hover { border-color: #c62828; color: #c62828; }
         .cc-section { margin-top: 26px; }
         .cc-section h3 { font-size: 1.05em; margin-bottom: 10px; }
         .cc-section h3 .count { color: #999; font-weight: 400; font-size: 0.85em; margin-left: 4px; }
@@ -103,6 +105,7 @@
 
             var unmerged = [];
             var lastStatus = null;
+            var mineList = [];
 
             function render(status) {
                 lastStatus = status;
@@ -133,10 +136,11 @@
                     (store[sheet] || []).forEach(function (c) { mine.push({ sheet: sheet, c: c }); });
                 });
                 mine.sort(function (a, b) { return String(b.c.time || '').localeCompare(String(a.c.time || '')); });
+                mineList = mine;
 
                 var mergedMine = 0, waiting = 0;
                 unmerged = [];
-                var mineRows = mine.map(function (m) {
+                var mineRows = mine.map(function (m, idx) {
                     var key = qk(m.c.question) + '|' + ak(m.c.answer);
                     var badge;
                     if (isMerged(m.c.question)) { badge = '<span class="cc-badge merged">족보에 반영됨</span>'; mergedMine++; }
@@ -146,7 +150,8 @@
                     var q = tidy(m.c.question, true);
                     var ans = tidy(m.c.answer, false);
                     return '<tr><td>' + esc(m.c.time || '') + '</td><td>' + esc(m.sheet) + '</td><td>' + esc(q) +
-                        '</td><td class="ans">' + esc(ans) + '</td><td>' + badge + '</td></tr>';
+                        '</td><td class="ans">' + esc(ans) + '</td><td>' + badge + '</td>' +
+                        '<td><button class="cc-del" type="button" data-i="' + idx + '" title="이 문제 지우기">삭제</button></td></tr>';
                 });
 
                 document.getElementById('cards').innerHTML = [
@@ -161,7 +166,7 @@
 
                 document.getElementById('mineCount').textContent = mine.length;
                 document.getElementById('mine').innerHTML = mine.length
-                    ? table(['모은 때', '카테고리', '질문', '답', '상태'], mineRows)
+                    ? table(['모은 때', '카테고리', '질문', '답', '상태', ''], mineRows)
                     : '<div class="cc-empty">아직 이 브라우저에서 모은 문제가 없어요.<br>족보 검색 화면의 📷 버튼으로 자동족보를 켜고 \'중단없이\'를 체크한 채 문제를 풀어 보세요.</div>';
 
                 document.getElementById('mergedCount').textContent = merged.length;
@@ -187,6 +192,28 @@
             }
 
             document.getElementById('filter').addEventListener('input', applyFilter);
+
+            // 삭제: 잘못 읽힌 문제 등을 지운다. 아직 족보에 안 들어간 것은 서버 제출도 취소된다
+            document.getElementById('mine').addEventListener('click', function (e) {
+                var btn = e.target.closest && e.target.closest('.cc-del');
+                if (!btn || !window.QplayCollect || !window.QplayCollect.removeCollected) return;
+                var m = mineList[Number(btn.getAttribute('data-i'))];
+                if (!m) return;
+                var tidy = window.QplayCollect.tidy;
+                var merged = btn.closest('tr').querySelector('.cc-badge.merged');
+                var msg = '이 문제를 지울까요?
+
+' + tidy(m.c.question, true) + '
+→ ' + tidy(m.c.answer, false) +
+                    (merged ? '
+
+이미 족보에 들어간 문제라 검색에는 계속 나와요. 이 목록에서만 지워집니다.' : '');
+                if (!confirm(msg)) return;
+                window.QplayCollect.removeCollected(m.sheet, m.c.question, m.c.answer);
+                uploadMsg.className = 'cc-msg';
+                uploadMsg.textContent = merged ? '목록에서 지웠어요.' : '지웠어요. 서버에 보낸 것도 취소되어 족보에 합쳐지지 않아요.';
+                render(lastStatus);
+            });
 
             // 서버에 바로 올리기: 아직 족보에 안 들어간 문제를 밤까지 기다리지 않고 지금 보낸다
             var uploadBtn = document.getElementById('uploadBtn');
