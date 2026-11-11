@@ -457,7 +457,7 @@ async function loadDefaultData() {
             const categoryObj = metadata.categories.find(cat => cat.name === selectedSheet);
             if (categoryObj) {
                 const categoryData = await loadCategoryData(categoryObj.id, categoryObj.name, categoryObj.file);
-                questionsData = categoryData;
+                questionsData = window.QplayCollect ? window.QplayCollect.withCollected(categoryData, categoryObj.name) : categoryData;
                 window.questionsData = questionsData;
             }
         }
@@ -492,7 +492,7 @@ async function loadDefaultData() {
                 try {
                     document.getElementById('results').innerHTML = `<div class="loading">${categoryName} 데이터를 로드하는 중...</div>`;
                     const categoryData = await loadCategoryData(categoryObj.id, categoryObj.name, categoryObj.file);
-                    questionsData = categoryData;
+                    questionsData = window.QplayCollect ? window.QplayCollect.withCollected(categoryData, categoryObj.name) : categoryData;
                     window.questionsData = questionsData;
 
                     // 검색 인덱스 재구축
@@ -678,10 +678,95 @@ let selectionBox = null;
 let autoCaptureInterval = null;
 let isAutoCaptureMode = false;
 let lastOCRText = '';
+
+// ===== 보기 역추적 / 족보에 없는 문제 수집 (js/choice-collector.js) =====
+let presetSearchResults = null;
+
+/**
+ * 원본 OCR 글자를 수집기에 넘긴다.
+ * 문제가 가려져 보기로 답을 찾았으면 결과를 표시하고 true(일반 검색 생략)를 반환.
+ */
+function handleRawOcrText(rawText, isAutoMode, captureRect) {
+    const qc = window.QplayCollect;
+    if (!qc || !rawText) return false;
+
+    let result;
+    try {
+        result = qc.observe(rawText, selectedSheet, questionsData);
+    } catch (e) {
+        console.warn('수집기 오류:', e);
+        return false;
+    }
+
+    if (result.saved) {
+        if (result.saved.sheet === selectedSheet) {
+            questionsData.push({
+                question: result.saved.question,
+                answer: result.saved.answer,
+                index: -1,
+                sheet: result.saved.sheet,
+                collected: true
+            });
+        }
+        updateCollectedBadge();
+        showNotification(`📥 족보에 없던 문제를 모았어요: ${result.saved.answer}`);
+    }
+
+    const fb = result.fallback;
+    if (!fb || !fb.items.length) return false;
+
+    if (fb.key !== lastOCRText) {
+        lastOCRText = fb.key;
+        if (!isAutoMode) {
+            savedSelectionRect = captureRect;
+            startAutoCapture();
+        }
+        presetSearchResults = fb.items;
+        currentSearchTerm = fb.choices.join(' ');
+        if (searchInput) searchInput.value = currentSearchTerm;
+        if (clearSearchBtn) clearSearchBtn.classList.add('show');
+        window.currentQuestionKeywords = [];
+        window.currentChoiceKeywords = [];
+        displayedCount = 0;
+        performSearch(true);
+        showNotification('문제가 가려져 있어 보기로 답을 찾았어요');
+    }
+    return true;
+}
+
+function updateCollectedBadge() {
+    const btn = document.getElementById('collectedBtn');
+    if (!btn || !window.QplayCollect) return;
+    const count = window.QplayCollect.totalCount();
+    btn.textContent = `📥 모은 문제 ${count}`;
+    btn.style.display = count > 0 ? '' : 'none';
+}
+
+// 모은 문제를 TSV 파일로 내려받기 (족보에 합칠 때 사용)
+function downloadCollected() {
+    if (!window.QplayCollect) return;
+    const blob = new Blob(['﻿' + window.QplayCollect.toTsv()], { type: 'text/tab-separated-values;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const d = new Date();
+    a.href = url;
+    a.download = `모은문제_${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}.tsv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 let savedSelectionRect = null;
 
 // 모든 이벤트 리스너 초기화 함수
 function initEventListeners() {
+    // 모은 문제 버튼
+    const collectedBtn = document.getElementById('collectedBtn');
+    if (collectedBtn) {
+        collectedBtn.addEventListener('click', downloadCollected);
+        updateCollectedBadge();
+    }
+
     // 문제 제보 및 도움말 모달 관련 요소
     const reportBtn = document.getElementById('reportBtn');
     const reportModal = document.getElementById('reportModal');
@@ -1389,6 +1474,14 @@ async function captureAndOCRWithWorker(isAutoMode = false) {
                         });
                     }
 
+                    // 보기 역추적 / 문제 수집 (원본 OCR 글자 기준). 처리됐으면 일반 검색 생략
+                    if (handleRawOcrText(event.data.text, isAutoMode, captureRect)) {
+                        cameraLoading.style.display = 'none';
+                        if (!isAutoMode) cameraCaptureBtn.disabled = false;
+                        resolve();
+                        return;
+                    }
+
                     let cleanedText = event.data.text.trim().replace(/\s+/g, ' ').replace(/\n/g, ' ');
 
                     // 특수문자 제거 (한글, 영문, 숫자, 기본 구두점만 유지)
@@ -1564,6 +1657,13 @@ async function captureAndOCRLegacy(isAutoMode = false) {
             // OCR 정확도 향상을 위한 옵션
             tessedit_pageseg_mode: '6' // 단일 텍스트 블록으로 인식
         });
+
+        // 보기 역추적 / 문제 수집 (원본 OCR 글자 기준). 처리됐으면 일반 검색 생략
+        if (handleRawOcrText(text, isAutoMode, captureRect)) {
+            cameraLoading.style.display = 'none';
+            if (!isAutoMode) cameraCaptureBtn.disabled = false;
+            return;
+        }
 
         // 텍스트 정리
         let cleanedText = text.trim().replace(/\s+/g, ' ').replace(/\n/g, ' ');
@@ -2535,6 +2635,11 @@ function processOCRResult(text, isAutoMode = false) {
         // 검색 실행
         performSearch();
 
+        // 문제 수집기에 상위 답 전달 (정답 화면에서 족보가 맞았는지 판단용)
+        if (window.QplayCollect) {
+            window.QplayCollect.setMatchedAnswers(allFilteredResults.slice(0, 5).map(r => r.answer));
+        }
+
         // 검색 결과 확인 (검색 결과가 나왔으면 자동 캡처 중지 - 단, 중단없이 체크박스가 체크되어 있으면 중지하지 않음)
         setTimeout(() => {
             if (allFilteredResults.length > 0 && isAutoCaptureMode) {
@@ -2671,7 +2776,12 @@ function performSearch(resetDisplay = false) {
     const keywords = tokenizeSearchTerm(currentSearchTerm);
     const forceFlexibleMatching = shouldForceFlexibleMatching(currentSearchTerm, keywords);
 
-    if (resetDisplay || displayedCount === 0) {
+    if ((resetDisplay || displayedCount === 0) && presetSearchResults) {
+        // 보기 역추적 결과는 키워드 검색 없이 그대로 표시
+        allFilteredResults = presetSearchResults;
+        presetSearchResults = null;
+        displayedCount = 0;
+    } else if (resetDisplay || displayedCount === 0) {
         let filtered = questionsData.filter(item => {
             // 선택된 시트인지 확인
             if (selectedSheet && item.sheet !== selectedSheet) {
@@ -2812,7 +2922,7 @@ function performSearch(resetDisplay = false) {
         html += `
                     <div class="result-item" data-answer="${answerEscaped.replace(/"/g, '&quot;')}">
                         <div class="result-sheet">
-                            <span class="sheet-tag">${escapeHtml(item.sheet || '알 수 없음')}</span>
+                            <span class="sheet-tag">${escapeHtml(item.sheet || '알 수 없음')}</span>${item.collected ? '<span class="sheet-tag collected-tag" title="이 브라우저에서 직접 모은 문제">📥 내가 모은 문제</span>' : ''}${item.choiceFallback ? '<span class="sheet-tag collected-tag" title="문제가 가려져 보기로 찾은 결과">🔎 보기로 찾음</span>' : ''}
                         </div>
                         <div class="result-question">${highlightedQuestion}</div>
                         <div class="result-answer">${highlightedAnswer}</div>

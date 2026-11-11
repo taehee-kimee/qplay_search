@@ -896,6 +896,13 @@ body {
 }
 
 /* 문제 제보 모달 */
+.sheet-tag.collected-tag {
+    background: #ffffff;
+    color: #000000;
+    border: 1px solid #000000;
+    margin-left: 6px;
+}
+
 .report-btn {
     background: none;
     border: none;

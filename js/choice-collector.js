@@ -1,0 +1,450 @@
+// 보기 역추적 + 족보에 없는 문제 수집 (설치형 QuizHelper v2.0.3과 같은 규칙)
+//
+// 1) 보기 역추적: 문제 글자 위에 검은 줄이 그어져 본문 OCR이 깨지거나 사라져도,
+//    깨끗하게 읽힌 보기(1~4번) 중 하나를 정답으로 가진 문제를 족보에서 찾는다.
+//    본문이 손상됐고 보기가 3개 이상 읽혔을 때만 동작한다.
+// 2) 문제 수집: 문제 화면을 기억해 뒀다가 이어지는 정답 화면("[정 답] 정답은 3 ...")에서
+//    진짜 답을 확정하고, 족보에 없거나 족보 답이 틀렸으면 이 브라우저(localStorage)에 저장한다.
+(function () {
+    'use strict';
+
+    const STORAGE_KEY = 'qplay:collected:v1';
+    const PENDING_LIFETIME_MS = 90 * 1000;
+
+    // ===== 문자열 유틸 =====
+
+    function normalizeText(text) {
+        if (!text) return '';
+        return String(text)
+            .replace(/\|/g, 'l')
+            .replace(/`/g, "'")
+            .replace(/~/g, '-')
+            .replace(/[^0-9A-Za-z_\s가-힣ㄱ-ㅎㅏ-ㅣ]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .toLowerCase();
+    }
+
+    function compactKey(text) {
+        return normalizeText(text).replace(/ /g, '');
+    }
+
+    // 한글 음절 → 초/중/종성 (자모 1개 오인식 허용 비교용: 첩→접, 탱→행)
+    function toJamo(text) {
+        let out = '';
+        for (const ch of text) {
+            const code = ch.charCodeAt(0);
+            if (code >= 0xAC00 && code <= 0xD7A3) {
+                const c = code - 0xAC00;
+                out += String.fromCharCode(0x1100 + Math.floor(c / 588));
+                out += String.fromCharCode(0x1161 + Math.floor((c % 588) / 28));
+                const jong = c % 28;
+                if (jong > 0) out += String.fromCharCode(0x11A7 + jong);
+            } else {
+                out += ch;
+            }
+        }
+        return out;
+    }
+
+    // FuzzySharp Fuzz.Ratio와 같은 방식 (삽입/삭제 거리 기반, 0~100)
+    function ratio(a, b) {
+        if (!a.length && !b.length) return 100;
+        if (!a.length || !b.length) return 0;
+        const prev = new Array(b.length + 1).fill(0);
+        const cur = new Array(b.length + 1).fill(0);
+        for (let i = 1; i <= a.length; i++) {
+            for (let j = 1; j <= b.length; j++) {
+                cur[j] = a[i - 1] === b[j - 1] ? prev[j - 1] + 1 : Math.max(prev[j], cur[j - 1]);
+            }
+            for (let j = 0; j <= b.length; j++) prev[j] = cur[j];
+        }
+        return Math.round((200 * prev[b.length]) / (a.length + b.length));
+    }
+
+    // 짧은 쪽을 긴 쪽의 같은 길이 구간들과 비교한 최고 점수 (Fuzz.PartialRatio 근사)
+    function partialRatio(a, b) {
+        let s = a, l = b;
+        if (s.length > l.length) { s = b; l = a; }
+        if (!s.length) return 0;
+        if (s.length === l.length) return ratio(s, l);
+        let best = 0;
+        for (let i = 0; i + s.length <= l.length; i++) {
+            const r = ratio(s, l.substr(i, s.length));
+            if (r > best) best = r;
+            if (best === 100) break;
+        }
+        return best;
+    }
+
+    // 정답 비교용 키: 원본 + 닉네임/별표/슬래시 꼬리 제거본
+    function answerKeys(answer) {
+        const keys = [];
+        const raw = compactKey(answer);
+        if (raw.length >= 2) keys.push(raw);
+
+        let core = String(answer || '');
+        const slash = core.indexOf('/');
+        if (slash > 0) core = core.substring(0, slash);
+        const star = core.search(/[★☆*※•▪▫]/);
+        if (star > 0) core = core.substring(0, star);
+        const spacedHyphen = core.indexOf(' -');
+        if (spacedHyphen > 0) core = core.substring(0, spacedHyphen);
+        const coreKey = compactKey(core);
+        if (coreKey.length >= 2 && !keys.includes(coreKey)) keys.push(coreKey);
+
+        const bareHyphen = core.indexOf('-');
+        if (bareHyphen > 0) {
+            const head = compactKey(core.substring(0, bareHyphen));
+            if (head.length >= 2 && !keys.includes(head)) keys.push(head);
+        }
+        return keys;
+    }
+
+    function cachedAnswerKeys(item) {
+        if (!item.__answerKeys) item.__answerKeys = answerKeys(item.answer);
+        return item.__answerKeys;
+    }
+
+    function answersEquivalent(a, b, jamoThreshold = 85, minFuzzyLength = 3) {
+        const ka = answerKeys(a), kb = answerKeys(b);
+        for (const x of ka) {
+            for (const y of kb) {
+                if (x === y) return true;
+                if (x.length >= minFuzzyLength && y.length >= minFuzzyLength &&
+                    ratio(toJamo(x), toJamo(y)) >= jamoThreshold) return true;
+            }
+        }
+        return false;
+    }
+
+    // 정답 화면 글자가 잘려 나온 경우 ("헤세-보" ⊂ "헤세-보봐리부인")
+    function isTruncatedReading(fullAnswer, reading) {
+        const r = compactKey(reading);
+        if (r.length < 2) return false;
+        return answerKeys(fullAnswer).some(k => k.length > r.length && k.startsWith(r));
+    }
+
+    // ===== 화면 파싱 =====
+
+    function flatten(text) {
+        return String(text || '').replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+
+    // "[정 답] 정답은 3. 노량대첩 [설 명] ..." / "[정 답1 정답은 4 [설 명] ..." / "정답은 사과 입니다"
+    function parseAnswerScreen(text) {
+        const m = text.match(/(?:정\s*[답담]\s*\S?\s*)?정답은\s*(.+?)\s*(?:\[\s*설|$)/);
+        if (!m) return null;
+        const rest = m[1].trim();
+        if (rest.includes('플레이어마다')) return { skip: true }; // 매크로 방지 문제
+        const numbered = rest.match(/^([1-4])(?:\s*[.,)]\s*(.*))?$/);
+        if (numbered) {
+            const t = (numbered[2] || '').trim();
+            return { number: parseInt(numbered[1], 10), text: t || null };
+        }
+        const subjective = rest.replace(/\s*(입니다|이다)?\s*[.!]*$/, '').trim();
+        return { number: null, text: subjective || null };
+    }
+
+    // "1. 진주대첩 3. 노량대첩 2. 한산도대첩 4. 행주대첩" → {1:..., 2:..., 3:..., 4:...}
+    function extractNumberedChoices(text) {
+        const choices = {};
+        let firstIndex = -1;
+        const re = /(?<!\d)([1-4])\s*[.)]\s*(\D{1,30}?)\s*(?=(?<!\d)[1-4]\s*[.)]|$)/g;
+        let m;
+        while ((m = re.exec(text)) !== null) {
+            const n = parseInt(m[1], 10);
+            const value = m[2].trim();
+            if (!value || choices[n]) continue;
+            if (firstIndex < 0) firstIndex = m.index;
+            choices[n] = value;
+        }
+        return { choices, firstIndex };
+    }
+
+    function stripQuestionMarker(body) {
+        return body
+            .replace(/출제자\s*[:：]\s*\S+\s*/g, '')
+            .replace(/\(\d+\s*글자\)/g, '')
+            .replace(/^\s*[\[<]?\s*문\s*제(?:\s*\d{1,2}(?:[\]>1l|]|[가-힣](?=\s))?|[\]>1l|]|[가-힣](?=\s))?\s*/, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    // 본문이 사라졌거나(한글 3자 미만, 영어 문제 제외) 깨진 문자 비율이 높으면 손상.
+    // 웹은 일반 검색보다 먼저 판단하므로 "채도란?" 같은 짧은 질문, <책 제목> 같은 괄호는 손상으로 보지 않는다.
+    function isBodyDamaged(body) {
+        const hangul = (body.match(/[가-힣]/g) || []).length;
+        const latin = (body.match(/[a-zA-Z]/g) || []).length;
+        if (hangul < 3 && latin < 8) return true;
+        const compact = body.replace(/\s/g, '');
+        if (!compact.length) return true;
+        const garbage = (compact.match(/[^가-힣a-zA-Z0-9?？.,'"‘’“”()<>\[\]〈〉《》『』「」!~·:%/\-]/g) || []).length;
+        return garbage / compact.length >= 0.12;
+    }
+
+    function qualityOf(s) {
+        const hangul = (s.match(/[가-힣]/g) || []).length;
+        const garbage = (s.match(/[^가-힣a-zA-Z0-9\s?？.,'"()!~·:%/\-]/g) || []).length;
+        return hangul - garbage * 3;
+    }
+
+    const SYSTEM_PATTERNS = [
+        /에\s*관한\s*문제입니다/, /문제를\s*모두\s*풀었/, /사용자\s*대기중/, /시상식/,
+        /오신\s*것을\s*환영/, /오신것을\s*환영/, /정답\s*번호를\s*클릭/
+    ];
+
+    function parseQuestionScreen(text) {
+        const marker = text.search(/[\[<]\s*문\s*제/);
+        if (marker < 0) return null;
+        if (SYSTEM_PATTERNS.some(p => p.test(text))) return null;
+
+        const afterMarker = text.substring(marker);
+        if (/이미지\s*속?\s*(의\s*)?한글/.test(afterMarker)) return { captcha: true };
+
+        const { choices, firstIndex } = extractNumberedChoices(afterMarker);
+        const bodyRaw = firstIndex >= 0 ? afterMarker.substring(0, firstIndex) : afterMarker;
+        const body = stripQuestionMarker(bodyRaw);
+        if (!body && Object.keys(choices).length < 2) return null;
+        return { body, choices };
+    }
+
+    // ===== 보기 역추적 =====
+
+    function findByChoices(question, items) {
+        const choiceValues = Object.keys(question.choices)
+            .sort()
+            .map(k => question.choices[k]);
+        const choiceKeys = choiceValues.map(compactKey).filter(k => k.length >= 2);
+        // 보기 4개가 모두 읽혔을 때만 (하나라도 빠지면 그게 정답일 수 있음)
+        if (choiceKeys.length < 4) return [];
+        const choiceJamo = choiceKeys.map(toJamo);
+        const normalizedBody = normalizeText(question.body);
+
+        const hits = [];
+        for (const item of items) {
+            let matched = false;
+            for (const key of cachedAnswerKeys(item)) {
+                for (let i = 0; i < choiceKeys.length && !matched; i++) {
+                    const ck = choiceKeys[i];
+                    if (key === ck) matched = true;
+                    else if (key.length >= 3 && ck.length >= 3 && Math.abs(key.length - ck.length) <= 1 &&
+                        ratio(toJamo(key), choiceJamo[i]) >= 85) matched = true;
+                }
+                if (matched) break;
+            }
+            if (!matched) continue;
+            const sim = normalizedBody.length >= 2 ? partialRatio(normalizedBody, normalizeText(item.question)) : 0;
+            hits.push({ item, sim });
+        }
+
+        // 같은 답끼리 묶고, 남아 있는 본문 조각과 비슷한 순으로
+        const byAnswer = new Map();
+        for (const h of hits) {
+            const k = compactKey(h.item.answer);
+            if (!byAnswer.has(k) || byAnswer.get(k).sim < h.sim) byAnswer.set(k, h);
+        }
+        return [...byAnswer.values()]
+            .sort((a, b) => b.sim - a.sim)
+            .map((h, i) => ({ ...h.item, matchScore: 100 - i, choiceFallback: true }));
+    }
+
+    // ===== 수집 저장소 =====
+
+    function loadStore() {
+        try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            const parsed = raw ? JSON.parse(raw) : {};
+            return parsed && typeof parsed === 'object' ? parsed : {};
+        } catch (e) {
+            return {};
+        }
+    }
+
+    function saveStore(store) {
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function collectedFor(sheet) {
+        const list = loadStore()[sheet];
+        return Array.isArray(list) ? list : [];
+    }
+
+    function totalCount() {
+        return Object.values(loadStore()).reduce((n, list) => n + (Array.isArray(list) ? list.length : 0), 0);
+    }
+
+    // 족보 데이터 + 이 브라우저에서 모은 문제
+    function withCollected(data, sheet) {
+        const extra = collectedFor(sheet).map(c => ({
+            question: c.question,
+            answer: c.answer,
+            index: -1,
+            sheet,
+            collected: true
+        }));
+        return extra.length ? data.concat(extra) : data;
+    }
+
+    function toTsv() {
+        const store = loadStore();
+        const clean = s => String(s || '').replace(/[\t\r\n]+/g, ' ').trim();
+        const lines = ['카테고리\t질문\t답\t메모'];
+        for (const [sheet, list] of Object.entries(store)) {
+            for (const c of list || []) {
+                lines.push([sheet, c.question, c.answer, `${c.note || ''} ${c.time || ''}`].map(clean).join('\t'));
+            }
+        }
+        return lines.join('\r\n') + '\r\n';
+    }
+
+    // ===== 수집기 상태 =====
+
+    let pending = null;
+
+    function isSameQuestion(a, b) {
+        let shared = 0;
+        for (const k of Object.keys(a.choices)) {
+            if (b.choices[k] && answersEquivalent(a.choices[k], b.choices[k])) shared++;
+        }
+        if (shared >= 2) return true;
+        const na = normalizeText(a.body), nb = normalizeText(b.body);
+        return na.length >= 5 && nb.length >= 5 && ratio(na, nb) >= 80;
+    }
+
+    function rememberQuestion(q, sheet, now) {
+        const candidate = {
+            sheet,
+            body: q.body,
+            choices: { ...q.choices },
+            variants: Object.fromEntries(Object.entries(q.choices).map(([k, v]) => [k, [v]])),
+            matched: [],
+            quality: qualityOf(q.body) + Object.keys(q.choices).length * 5,
+            seenAt: now
+        };
+
+        if (pending && pending.sheet === sheet && now - pending.seenAt < PENDING_LIFETIME_MS && isSameQuestion(pending, candidate)) {
+            if (candidate.quality > pending.quality) {
+                pending.body = candidate.body;
+                pending.quality = candidate.quality;
+            }
+            for (const [k, v] of Object.entries(candidate.choices)) {
+                if (!pending.choices[k] || qualityOf(v) > qualityOf(pending.choices[k])) pending.choices[k] = v;
+                pending.variants[k] = pending.variants[k] || [];
+                if (!pending.variants[k].includes(v)) pending.variants[k].push(v);
+            }
+            pending.seenAt = now;
+        } else {
+            pending = candidate;
+        }
+    }
+
+    function onAnswer(ans, items, now) {
+        const p = pending;
+        if (!p || now - p.seenAt > PENDING_LIFETIME_MS) return null;
+
+        const choiceCount = Object.keys(p.choices).length;
+        let trueAnswer = null;
+        if (ans.number && p.choices[ans.number]) trueAnswer = p.choices[ans.number];
+        else if (ans.text && (ans.number || choiceCount === 0)) trueAnswer = ans.text;
+        if (!trueAnswer) return null;
+
+        pending = null; // 한 문제당 한 번만
+        trueAnswer = trueAnswer.trim();
+
+        // 검색 결과 상위권에 이미 정답이 있으면 족보가 알고 있는 것 (OCR 오인식은 너그럽게)
+        const readings = [trueAnswer];
+        if (ans.text) readings.push(ans.text);
+        if (ans.number && p.variants[ans.number]) readings.push(...p.variants[ans.number]);
+        const known = p.matched.some(m => readings.some(r => answersEquivalent(m, r, 75, 2) || isTruncatedReading(m, r)));
+        if (known) return null;
+
+        let question, note;
+        if (isBodyDamaged(p.body)) {
+            if (choiceCount < 3) return null; // 진짜 답이 안 보이는 보기였을 수 있음
+            question = '(가려진 문제) 보기: ' + Object.keys(p.choices).sort().map(k => p.choices[k]).join(' / ');
+            note = '본문가려짐';
+        } else {
+            question = p.body;
+            note = p.matched.length ? `오답매칭(${p.matched[0]})` : '족보없음';
+        }
+        if (question.length < 4) return null;
+
+        // 중복 확인 (족보 + 이미 모은 것): 같은 답을 가진 항목 중 질문이 비슷하면 족보에 이미 있는 것
+        const qKey = compactKey(question);
+        const normalizedBody = normalizeText(p.body);
+        const dup = items.some(it => {
+            if (!answersEquivalent(it.answer, trueAnswer, 75, 2)) return false;
+            if (compactKey(it.question) === qKey) return true;
+            return normalizedBody.length >= 5 && partialRatio(normalizedBody, normalizeText(it.question)) >= 70;
+        });
+        if (dup) return null;
+
+        const store = loadStore();
+        const list = Array.isArray(store[p.sheet]) ? store[p.sheet] : [];
+        if (list.some(c => compactKey(c.question) === qKey && answersEquivalent(c.answer, trueAnswer))) return null;
+
+        const d = new Date(now);
+        const pad = n => String(n).padStart(2, '0');
+        const time = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        const saved = { question, answer: trueAnswer, note, time };
+        list.push(saved);
+        store[p.sheet] = list;
+        if (!saveStore(store)) return null;
+
+        return { ...saved, sheet: p.sheet };
+    }
+
+    /**
+     * 매 캡처마다 원본 OCR 글자로 호출.
+     * 반환: { saved: 새로 모은 문제 | null, fallback: { items, choices, key } | null }
+     */
+    function observe(rawText, sheet, items, now = Date.now()) {
+        const result = { saved: null, fallback: null };
+        if (!rawText || !sheet) return result;
+        const text = flatten(rawText);
+
+        const ans = parseAnswerScreen(text);
+        if (ans) {
+            if (ans.skip) pending = null;
+            else result.saved = onAnswer(ans, items || [], now);
+            return result;
+        }
+
+        const q = parseQuestionScreen(text);
+        if (!q) return result;
+        if (q.captcha) { pending = null; return result; }
+
+        rememberQuestion(q, sheet, now);
+
+        if (Object.keys(q.choices).length >= 4 && isBodyDamaged(q.body)) {
+            const found = findByChoices(q, items || []);
+            if (found.length) {
+                const choices = Object.keys(q.choices).sort().map(k => q.choices[k]);
+                result.fallback = { items: found, choices, key: 'CHOICES:' + choices.join('|') };
+                setMatchedAnswers(found.slice(0, 5).map(i => i.answer));
+            }
+        }
+        return result;
+    }
+
+    // 문제 화면 검색 결과의 상위 답들 (정답 화면에서 족보가 맞았는지 판단용)
+    function setMatchedAnswers(answers) {
+        if (pending) pending.matched = (answers || []).filter(Boolean).slice(0, 5);
+    }
+
+    window.QplayCollect = {
+        observe,
+        setMatchedAnswers,
+        withCollected,
+        totalCount,
+        toTsv,
+        // 테스트용
+        _internal: { parseAnswerScreen, parseQuestionScreen, extractNumberedChoices, isBodyDamaged, findByChoices, answersEquivalent, ratio, partialRatio, toJamo, resetPending: () => { pending = null; } }
+    };
+})();
