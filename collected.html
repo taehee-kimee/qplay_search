@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>모은 문제 · 그깽 족보</title>
     <link rel="stylesheet" href="styles.css">
-    <script src="js/choice-collector.js?v=20261111d"></script>
+    <script src="js/choice-collector.js?v=20261112a"></script>
     <style>
         .cc-wrap { padding: 20px; }
         .cc-lead { color: #666; font-size: 0.92em; line-height: 1.6; margin-bottom: 18px; }
@@ -99,8 +99,21 @@
                 var outbox = readJson('qplay:collected:outbox', []);
                 var merged = (status && status.merged) || [];
 
-                var mergedKeys = {};
-                merged.forEach(function (m) { mergedKeys[qk(m.q) + '|' + ak(m.a)] = true; });
+                var tidy = (window.QplayCollect && window.QplayCollect.tidy) || function (s) { return s; };
+                // 족보에 들어간 문제는 정리·교정된 질문으로 저장되므로, 정리한 질문끼리 비교한다
+                var mergedQs = merged.map(function (m) { return qk(m.q); });
+                function isMerged(question) {
+                    var k = qk(tidy(question, true));
+                    if (k.length < 4) return false;
+                    return mergedQs.some(function (mk) {
+                        if (mk === k) return true;
+                        if (Math.min(mk.length, k.length) >= 8 && (mk.indexOf(k) >= 0 || k.indexOf(mk) >= 0)) return true;
+                        if (mk.length !== k.length) return false;
+                        var diff = 0; // 한두 글자만 다른 경우 (손으로 고친 오타: 빚은 → 빛은)
+                        for (var i = 0; i < k.length && diff <= 2; i++) if (k[i] !== mk[i]) diff++;
+                        return diff <= 2;
+                    });
+                }
                 var outboxKeys = {};
                 outbox.forEach(function (o) { outboxKeys[qk(o.question) + '|' + ak(o.answer)] = true; });
 
@@ -114,12 +127,11 @@
                 var mineRows = mine.map(function (m) {
                     var key = qk(m.c.question) + '|' + ak(m.c.answer);
                     var badge;
-                    if (mergedKeys[key]) { badge = '<span class="cc-badge merged">족보에 반영됨</span>'; mergedMine++; }
+                    if (isMerged(m.c.question)) { badge = '<span class="cc-badge merged">족보에 반영됨</span>'; mergedMine++; }
                     else if (outboxKeys[key]) { badge = '<span class="cc-badge waiting">전송 대기</span>'; waiting++; }
                     else { badge = '<span class="cc-badge sent">서버로 보냄</span>'; }
-                    var tidy = window.QplayCollect && window.QplayCollect.tidy;
-                    var q = tidy ? tidy(m.c.question, true) : m.c.question;
-                    var ans = tidy ? tidy(m.c.answer, false) : m.c.answer;
+                    var q = tidy(m.c.question, true);
+                    var ans = tidy(m.c.answer, false);
                     return '<tr><td>' + esc(m.c.time || '') + '</td><td>' + esc(m.sheet) + '</td><td>' + esc(q) +
                         '</td><td class="ans">' + esc(ans) + '</td><td>' + badge + '</td></tr>';
                 });
