@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>모은 문제 · 그깽 족보</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="js/choice-collector.js"></script>
+    <style>
+        .cc-wrap { padding: 20px; }
+        .cc-lead { color: #666; font-size: 0.92em; line-height: 1.6; margin-bottom: 18px; }
+        .cc-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 18px; }
+        .cc-card { border: 1px solid #e0e0e0; border-left: 2px solid #000; padding: 12px 14px; background: #fff; }
+        .cc-card .n { font-size: 1.6em; font-weight: 700; color: #000; }
+        .cc-card .t { font-size: 0.82em; color: #666; margin-top: 2px; }
+        .cc-tools { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+        .cc-tools input { flex: 1; min-width: 200px; padding: 9px 14px; border: 1px solid #e0e0e0; font-size: 0.95em; }
+        .cc-btn { border: 1px solid #000; background: #fff; color: #000; padding: 8px 14px; cursor: pointer; font-size: 0.9em; text-decoration: none; display: inline-flex; align-items: center; }
+        .cc-btn:hover { background: #000; color: #fff; }
+        .cc-section { margin-top: 26px; }
+        .cc-section h3 { font-size: 1.05em; margin-bottom: 10px; }
+        .cc-section h3 .count { color: #999; font-weight: 400; font-size: 0.85em; margin-left: 4px; }
+        .cc-table-wrap { overflow-x: auto; border: 1px solid #e0e0e0; }
+        .cc-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+        .cc-table th, .cc-table td { text-align: left; padding: 9px 12px; border-bottom: 1px solid #eee; vertical-align: top; }
+        .cc-table th { color: #666; font-weight: 600; background: #fafafa; white-space: nowrap; }
+        .cc-table tr:last-child td { border-bottom: 0; }
+        .cc-table td.ans { font-weight: 600; color: #000; }
+        .cc-empty { color: #888; border: 1px dashed #ddd; padding: 16px; font-size: 0.92em; line-height: 1.6; }
+        .cc-badge { display: inline-block; padding: 2px 8px; font-size: 0.8em; white-space: nowrap; border: 1px solid #ddd; }
+        .cc-badge.merged { background: #000; color: #fff; border-color: #000; }
+        .cc-badge.sent { background: #fff; color: #000; border-color: #000; }
+        .cc-badge.waiting { background: #fff; color: #999; }
+        .cc-note { color: #999; font-size: 0.82em; margin-top: 8px; }
+        @media (max-width: 600px) { .header { padding: 14px 16px; } .cc-wrap { padding: 16px; } }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>📥 모은 문제</h2>
+            <a class="cc-btn" href="./">← 족보 검색으로</a>
+        </div>
+
+        <div class="cc-wrap">
+            <p class="cc-lead">
+                자동족보로 문제를 풀다가 <b>족보에 없던 문제</b>가 나오면, 정답 화면에서 답을 읽어 여기에 모아요.
+                모은 문제는 바로 검색에 쓰이고, 서버로 보내져 매일 밤 족보에 합쳐집니다.
+                정답 화면까지 읽어야 모이니 카메라 창의 <b>'중단없이'</b>를 켜 두세요.
+            </p>
+
+            <div class="cc-cards" id="cards"></div>
+
+            <div class="cc-tools">
+                <input id="filter" type="search" placeholder="질문이나 답으로 찾기...">
+                <button class="cc-btn" id="downloadBtn" type="button">파일로 내려받기</button>
+            </div>
+
+            <div class="cc-section">
+                <h3>이 브라우저에서 모은 문제 <span class="count" id="mineCount"></span></h3>
+                <div id="mine"></div>
+            </div>
+
+            <div class="cc-section">
+                <h3>족보에 새로 추가된 수집 문제 <span class="count" id="mergedCount"></span></h3>
+                <div id="merged"></div>
+                <p class="cc-note" id="mergedNote"></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            'use strict';
+
+            function esc(s) {
+                return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+                    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+                });
+            }
+            function readJson(key, fallback) {
+                try { var v = JSON.parse(localStorage.getItem(key)); return v == null ? fallback : v; }
+                catch (e) { return fallback; }
+            }
+            // 띄어쓰기·기호·닉네임 꼬리를 무시하고 같은 문제인지 비교
+            function qk(s) { return String(s || '').replace(/[^0-9A-Za-z가-힣]/g, '').toLowerCase(); }
+            function ak(s) { return qk(String(s || '').split('/')[0].split(/[★☆*※•]/)[0].split(/\s-/)[0]); }
+
+            function table(headers, rows) {
+                return '<div class="cc-table-wrap"><table class="cc-table"><thead><tr>' +
+                    headers.map(function (h) { return '<th>' + esc(h) + '</th>'; }).join('') +
+                    '</tr></thead><tbody>' + rows.join('') + '</tbody></table></div>';
+            }
+
+            function render(status) {
+                var store = readJson('qplay:collected:v1', {});
+                var outbox = readJson('qplay:collected:outbox', []);
+                var merged = (status && status.merged) || [];
+
+                var mergedKeys = {};
+                merged.forEach(function (m) { mergedKeys[qk(m.q) + '|' + ak(m.a)] = true; });
+                var outboxKeys = {};
+                outbox.forEach(function (o) { outboxKeys[qk(o.question) + '|' + ak(o.answer)] = true; });
+
+                var mine = [];
+                Object.keys(store).forEach(function (sheet) {
+                    (store[sheet] || []).forEach(function (c) { mine.push({ sheet: sheet, c: c }); });
+                });
+                mine.sort(function (a, b) { return String(b.c.time || '').localeCompare(String(a.c.time || '')); });
+
+                var mergedMine = 0, waiting = 0;
+                var mineRows = mine.map(function (m) {
+                    var key = qk(m.c.question) + '|' + ak(m.c.answer);
+                    var badge;
+                    if (mergedKeys[key]) { badge = '<span class="cc-badge merged">족보에 반영됨</span>'; mergedMine++; }
+                    else if (outboxKeys[key]) { badge = '<span class="cc-badge waiting">전송 대기</span>'; waiting++; }
+                    else { badge = '<span class="cc-badge sent">서버로 보냄</span>'; }
+                    return '<tr><td>' + esc(m.c.time || '') + '</td><td>' + esc(m.sheet) + '</td><td>' + esc(m.c.question) +
+                        '</td><td class="ans">' + esc(m.c.answer) + '</td><td>' + badge + '</td></tr>';
+                });
+
+                document.getElementById('cards').innerHTML = [
+                    [mine.length, '이 브라우저에서 모은 문제'],
+                    [mergedMine, '그중 족보에 반영됨'],
+                    [waiting, '서버 전송 대기'],
+                    [status ? status.merged_total : '-', '족보에 추가된 수집 문제 (전체)'],
+                    [status ? status.pending_count : '-', '다른 사용자 확인 대기']
+                ].map(function (c) {
+                    return '<div class="cc-card"><div class="n">' + esc(c[0]) + '</div><div class="t">' + esc(c[1]) + '</div></div>';
+                }).join('');
+
+                document.getElementById('mineCount').textContent = mine.length;
+                document.getElementById('mine').innerHTML = mine.length
+                    ? table(['모은 때', '카테고리', '질문', '답', '상태'], mineRows)
+                    : '<div class="cc-empty">아직 이 브라우저에서 모은 문제가 없어요.<br>족보 검색 화면의 📷 버튼으로 자동족보를 켜고 \'중단없이\'를 체크한 채 문제를 풀어 보세요.</div>';
+
+                document.getElementById('mergedCount').textContent = merged.length;
+                document.getElementById('merged').innerHTML = merged.length
+                    ? table(['추가된 날', '카테고리', '질문', '답'], merged.map(function (m) {
+                        return '<tr><td>' + esc(m.date) + '</td><td>' + esc(m.sheet) + '</td><td>' + esc(m.q) +
+                            '</td><td class="ans">' + esc(m.a) + '</td></tr>';
+                    }))
+                    : '<div class="cc-empty">아직 족보에 합쳐진 수집 문제가 없어요. 모인 문제는 매일 밤 합쳐집니다.</div>';
+                document.getElementById('mergedNote').textContent = status
+                    ? '마지막 합친 날: ' + (status.last_merge || '아직 없음') +
+                      ' · 다른 사람이 보낸 문제는 2명 이상이 같은 답을 보내야 합쳐져요.'
+                    : '족보 반영 현황을 불러오지 못했어요. 잠시 후 다시 열어 주세요.';
+
+                applyFilter();
+            }
+
+            function applyFilter() {
+                var v = document.getElementById('filter').value.trim().toLowerCase();
+                document.querySelectorAll('.cc-table tbody tr').forEach(function (tr) {
+                    tr.style.display = !v || tr.textContent.toLowerCase().indexOf(v) >= 0 ? '' : 'none';
+                });
+            }
+
+            document.getElementById('filter').addEventListener('input', applyFilter);
+            document.getElementById('downloadBtn').addEventListener('click', function () {
+                if (!window.QplayCollect) return;
+                var blob = new Blob(['﻿' + window.QplayCollect.toTsv()], { type: 'text/tab-separated-values;charset=utf-8' });
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                var d = new Date();
+                a.href = url;
+                a.download = '모은문제_' + d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0') + '.tsv';
+                document.body.appendChild(a); a.click(); a.remove();
+                setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+            });
+
+            render(null);
+            fetch('collected-status.json', { cache: 'no-store' })
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .catch(function () { return null; })
+                .then(function (status) {
+                    render(status || { merged: [], merged_total: 0, pending_count: 0, last_merge: null });
+                });
+            // 못 보낸 문제가 있으면 다시 보내고 상태 갱신
+            if (window.QplayCollect && window.QplayCollect.pendingUploads() > 0) {
+                var before = window.QplayCollect.pendingUploads();
+                window.QplayCollect.flushOutbox().then(function () {
+                    // 실제로 보내졌을 때만 다시 그림 (실패하면 그대로 두어 무한 새로고침 방지)
+                    if (window.QplayCollect.pendingUploads() < before) location.reload();
+                });
+            }
+        })();
+    </script>
+</body>
+
+</html>

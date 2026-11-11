@@ -739,7 +739,7 @@ function updateCollectedBadge() {
     if (!btn || !window.QplayCollect) return;
     const count = window.QplayCollect.totalCount();
     btn.textContent = `📥 모은 문제 ${count}`;
-    btn.style.display = count > 0 ? '' : 'none';
+    btn.style.display = '';
 }
 
 // 모은 문제를 TSV 파일로 내려받기 (족보에 합칠 때 사용)
@@ -763,7 +763,8 @@ function initEventListeners() {
     // 모은 문제 버튼
     const collectedBtn = document.getElementById('collectedBtn');
     if (collectedBtn) {
-        collectedBtn.addEventListener('click', downloadCollected);
+        // 모은 문제 현황 페이지 (새 탭: 자동족보 화면 공유가 끊기지 않게)
+        collectedBtn.addEventListener('click', () => window.open('collected.html', '_blank'));
         updateCollectedBadge();
     }
 
