@@ -106,6 +106,7 @@
             var unmerged = [];
             var lastStatus = null;
             var mineList = [];
+            var NL = String.fromCharCode(10);
 
             function render(status) {
                 lastStatus = status;
@@ -201,13 +202,8 @@
                 if (!m) return;
                 var tidy = window.QplayCollect.tidy;
                 var merged = btn.closest('tr').querySelector('.cc-badge.merged');
-                var msg = '이 문제를 지울까요?
-
-' + tidy(m.c.question, true) + '
-→ ' + tidy(m.c.answer, false) +
-                    (merged ? '
-
-이미 족보에 들어간 문제라 검색에는 계속 나와요. 이 목록에서만 지워집니다.' : '');
+                var msg = '이 문제를 지울까요?' + NL + NL + tidy(m.c.question, true) + NL + '→ ' + tidy(m.c.answer, false) +
+                    (merged ? NL + NL + '이미 족보에 들어간 문제라 검색에는 계속 나와요. 이 목록에서만 지워집니다.' : '');
                 if (!confirm(msg)) return;
                 window.QplayCollect.removeCollected(m.sheet, m.c.question, m.c.answer);
                 uploadMsg.className = 'cc-msg';
