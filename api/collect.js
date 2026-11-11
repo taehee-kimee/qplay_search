@@ -38,24 +38,29 @@ export function validateItems(items) {
     return out;
 }
 
-function setCors(req, res) {
+export function isAdminKey(key) {
+    if (!key) return false;
+    return crypto.createHash('sha256').update(String(key)).digest('hex') === ADMIN_KEY_SHA256;
+}
+
+export function setCors(req, res) {
     const origin = req.headers.origin;
     if (origin && (ALLOWED_ORIGINS.includes(origin) || /^https:\/\/qplay-search[-a-z0-9]*\.vercel\.app$/.test(origin))) {
         res.setHeader('Access-Control-Allow-Origin', origin);
         res.setHeader('Vary', 'Origin');
     }
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 }
 
-async function readBody(req) {
+async function readBody(req, limit = 64 * 1024) {
     if (req.body && typeof req.body === 'object') return req.body;
     if (typeof req.body === 'string') return JSON.parse(req.body || '{}');
     const chunks = [];
     let size = 0;
     for await (const chunk of req) {
         size += chunk.length;
-        if (size > 64 * 1024) throw new Error('too large');
+        if (size > limit) throw new Error('too large');
         chunks.push(chunk);
     }
     return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
@@ -71,6 +76,34 @@ export function createHandler(getBlob) {
             return res.status(503).json({ ok: false, error: 'storage-not-configured' });
         }
         const blob = await getBlob();
+
+        // 병합 루틴 상태(merge_state.json): PC 루틴과 클라우드('바로 반영하기')가 같은 상태를 쓰도록 여기 둔다.
+        // 공개 저장소에 두면 안 되는 내용(보낸 사람 식별값)이 있어 관리자 키로만 읽고 쓴다.
+        if (req.query?.state !== undefined) {
+            if (!isAdminKey(req.query?.key)) return res.status(401).json({ ok: false, error: 'unauthorized' });
+            const page = await blob.list({ prefix: 'state/merge_state' });
+            const latest = page.blobs.sort((a, b) => String(b.uploadedAt).localeCompare(String(a.uploadedAt)))[0];
+            if (req.method === 'GET') {
+                if (!latest) return res.status(200).json({ ok: true, state: null });
+                const r = await fetch(`${latest.url}?t=${Date.now()}`, { cache: 'no-store' });
+                return res.status(200).json({ ok: true, state: await r.json(), uploadedAt: latest.uploadedAt });
+            }
+            if (req.method === 'PUT') {
+                let body;
+                try {
+                    body = await readBody(req, 8 * 1024 * 1024);
+                } catch (e) {
+                    return res.status(400).json({ ok: false, error: 'bad-body' });
+                }
+                if (!body || typeof body.state !== 'object') return res.status(400).json({ ok: false, error: 'no-state' });
+                await blob.put('state/merge_state.json', JSON.stringify(body.state), {
+                    access: 'public', addRandomSuffix: true, contentType: 'application/json'
+                });
+                if (page.blobs.length) await blob.del(page.blobs.map(b => b.url));
+                return res.status(200).json({ ok: true });
+            }
+            return res.status(405).json({ ok: false, error: 'method-not-allowed' });
+        }
 
         if (req.method === 'POST') {
             let body;
@@ -101,9 +134,7 @@ export function createHandler(getBlob) {
         }
 
         if (req.method === 'GET') {
-            const key = String(req.query?.key || '');
-            const hash = crypto.createHash('sha256').update(key).digest('hex');
-            if (!key || hash !== ADMIN_KEY_SHA256) return res.status(401).json({ ok: false, error: 'unauthorized' });
+            if (!isAdminKey(req.query?.key)) return res.status(401).json({ ok: false, error: 'unauthorized' });
             const page = await blob.list({ prefix: 'submissions/', cursor: req.query?.cursor || undefined, limit: 1000 });
             return res.status(200).json({
                 ok: true,
