@@ -132,6 +132,18 @@
 
     // ===== 화면 파싱 =====
 
+    // Tesseract가 "지 진 계"처럼 한글을 한 글자씩 띄어 읽은 경우 붙인다.
+    // 한글 토큰 대부분이 한 글자일 때만 동작 (정상 띄어쓰기 문장은 그대로 둔다)
+    function fixSpacing(text) {
+        if (!text) return text;
+        const tokens = text.split(/\s+/).filter(Boolean);
+        const hangulTokens = tokens.filter(t => /[가-힣]/.test(t));
+        if (hangulTokens.length < 3) return text.trim();
+        const single = hangulTokens.filter(t => /^[가-힣]$/.test(t)).length;
+        if (single / hangulTokens.length < 0.6) return text.trim();
+        return text.trim().replace(/([가-힣])\s+(?=[가-힣](\s|$|[?.,!)]))/g, '$1');
+    }
+
     function flatten(text) {
         return String(text || '').replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
     }
@@ -161,7 +173,7 @@
         let m;
         while ((m = re.exec(text)) !== null) {
             const n = parseInt(m[1], 10);
-            const value = m[2].trim();
+            const value = fixSpacing(m[2].trim());
             if (!value || choices[n]) continue;
             if (firstIndex < 0) firstIndex = m.index;
             choices[n] = value;
@@ -211,7 +223,10 @@
 
         const { choices, firstIndex } = extractNumberedChoices(afterMarker);
         const bodyRaw = firstIndex >= 0 ? afterMarker.substring(0, firstIndex) : afterMarker;
-        const body = stripQuestionMarker(bodyRaw);
+        // 물음표 뒤에 붙은 1~2글자 부스러기("…양식은? 엑") 제거
+        const body = fixSpacing(stripQuestionMarker(bodyRaw))
+            .replace(/([?？])\s*\S{1,2}$/, '$1')
+            .replace(/\s+([?？])/g, '$1');
         if (!body && Object.keys(choices).length < 2) return null;
         return { body, choices };
     }
