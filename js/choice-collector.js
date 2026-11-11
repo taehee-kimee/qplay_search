@@ -9,6 +9,11 @@
     'use strict';
 
     const STORAGE_KEY = 'qplay:collected:v1';
+    const OUTBOX_KEY = 'qplay:collected:outbox';   // 서버로 보낼 대기열
+    const CLIENT_KEY = 'qplay:client-id';
+    const DEBUG_KEY = 'qplay:collect:debug';       // 최근 원본 OCR 30개 (수집이 안 될 때 원인 확인용)
+    // 모든 사용자의 수집분을 모으는 곳 (GitHub Pages에서도 같은 주소로 보낸다)
+    const COLLECT_ENDPOINT = 'https://qplay-search.vercel.app/api/collect';
     const PENDING_LIFETIME_MS = 90 * 1000;
 
     // ===== 문자열 유틸 =====
@@ -133,7 +138,8 @@
 
     // "[정 답] 정답은 3. 노량대첩 [설 명] ..." / "[정 답1 정답은 4 [설 명] ..." / "정답은 사과 입니다"
     function parseAnswerScreen(text) {
-        const m = text.match(/(?:정\s*[답담]\s*\S?\s*)?정답은\s*(.+?)\s*(?:\[\s*설|$)/);
+        // Tesseract는 "정 답 은"처럼 글자 사이에 공백을 넣는 일이 많다
+        const m = text.match(/(?:정\s*[답담]\s*\S?\s*)?정\s*[답담]\s*[은는]\s*(.+?)\s*(?:\[\s*설|설\s*명|$)/);
         if (!m) return null;
         const rest = m[1].trim();
         if (rest.includes('플레이어마다')) return { skip: true }; // 매크로 방지 문제
@@ -150,7 +156,8 @@
     function extractNumberedChoices(text) {
         const choices = {};
         let firstIndex = -1;
-        const re = /(?<!\d)([1-4])\s*[.)]\s*(\D{1,30}?)\s*(?=(?<!\d)[1-4]\s*[.)]|$)/g;
+        // 번호 뒤 구분자는 . ) , 모두 허용 (OCR이 점을 쉼표로 읽는 경우)
+        const re = /(?<!\d)([1-4])\s*[.),]\s*(\D{1,30}?)\s*(?=(?<!\d)[1-4]\s*[.),]|$)/g;
         let m;
         while ((m = re.exec(text)) !== null) {
             const n = parseInt(m[1], 10);
@@ -166,7 +173,7 @@
         return body
             .replace(/출제자\s*[:：]\s*\S+\s*/g, '')
             .replace(/\(\d+\s*글자\)/g, '')
-            .replace(/^\s*[\[<]?\s*문\s*제(?:\s*\d{1,2}(?:[\]>1l|]|[가-힣](?=\s))?|[\]>1l|]|[가-힣](?=\s))?\s*/, '')
+            .replace(/^\s*[\[<]?\s*문\s*제(?:\s*\d{1,2}(?:\s*[\]>1l|]|[가-힣](?=\s))?|\s*[\]>1l|]|[가-힣](?=\s))?\s*/, '')
             .replace(/\s+/g, ' ')
             .trim();
     }
@@ -397,6 +404,7 @@
         store[p.sheet] = list;
         if (!saveStore(store)) return null;
 
+        enqueueForServer({ sheet: p.sheet, question, answer: trueAnswer, note });
         return { ...saved, sheet: p.sheet };
     }
 
@@ -408,6 +416,7 @@
         const result = { saved: null, fallback: null };
         if (!rawText || !sheet) return result;
         const text = flatten(rawText);
+        recordDebug(text);
 
         const ans = parseAnswerScreen(text);
         if (ans) {
@@ -438,12 +447,83 @@
         if (pending) pending.matched = (answers || []).filter(Boolean).slice(0, 5);
     }
 
+    // ===== 서버 전송 (모든 사용자 수집분을 한곳으로) =====
+
+    function readJson(key, fallback) {
+        try {
+            const v = JSON.parse(localStorage.getItem(key));
+            return v == null ? fallback : v;
+        } catch (e) {
+            return fallback;
+        }
+    }
+
+    function writeJson(key, value) {
+        try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* 저장 공간 부족 등 */ }
+    }
+
+    function clientId() {
+        let id = null;
+        try { id = localStorage.getItem(CLIENT_KEY); } catch (e) { /* ignore */ }
+        if (!id) {
+            id = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2)) + '';
+            try { localStorage.setItem(CLIENT_KEY, id); } catch (e) { /* ignore */ }
+        }
+        return id;
+    }
+
+    function enqueueForServer(item) {
+        const box = readJson(OUTBOX_KEY, []);
+        box.push(item);
+        writeJson(OUTBOX_KEY, box.slice(-200));
+        flushOutbox();
+    }
+
+    let flushing = false;
+    async function flushOutbox() {
+        if (flushing || typeof fetch === 'undefined') return;
+        const box = readJson(OUTBOX_KEY, []);
+        if (!box.length) return;
+        flushing = true;
+        try {
+            const batch = box.slice(0, 20);
+            const res = await fetch(COLLECT_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ client: clientId(), items: batch })
+            });
+            // 200: 저장됨, 400: 서버가 거절한 형식 → 둘 다 대기열에서 뺀다. 503(저장소 미설정)·네트워크 오류는 다음에 다시
+            if (res.ok || res.status === 400) {
+                const rest = readJson(OUTBOX_KEY, []).slice(batch.length);
+                writeJson(OUTBOX_KEY, rest);
+                if (rest.length) setTimeout(flushOutbox, 1000);
+            }
+        } catch (e) {
+            /* 오프라인 등: 다음 기회에 */
+        } finally {
+            flushing = false;
+        }
+    }
+
+    function recordDebug(text) {
+        const log = readJson(DEBUG_KEY, []);
+        log.push({ t: new Date().toISOString().slice(5, 19), s: text.slice(0, 240) });
+        writeJson(DEBUG_KEY, log.slice(-30));
+    }
+
+    // 페이지를 열 때 못 보낸 것들 다시 보내기
+    if (typeof window !== 'undefined' && window.addEventListener) {
+        window.addEventListener('load', () => setTimeout(flushOutbox, 3000));
+    }
+
     window.QplayCollect = {
         observe,
         setMatchedAnswers,
         withCollected,
         totalCount,
         toTsv,
+        flushOutbox,
+        pendingUploads: () => readJson(OUTBOX_KEY, []).length,
         // 테스트용
         _internal: { parseAnswerScreen, parseQuestionScreen, extractNumberedChoices, isBodyDamaged, findByChoices, answersEquivalent, ratio, partialRatio, toJamo, resetPending: () => { pending = null; } }
     };
