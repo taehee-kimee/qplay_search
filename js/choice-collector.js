@@ -553,7 +553,7 @@
             let t = fixSpacing(String(text || '').replace(/\s+/g, ' '), isQuestion ? 3 : 2);
             if (!isQuestion) t = t.replace(/[\s\-–_|>]+$/, ''); // 답 끝의 "-", "|" 같은 부스러기
             if (isQuestion) {
-                t = t.replace(/([?？])\s*\S{0,2}\s*[1-4]\s*[.,)].*$/, '$1')
+                t = t.replace(/([?？])\s*\S{0,2}\s*[1-4](?:\s*[.,)]|\s).*$/, '$1')
                     .replace(/([?？])\s*\S{1,2}$/, '$1')
                     .replace(/\s+([?？])/g, '$1');
             }
