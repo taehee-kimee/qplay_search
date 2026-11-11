@@ -223,12 +223,29 @@
         /오신\s*것을\s*환영/, /오신것을\s*환영/, /정답\s*번호를\s*클릭/
     ];
 
-    function parseQuestionScreen(text) {
-        const marker = text.search(/[\[<]\s*문\s*제/);
-        if (marker < 0) return null;
-        if (SYSTEM_PATTERNS.some(p => p.test(text))) return null;
+    // OCR이 한 글자씩 띄어 읽어도("에 관 한 문 제 입 니 다") 안내 화면을 알아보도록 공백을 빼고 비교
+    function isSystemScreen(text) {
+        const compact = String(text || '').replace(/\s+/g, '');
+        return SYSTEM_PATTERNS.some(p => p.test(text) || p.test(compact));
+    }
 
-        const afterMarker = text.substring(marker);
+    function parseQuestionScreen(text) {
+        if (isSystemScreen(text)) return null;
+        let marker = text.search(/[\[<]\s*문\s*제/);
+        let markerless = false;
+        if (marker < 0) {
+            // "[문제]" 표시가 깨져 읽힌 경우("쁘 제끼 에 픽 게 임 즈 의 …? 1. 포 트 나 이 트 2. …"):
+            // 물음표로 끝나는 본문 + 보기 3개 이상이면 문제 화면으로 본다
+            const probe = extractNumberedChoices(text);
+            if (Object.keys(probe.choices).length < 3 || probe.firstIndex < 0) return null;
+            if (!/[?？]/.test(text.substring(0, probe.firstIndex))) return null;
+            marker = 0;
+            markerless = true;
+        }
+
+        let afterMarker = text.substring(marker);
+        // 깨진 표시 조각("쁘 제끼 ", "2H 1 ")을 본문 앞에서 떼기
+        if (markerless) afterMarker = afterMarker.replace(/^\s*(?:\S{1,3}\s+)?\S{0,2}제\S{0,2}\s+(?=\S)/, '');
         if (/이미지\s*속?\s*(의\s*)?한글/.test(afterMarker)) return { captcha: true };
 
         const { choices, firstIndex } = extractNumberedChoices(afterMarker);
@@ -395,6 +412,8 @@
         if (ans.number && p.variants[ans.number]) readings.push(...p.variants[ans.number]);
         const known = p.matched.some(m => readings.some(r => answersEquivalent(m, r, 75, 2) || isTruncatedReading(m, r)));
         if (known) return null;
+
+        if (isSystemScreen(p.body)) return null; // 안내 화면이 질문으로 잡힌 경우 (안전장치)
 
         let question, note;
         if (isBodyDamaged(p.body)) {
@@ -626,6 +645,24 @@
         log.push({ t: new Date().toISOString().slice(5, 19), s: text.slice(0, 240) });
         writeJson(DEBUG_KEY, log.slice(-30));
     }
+
+    // 예전 버그로 게임 안내 화면("…에 관한 문제입니다")이 질문으로 저장된 항목 정리 (병합 루틴도 이런 항목은 버린다)
+    function purgeSystemScreens() {
+        const store = loadStore();
+        let removed = 0;
+        for (const sheet of Object.keys(store)) {
+            const list = Array.isArray(store[sheet]) ? store[sheet] : [];
+            const kept = list.filter(c => !isSystemScreen(c && c.question));
+            removed += list.length - kept.length;
+            if (kept.length) store[sheet] = kept; else delete store[sheet];
+        }
+        if (removed) {
+            saveStore(store);
+            writeJson(OUTBOX_KEY, readJson(OUTBOX_KEY, []).filter(it => !isSystemScreen(it && it.question)));
+        }
+        return removed;
+    }
+    if (typeof localStorage !== 'undefined') purgeSystemScreens();
 
     // 페이지를 열 때 못 보낸 것들 다시 보내기
     if (typeof window !== 'undefined' && window.addEventListener) {
