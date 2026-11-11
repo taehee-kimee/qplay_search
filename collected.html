@@ -117,8 +117,11 @@
                     if (mergedKeys[key]) { badge = '<span class="cc-badge merged">족보에 반영됨</span>'; mergedMine++; }
                     else if (outboxKeys[key]) { badge = '<span class="cc-badge waiting">전송 대기</span>'; waiting++; }
                     else { badge = '<span class="cc-badge sent">서버로 보냄</span>'; }
-                    return '<tr><td>' + esc(m.c.time || '') + '</td><td>' + esc(m.sheet) + '</td><td>' + esc(m.c.question) +
-                        '</td><td class="ans">' + esc(m.c.answer) + '</td><td>' + badge + '</td></tr>';
+                    var tidy = window.QplayCollect && window.QplayCollect.tidy;
+                    var q = tidy ? tidy(m.c.question, true) : m.c.question;
+                    var ans = tidy ? tidy(m.c.answer, false) : m.c.answer;
+                    return '<tr><td>' + esc(m.c.time || '') + '</td><td>' + esc(m.sheet) + '</td><td>' + esc(q) +
+                        '</td><td class="ans">' + esc(ans) + '</td><td>' + badge + '</td></tr>';
                 });
 
                 document.getElementById('cards').innerHTML = [

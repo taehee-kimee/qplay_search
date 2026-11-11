@@ -141,7 +141,9 @@
         if (hangulTokens.length < minTokens) return text.trim();
         const single = hangulTokens.filter(t => /^[가-힣]$/.test(t)).length;
         if (single / hangulTokens.length < 0.6) return text.trim();
-        return text.trim().replace(/([가-힣])\s+(?=[가-힣](\s|$|[?.,!)]))/g, '$1');
+        return text.trim()
+            .replace(/([가-힣])\s+(?=[가-힣](\s|$|[?.,!)]))/g, '$1')
+            .replace(/(^|\s)(\d(?:\s\d)+)(?=\s|$|[가-힣])/g, (m, pre, digits) => pre + digits.replace(/\s/g, '')); // "1 8 6 7" → "1867"
     }
 
     function flatten(text) {
@@ -546,6 +548,17 @@
         toTsv,
         flushOutbox,
         pendingUploads: () => readJson(OUTBOX_KEY, []).length,
+        // 표시용 정리 (예전에 띄어 읽힌 채 저장된 문제도 보기 좋게): 루틴의 tidy_text와 같은 규칙
+        tidy: (text, isQuestion) => {
+            let t = fixSpacing(String(text || '').replace(/\s+/g, ' '), isQuestion ? 3 : 2);
+            if (!isQuestion) t = t.replace(/[\s\-–_|>]+$/, ''); // 답 끝의 "-", "|" 같은 부스러기
+            if (isQuestion) {
+                t = t.replace(/([?？])\s*\S{0,2}\s*[1-4]\s*[.,)].*$/, '$1')
+                    .replace(/([?？])\s*\S{1,2}$/, '$1')
+                    .replace(/\s+([?？])/g, '$1');
+            }
+            return t;
+        },
         // 테스트용
         _internal: { parseAnswerScreen, parseQuestionScreen, extractNumberedChoices, isBodyDamaged, findByChoices, answersEquivalent, ratio, partialRatio, toJamo, resetPending: () => { pending = null; } }
     };
