@@ -73,6 +73,41 @@ async function askJev(question, criteria) {
     return { choice: ans.choice, confidence: typeof ans.confidence === 'number' ? ans.confidence : null };
 }
 
+// Jev 사진 읽기 (https://docs.typesafe.ai/images.md, 헤더 TypeSafe-Danger-Zone-Images 필요, 280~1568px)
+async function askJevImage(sheet, format, b64) {
+    const ref = 'img-' + crypto.randomUUID();
+    const isOx = sheet === 'ox,xo';
+    const criteria = isOx
+        ? { O: '화면의 진술이 사실이다(맞다)', X: '화면의 진술이 사실이 아니다(틀리다)' }
+        : { 1: '화면의 1번 보기', 2: '화면의 2번 보기', 3: '화면의 3번 보기', 4: '화면의 4번 보기' };
+    const r = await fetch('https://api.typesafe.ai/v1/systemone', {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${process.env.TYPESAFE_API_KEY}`,
+            'Content-Type': 'application/json',
+            'TypeSafe-Danger-Zone-Images': 'true'
+        },
+        body: JSON.stringify({
+            model: 'jev-latest',
+            state: { screen: ref },
+            assets: { [ref]: { type: 'image', format, data_base64: b64 } },
+            questions: { answer: {
+                type: 'choice',
+                instructions: isOx
+                    ? '`screen`은 한국어 OX 퀴즈 게임 화면이다. 화면에 적힌 진술이 맞는가'
+                    : '`screen`은 한국어 퀴즈 게임 화면이다. 화면의 문제에 대한 정답 보기 번호',
+                criteria
+            } }
+        }),
+        signal: AbortSignal.timeout(8000)
+    });
+    if (!r.ok) throw new Error(`jev-vision ${r.status} ${(await r.text()).slice(0, 120)}`);
+    const data = await r.json();
+    const ans = data?.answers?.answer;
+    if (!ans || !ans.choice) throw new Error('jev-vision-no-answer');
+    return { choice: ans.choice, confidence: typeof ans.confidence === 'number' ? ans.confidence : null };
+}
+
 let anthropic = null;
 async function askClaude(sheet, question, choices = null, isOx = false) {
     if (!anthropic) anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: 10000, maxRetries: 1 });
@@ -184,6 +219,21 @@ export default async function handler(req, res) {
         const vsheet = clean(body.sheet, 30);
         if (!m || m[2].length > 900 * 1024 || !SHEETS.has(vsheet)) return res.status(400).json({ ok: false, error: 'bad-image' });
         if (rateLimited(ip)) return res.status(429).json({ ok: false, error: 'rate-limited' });
+        // engine: 'jev' → Jev가 사진을 보고 보기 번호(또는 O/X)만 고른다. 0.2초·약 0.07원 (Claude 사진은 1.5~4초·약 0.3원)
+        // 시험판(Dreamer-ready) 기능이라 실패하면 화면이 Claude 사진으로 다시 묻는다.
+        if (body.engine === 'jev') {
+            if (!process.env.TYPESAFE_API_KEY) return res.status(503).json({ ok: false, error: 'jev-not-configured' });
+            if (vsheet !== 'ox,xo' && vsheet !== '올라올라(꼬로록)') return res.status(400).json({ ok: false, error: 'jev-vision-sheet' });
+            if (!/^image\/(jpeg|png)$/.test(m[1])) return res.status(400).json({ ok: false, error: 'bad-image' });
+            try {
+                const v = await askJevImage(vsheet, m[1] === 'image/png' ? 'png' : 'jpg', m[2]);
+                console.log('[ask] jev-vision', JSON.stringify({ sheet: vsheet, a: v.choice, p: v.confidence }));
+                return res.status(200).json({ ok: true, model: 'jev-vision', choice: v.choice, answer: v.choice, confidence: v.confidence });
+            } catch (e) {
+                console.error('ask jev-vision failed:', e && e.message);
+                return res.status(502).json({ ok: false, error: 'ai-failed' });
+            }
+        }
         if (!process.env.ANTHROPIC_API_KEY) return res.status(503).json({ ok: false, error: 'claude-not-configured' });
         try {
             const v = await askClaudeVision(vsheet, { type: m[1], data: m[2] });

@@ -1052,6 +1052,62 @@ function recentAnswerFor(question) {
     return age < 12000; // 문제 글을 아예 못 읽었으면 방금(12초 안) 답한 문제로 본다
 }
 
+// ===== 사진 읽기 엔진 =====
+// AI_JEV_VISION: true면 OX·올라올라는 Jev가 먼저 사진을 본다 (0.2초·약 0.07원, 2026-11-14 시험 3/3 정답).
+// Jev 확신이 낮거나 실패하면 Claude 사진(1.5~4초·약 0.3원)으로 다시 묻는다.
+// 되돌리기: 아래 값을 false로 바꾸면 예전처럼 Claude 사진만 쓴다. (git 태그 before-jev-vision = 넣기 전 상태)
+const AI_JEV_VISION = true;
+const JEV_VISION_SURE = 0.6; // Jev 사진 확신이 이보다 낮으면 Claude 사진으로
+
+// 캡처를 JPEG로. Jev는 가로·세로 모두 280px 이상이어야 해서 작은 캡처는 여백을 붙인다
+function captureDataUrl(minSide = 0) {
+    if (!lastCaptureCanvas) return null;
+    try {
+        const src = lastCaptureCanvas;
+        if (!minSide || (src.width >= minSide && src.height >= minSide)) return src.toDataURL('image/jpeg', 0.8);
+        const c = document.createElement('canvas');
+        c.width = Math.max(src.width, minSide);
+        c.height = Math.max(src.height, minSide);
+        const g = c.getContext('2d');
+        g.fillStyle = '#000';
+        g.fillRect(0, 0, c.width, c.height);
+        g.drawImage(src, 0, 0);
+        return c.toDataURL('image/jpeg', 0.8);
+    } catch (e) { return null; }
+}
+
+async function postVision(image, extra = {}) {
+    const r = await fetch(AI_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sheet: selectedSheet, image, pass: aiPass, ...extra })
+    });
+    return { r, data: await r.json().catch(() => ({})) };
+}
+
+// q: 화면 인식으로 읽은 문제(보기 글자를 답에 붙이는 데 씀, 없어도 됨)
+async function askVisionSmart(q) {
+    if (AI_JEV_VISION && (selectedSheet === 'ox,xo' || selectedSheet === '올라올라(꼬로록)')) {
+        const jimg = captureDataUrl(280);
+        const j = jimg ? await postVision(jimg, { engine: 'jev' }).catch(() => null) : null;
+        if (j && j.r.ok && j.data.ok && typeof j.data.confidence === 'number' && j.data.confidence >= JEV_VISION_SURE) {
+            const n = j.data.choice;
+            const txt = q && q.choices && q.choices[n];
+            j.data.answer = selectedSheet === 'ox,xo' ? n : (txt && !looksGarbled(txt, true) ? `${n}. ${txt}` : `${n}번`);
+            return j;
+        }
+        if (j && j.data && j.data.error === 'bad-password') return j;
+        console.log('[AI] Jev 사진 확신 낮음/실패 → Claude 사진으로:', j && j.data);
+    }
+    const img = captureDataUrl(0);
+    return img ? postVision(img) : null;
+}
+
+function visionLabel(data) {
+    if (data.model === 'jev-vision') return `📷 Jev ${typeof data.confidence === 'number' ? Math.round(data.confidence * 100) + '%' : ''}`.trim();
+    return '📷 Claude';
+}
+
 async function askAiVision(q) {
     if (!aiModeOn || !lastCaptureCanvas || !selectedSheet) return;
     if (recentAnswerFor(q && q.question)) {
@@ -1073,16 +1129,11 @@ async function askAiVision(q) {
     const key = 'vision|' + now;
     lastAiKey = key;
     lastAiHtml = '';
-    let image;
-    try { image = lastCaptureCanvas.toDataURL('image/jpeg', 0.8); } catch (e) { return; }
     renderAiBox('<div class="result-sheet"><span class="sheet-tag ai-tag">🤖 AI 추정</span></div><div class="result-answer">📷 글자가 흐려서 화면 사진으로 확인하는 중…</div>', false);
     try {
-        const r = await fetch(AI_ENDPOINT, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sheet: selectedSheet, image, pass: aiPass })
-        });
-        const data = await r.json().catch(() => ({}));
+        const res = await askVisionSmart(q);
+        if (!res) return;
+        const { r, data } = res;
         if (key !== lastAiKey) return;
         if (data.error === 'bad-password') { aiPass = ''; writeLocal(AI_PASS_KEY, ''); setAiMode(false); return; }
         if (data.error === 'not-quiz') { document.getElementById('aiAnswer')?.remove(); lastVisionTime = 0; return; }
@@ -1091,11 +1142,11 @@ async function askAiVision(q) {
             return;
         }
         // 같은 문제를 이어서 글자로 다시 묻지 않도록
-        lastAiQuestion = data.question || ''; lastAiSheet = selectedSheet; lastAiTime = Date.now();
+        lastAiQuestion = data.question || (q && q.question) || ''; lastAiSheet = selectedSheet; lastAiTime = Date.now();
         lastAiChoices = '';
         renderAiBox('<div class="result-sheet"><span class="sheet-tag ai-tag" title="화면 인식이 흐려서 캡처 사진을 AI가 직접 보고 답했어요.">🤖 AI 추정 · 📷 사진으로 읽음</span></div>'
-            + `<div class="result-question">${escapeHtml(data.question || '')}</div>`
-            + aiAnswerRow('Claude', data, false));
+            + `<div class="result-question">${escapeHtml(data.question || (q && q.question) || '')}</div>`
+            + aiAnswerRow(visionLabel(data), data, false));
         markAnswered(data.question || (q && q.question));
         if (data.question) aiCachePut({ question: data.question, choices: Object.assign({}, data.choices || []) }, lastAiHtml);
         autoCopyIfKkong(data.answer, 'AI(사진)');
@@ -1191,23 +1242,15 @@ async function askAi(q, manual = false) {
         const useVision = q.fromOcr && lastCaptureCanvas && conf !== null && conf < AI_VISION_BELOW;
         let second = null;
         if (useVision) {
-            let image = null;
-            try { image = lastCaptureCanvas.toDataURL('image/jpeg', 0.8); } catch (e) { /* 캡처 없음 */ }
-            if (image) {
-                second = await fetch(AI_ENDPOINT, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ sheet: selectedSheet, image, pass: aiPass })
-                }).then(async r => ({ r, data: await r.json().catch(() => ({})) })).catch(() => null);
-                lastVisionTime = Date.now(); // 같은 화면에 사진을 또 보내지 않게
-            }
+            second = await askVisionSmart(q).catch(() => null);
+            lastVisionTime = Date.now(); // 같은 화면에 사진을 또 보내지 않게
         }
         if (!second || !second.r.ok || !second.data.ok) second = await postAi(q, { second: 'claude' }).catch(() => null);
         if (key !== lastAiKey) return;
         if (second && second.r.ok && second.data.ok) {
             // 족보 시험(2026-11-14): Jev가 자신 없는 문제에서 둘이 같은 답이면 89% 정답, 갈리면 반반 → 갈리면 둘 다 흐리게
             const agree = second.data.choice && second.data.choice === data.choice;
-            const byVision = second.data.model === 'claude-vision';
+            const byVision = second.data.model === 'claude-vision' || second.data.model === 'jev-vision';
             markAnswered(q.question);
             if (agree) {
                 const label = byVision ? 'Jev·사진 일치' : 'Jev·Claude 일치';
@@ -1217,7 +1260,7 @@ async function askAi(q, manual = false) {
             } else if (byVision) {
                 // 사진을 본 쪽이 화면을 제대로 읽었을 가능성이 높다 → 사진 답을 위에 진하게
                 const html = head + (second.data.question ? `<div class="result-answer ai-weak"><small>📷 사진으로 다시 읽은 문제: ${escapeHtml(second.data.question)}</small></div>` : '')
-                    + aiAnswerRow('📷 사진', second.data, false)
+                    + aiAnswerRow(visionLabel(second.data), second.data, false)
                     + aiAnswerRow(`Jev${conf !== null ? ' ' + conf + '%' : ''}`, data, true);
                 renderAiBox(html);
                 autoCopyIfKkong(second.data.answer, 'AI(사진)');
