@@ -64,18 +64,27 @@ async function askJev(question, criteria) {
 }
 
 let anthropic = null;
-async function askClaude(sheet, question) {
+async function askClaude(sheet, question, choices = null, isOx = false) {
     if (!anthropic) anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: 10000, maxRetries: 1 });
     const hint = sheet === '가로세로'
         ? ' 뜻풀이에 맞는 낱말을 답하라. "OO"처럼 동그라미가 있으면 그 글자 수에 맞춰라.'
         : '';
+    let content = `문제: ${question}`;
+    let rule = '정답 낱말이나 짧은 구절 하나만 출력하고 설명은 하지 마라.';
+    if (isOx) {
+        content += '\n진술이 맞으면 O, 틀리면 X.';
+        rule = 'O 또는 X 한 글자만 출력하라.';
+    } else if (choices) {
+        content += '\n보기:\n' + Object.entries(choices).map(([k, v]) => `${k}. ${v}`).join('\n');
+        rule = '정답 보기의 번호 하나만 출력하라.';
+    }
     const response = await anthropic.messages.create({
         model: 'claude-haiku-5-5',
         max_tokens: 64,
         thinking: { type: 'disabled' },
         output_config: { effort: 'low' },
-        system: `너는 한국어 퀴즈 정답을 맞히는 도우미다. 정답 낱말이나 짧은 구절 하나만 출력하고 설명은 하지 마라.${hint} 모르면 가장 그럴듯한 답을 하나 내라.`,
-        messages: [{ role: 'user', content: `문제: ${question}` }]
+        system: `너는 한국어 퀴즈 정답을 맞히는 도우미다. ${rule}${hint} 모르면 가장 그럴듯한 답을 하나 내라.`,
+        messages: [{ role: 'user', content }]
     });
     if (response.stop_reason === 'refusal') throw new Error('claude-refusal');
     const text = response.content.filter(b => b.type === 'text').map(b => b.text).join('').trim();
@@ -124,7 +133,9 @@ export default async function handler(req, res) {
 
     const isOx = sheet === 'ox,xo';
     const hasChoices = Object.keys(choices).length >= 2;
-    const hash = crypto.createHash('sha256').update(JSON.stringify([sheet, question, isOx ? null : choices])).digest('hex');
+    // second: 'claude' → Jev가 확신 못 한 문제를 Claude에게 다시 묻는다 (화면이 Jev 답을 먼저 보여준 뒤 부름)
+    const forceClaude = body.second === 'claude';
+    const hash = crypto.createHash('sha256').update(JSON.stringify([sheet, question, isOx ? null : choices, forceClaude])).digest('hex');
     if (cache.has(hash)) return res.status(200).json({ ...cache.get(hash), cached: true });
 
     const ip = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'unknown';
@@ -132,7 +143,21 @@ export default async function handler(req, res) {
 
     try {
         let result;
-        if (isOx || hasChoices) {
+        if (forceClaude) {
+            if (!process.env.ANTHROPIC_API_KEY) return res.status(503).json({ ok: false, error: 'claude-not-configured' });
+            const text = await askClaude(sheet, question, hasChoices ? choices : null, isOx);
+            let answer = text;
+            let choice = null;
+            if (isOx) {
+                choice = /^[OoㅇＯ0]/.test(text) ? 'O' : /^[XxＸ×]/.test(text) ? 'X' : null;
+                answer = choice || text;
+            } else if (hasChoices) {
+                const m = text.match(/[1-6]/);
+                choice = m && choices[m[0]] ? m[0] : null;
+                answer = choice ? `${choice}. ${choices[choice]}` : text;
+            }
+            result = { ok: true, model: 'claude', choice, answer, confidence: null };
+        } else if (isOx || hasChoices) {
             if (!process.env.TYPESAFE_API_KEY) return res.status(503).json({ ok: false, error: 'jev-not-configured' });
             const criteria = isOx
                 ? { O: '문제의 진술이 사실이다(맞다)', X: '문제의 진술이 사실이 아니다(틀리다)' }

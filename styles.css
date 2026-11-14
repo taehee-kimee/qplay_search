@@ -1244,3 +1244,9 @@ body {
     font-size: 14px;
     cursor: pointer;
 }
+.ai-who {
+    display: inline-block;
+    min-width: 64px;
+    color: #8b5cf6;
+    font-weight: 600;
+}

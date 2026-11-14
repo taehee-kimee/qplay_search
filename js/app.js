@@ -744,6 +744,22 @@ function renderAiBox(html, keep = true) {
     box.innerHTML = html;
 }
 
+const AI_SURE = 80; // Jev 확신이 이보다 낮으면 Claude에게 한 번 더 묻는다
+
+function aiAnswerRow(label, data, weak) {
+    return `<div class="result-answer${weak ? ' ai-weak' : ''}"><small class="ai-who">${label}</small> ${escapeHtml(data.answer)}${weak ? ' <small>(참고만)</small>' : ''}</div>`;
+}
+
+async function postAi(q, extra = {}) {
+    const r = await fetch(AI_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sheet: selectedSheet, question: q.question, choices: q.choices || {}, ...extra })
+    });
+    const data = await r.json().catch(() => ({}));
+    return { r, data };
+}
+
 async function askAi(q, manual = false) {
     if (!q || !q.question || !selectedSheet) return;
     const key = selectedSheet + '|' + q.question + '|' + JSON.stringify(q.choices || {});
@@ -756,12 +772,7 @@ async function askAi(q, manual = false) {
     lastAiHtml = '';
     renderAiBox('<div class="result-sheet"><span class="sheet-tag ai-tag">🤖 AI 추정</span></div><div class="result-answer">생각하는 중…</div>', false);
     try {
-        const r = await fetch(AI_ENDPOINT, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sheet: selectedSheet, question: q.question, choices: q.choices || {} })
-        });
-        const data = await r.json().catch(() => ({}));
+        const { r, data } = await postAi(q);
         if (key !== lastAiKey) return; // 그 사이 다른 문제로 넘어감
         if (!r.ok || !data.ok) {
             const msg = data.error === 'rate-limited' ? '잠깐 너무 많이 물어봤어요. 1분 뒤 다시 시도해 주세요.' : 'AI가 답하지 못했어요.';
@@ -769,12 +780,24 @@ async function askAi(q, manual = false) {
             return;
         }
         const conf = typeof data.confidence === 'number' ? Math.round(data.confidence * 100) : null;
-        const weak = conf !== null && conf < 80;
-        const confText = conf !== null ? ` · 확신 ${conf}%` : '';
-        const who = data.model === 'jev' ? 'Jev' : 'Claude';
-        renderAiBox(`<div class="result-sheet"><span class="sheet-tag ai-tag" title="족보에 없어 AI가 추정한 답이에요. 틀릴 수 있어요.">🤖 AI 추정 (${who}${confText})</span></div>`
-            + `<div class="result-question">${escapeHtml(q.question)}</div>`
-            + `<div class="result-answer${weak ? ' ai-weak' : ''}">${escapeHtml(data.answer)}${weak ? ' <small>(참고만)</small>' : ''}</div>`);
+        const unsure = data.model === 'jev' && conf !== null && conf < AI_SURE;
+        const head = `<div class="result-sheet"><span class="sheet-tag ai-tag" title="족보에 없어 AI가 추정한 답이에요. 틀릴 수 있어요.">🤖 AI 추정</span></div>`
+            + `<div class="result-question">${escapeHtml(q.question)}</div>`;
+        const first = aiAnswerRow(data.model === 'jev' ? `Jev${conf !== null ? ' ' + conf + '%' : ''}` : 'Claude', data, unsure);
+        if (!unsure) {
+            renderAiBox(head + first);
+            return;
+        }
+        // Jev가 확신하지 못함 → Jev 답을 먼저 흐리게 보여주고 Claude에게 다시 묻는다
+        renderAiBox(head + first + '<div class="result-answer ai-weak"><small class="ai-who">Claude</small> 확인하는 중…</div>', false);
+        const second = await postAi(q, { second: 'claude' }).catch(() => null);
+        if (key !== lastAiKey) return;
+        if (second && second.r.ok && second.data.ok) {
+            const agree = second.data.choice && second.data.choice === data.choice;
+            renderAiBox(head + first + aiAnswerRow(agree ? 'Claude 동의' : 'Claude', second.data, false));
+        } else {
+            renderAiBox(head + first);
+        }
     } catch (e) {
         if (key === lastAiKey) renderAiBox('<div class="result-sheet"><span class="sheet-tag ai-tag">🤖 AI 추정</span></div><div class="result-answer ai-weak">AI 서버에 연결하지 못했어요.</div>');
     }
