@@ -999,6 +999,8 @@ else initAiModeButton();
 let lastCaptureCanvas = null;
 let lastVisionTime = 0;
 let lastVisionRaw = '';
+let lastNotQuizRaw = '';
+let lastNotQuizTime = 0;
 const VISION_INTERVAL_MS = 10000; // 같은 문제에 사진을 계속 보내지 않게 (요금)
 
 function rememberCapture(canvas) {
@@ -1122,6 +1124,7 @@ async function askAiVision(q) {
     const sim = window.QplayCollect && window.QplayCollect.questionSimilarity;
     const raw = String(lastRawOcrText || '').slice(0, 200);
     const sameScreen = sim && lastVisionRaw && now - lastVisionTime < 30000 && sim(raw, lastVisionRaw) >= 70;
+    if (sim && lastNotQuizRaw && now - lastNotQuizTime < 60000 && sim(raw, lastNotQuizRaw) >= 70) return; // 방금 '퀴즈 아님'이던 화면
     if (now - lastVisionTime < VISION_INTERVAL_MS || sameScreen) {
         if (lastAiHtml) renderAiBox(lastAiHtml); // 결과창이 새로 그려졌으면 이전 답을 다시 붙인다
         return;
@@ -1144,8 +1147,14 @@ async function askAiVision(q) {
         const { r, data } = res;
         if (key !== lastAiKey) return;
         if (data.error === 'bad-password') { aiPass = ''; writeLocal(AI_PASS_KEY, ''); setAiMode(false); return; }
-        // 퀴즈 화면이 아니었음(대기실·순위 등) → 칸을 지우고, 같은 화면에 사진을 또 보내지 않게 시간 기록은 그대로 둔다
-        if (data.error === 'not-quiz') { document.getElementById('aiAnswer')?.remove(); return; }
+        // 퀴즈 화면이 아니었음(대기실·순위·문제 넘어가는 중) → 칸을 지우고, '이 화면'만 1분간 다시 안 보낸다.
+        // (다른 화면은 바로 물을 수 있게 간격 기록은 푼다 — 막으면 곧이어 나온 진짜 문제에 답이 안 나옴)
+        if (data.error === 'not-quiz') {
+            document.getElementById('aiAnswer')?.remove();
+            lastNotQuizRaw = raw; lastNotQuizTime = Date.now();
+            lastVisionTime = 0; lastVisionRaw = '';
+            return;
+        }
         if (!r.ok || !data.ok) {
             renderAiBox('<div class="result-sheet"><span class="sheet-tag ai-tag">🤖 AI 추정</span></div><div class="result-answer ai-weak">AI가 답하지 못했어요.</div>');
             return;
