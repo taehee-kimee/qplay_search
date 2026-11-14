@@ -1136,7 +1136,8 @@ async function askAiVision(q) {
         const { r, data } = res;
         if (key !== lastAiKey) return;
         if (data.error === 'bad-password') { aiPass = ''; writeLocal(AI_PASS_KEY, ''); setAiMode(false); return; }
-        if (data.error === 'not-quiz') { document.getElementById('aiAnswer')?.remove(); lastVisionTime = 0; return; }
+        // 퀴즈 화면이 아니었음(대기실·순위 등) → 칸을 지우고, 같은 화면에 사진을 또 보내지 않게 시간 기록은 그대로 둔다
+        if (data.error === 'not-quiz') { document.getElementById('aiAnswer')?.remove(); return; }
         if (!r.ok || !data.ok) {
             renderAiBox('<div class="result-sheet"><span class="sheet-tag ai-tag">🤖 AI 추정</span></div><div class="result-answer ai-weak">AI가 답하지 못했어요.</div>');
             return;
