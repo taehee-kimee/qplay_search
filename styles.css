@@ -1222,3 +1222,25 @@ body {
 .report-success-message.show {
     display: block;
 }
+/* 🤖 AI 추정 답 (족보에 없을 때) */
+.result-item.ai-answer {
+    border: 2px dashed #8b5cf6;
+    background: rgba(139, 92, 246, 0.06);
+}
+.sheet-tag.ai-tag {
+    background: #8b5cf6;
+    color: #fff;
+}
+.result-answer.ai-weak {
+    opacity: 0.6;
+}
+.ai-ask-btn {
+    margin-top: 10px;
+    padding: 8px 14px;
+    border: none;
+    border-radius: 8px;
+    background: #8b5cf6;
+    color: #fff;
+    font-size: 14px;
+    cursor: pointer;
+}

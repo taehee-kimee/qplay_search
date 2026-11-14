@@ -681,6 +681,79 @@ let lastOCRText = '';
 
 // ===== 보기 역추적 / 족보에 없는 문제 수집 (js/choice-collector.js) =====
 let presetSearchResults = null;
+let lastRawOcrText = '';
+
+// ===== 족보에 없는 문제 → AI에게 물어보기 (api/ask.js) =====
+// 보기가 있으면(OX·객관식) Jev, 주관식이면 Claude가 답한다. 결과는 '🤖 AI 추정'으로 따로 표시.
+const AI_ENDPOINT = 'https://qplay-search.vercel.app/api/ask';
+let lastAiKey = '';
+let lastAiHtml = '';
+
+function aiQuestionFromOcr(fallbackText) {
+    const parsed = window.QplayCollect && window.QplayCollect.parseQuestion
+        ? window.QplayCollect.parseQuestion(lastRawOcrText) : null;
+    if (parsed && parsed.body) return { question: parsed.body, choices: parsed.choices || {} };
+    // 문제 화면으로 못 읽었으면: 물음표가 있는 질문만 (정답·안내 화면에 AI를 부르지 않도록)
+    if (/정\s*[답담]\s*[은는]/.test(lastRawOcrText)) return null;
+    const q = String(fallbackText || '').split('|CHOICES|')[0].trim();
+    return q && /[?？]/.test(q) ? { question: q, choices: {} } : null;
+}
+
+function renderAiBox(html, keep = true) {
+    if (keep) lastAiHtml = html;
+    const resultsDiv = document.getElementById('results');
+    if (!resultsDiv) return;
+    let box = document.getElementById('aiAnswer');
+    if (!box) {
+        box = document.createElement('div');
+        box.id = 'aiAnswer';
+        box.className = 'result-item ai-answer';
+        resultsDiv.prepend(box);
+    }
+    box.innerHTML = html;
+}
+
+async function askAi(q, manual = false) {
+    if (!q || !q.question || !selectedSheet) return;
+    const key = selectedSheet + '|' + q.question + '|' + JSON.stringify(q.choices || {});
+    if (!manual && key === lastAiKey) {
+        // 자동 캡처가 같은 문제를 다시 읽어 결과창을 새로 그렸으면 이전 답을 다시 붙인다
+        if (lastAiHtml) renderAiBox(lastAiHtml);
+        return;
+    }
+    lastAiKey = key;
+    lastAiHtml = '';
+    renderAiBox('<div class="result-sheet"><span class="sheet-tag ai-tag">🤖 AI 추정</span></div><div class="result-answer">생각하는 중…</div>', false);
+    try {
+        const r = await fetch(AI_ENDPOINT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sheet: selectedSheet, question: q.question, choices: q.choices || {} })
+        });
+        const data = await r.json().catch(() => ({}));
+        if (key !== lastAiKey) return; // 그 사이 다른 문제로 넘어감
+        if (!r.ok || !data.ok) {
+            const msg = data.error === 'rate-limited' ? '잠깐 너무 많이 물어봤어요. 1분 뒤 다시 시도해 주세요.' : 'AI가 답하지 못했어요.';
+            renderAiBox(`<div class="result-sheet"><span class="sheet-tag ai-tag">🤖 AI 추정</span></div><div class="result-answer ai-weak">${msg}</div>`);
+            return;
+        }
+        const conf = typeof data.confidence === 'number' ? Math.round(data.confidence * 100) : null;
+        const weak = conf !== null && conf < 80;
+        const confText = conf !== null ? ` · 확신 ${conf}%` : '';
+        const who = data.model === 'jev' ? 'Jev' : 'Claude';
+        renderAiBox(`<div class="result-sheet"><span class="sheet-tag ai-tag" title="족보에 없어 AI가 추정한 답이에요. 틀릴 수 있어요.">🤖 AI 추정 (${who}${confText})</span></div>`
+            + `<div class="result-question">${escapeHtml(q.question)}</div>`
+            + `<div class="result-answer${weak ? ' ai-weak' : ''}">${escapeHtml(data.answer)}${weak ? ' <small>(참고만)</small>' : ''}</div>`);
+    } catch (e) {
+        if (key === lastAiKey) renderAiBox('<div class="result-sheet"><span class="sheet-tag ai-tag">🤖 AI 추정</span></div><div class="result-answer ai-weak">AI 서버에 연결하지 못했어요.</div>');
+    }
+}
+
+function askAiFromSearchBox() {
+    const q = searchInput ? searchInput.value.trim() : '';
+    if (q) askAi({ question: q, choices: {} }, true);
+}
+window.askAiFromSearchBox = askAiFromSearchBox;
 
 /**
  * 원본 OCR 글자를 수집기에 넘긴다.
@@ -688,6 +761,7 @@ let presetSearchResults = null;
  */
 function handleRawOcrText(rawText, isAutoMode, captureRect) {
     const qc = window.QplayCollect;
+    if (rawText) lastRawOcrText = rawText;
     if (!qc || !rawText) return false;
 
     let result;
@@ -2636,6 +2710,11 @@ function processOCRResult(text, isAutoMode = false) {
         // 검색 실행
         performSearch();
 
+        // 족보에 없으면 AI에게 물어본다
+        if (allFilteredResults.length === 0) {
+            askAi(aiQuestionFromOcr(cleanedText));
+        }
+
         // 문제 수집기에 상위 답 전달 (정답 화면에서 족보가 맞았는지 판단용)
         if (window.QplayCollect) {
             window.QplayCollect.setMatchedAnswers(allFilteredResults.slice(0, 5).map(r => r.answer));
@@ -2859,7 +2938,8 @@ function performSearch(resetDisplay = false) {
     }
 
     if (allFilteredResults.length === 0) {
-        resultsDiv.innerHTML = '<div class="no-results">검색 결과가 없습니다.</div>';
+        resultsDiv.innerHTML = '<div class="no-results">검색 결과가 없습니다.'
+            + '<br><button type="button" class="ai-ask-btn" onclick="askAiFromSearchBox()">🤖 AI에게 물어보기</button></div>';
         return;
     }
 

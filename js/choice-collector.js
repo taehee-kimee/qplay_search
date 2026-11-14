@@ -716,6 +716,8 @@
         uploadNow,
         removeCollected,
         editCollected,
+        // AI 질문용: 문제 화면 원본 OCR → { body, choices } (문제 화면이 아니면 null)
+        parseQuestion: (text) => { try { const r = parseQuestionScreen(flatten(text)); return r && !r.captcha ? r : null; } catch (e) { return null; } },
         pendingUploads: () => readJson(OUTBOX_KEY, []).length,
         // 표시용 정리 (예전에 띄어 읽힌 채 저장된 문제도 보기 좋게): 루틴의 tidy_text와 같은 규칙
         tidy: (text, isQuestion) => {
