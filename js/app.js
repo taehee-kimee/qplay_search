@@ -1086,15 +1086,17 @@ async function postVision(image, extra = {}) {
 }
 
 // q: 화면 인식으로 읽은 문제(보기 글자를 답에 붙이는 데 씀, 없어도 됨)
-async function askVisionSmart(q) {
+// onPartial(jevData): Jev 사진 답이 자신 없을 때 Claude 사진을 기다리는 동안 먼저 보여주기 (답이 늦어 보이지 않게)
+async function askVisionSmart(q, onPartial) {
     if (AI_JEV_VISION && (selectedSheet === 'ox,xo' || selectedSheet === '올라올라(꼬로록)')) {
         const jimg = captureDataUrl(280);
         const j = jimg ? await postVision(jimg, { engine: 'jev' }).catch(() => null) : null;
-        if (j && j.r.ok && j.data.ok && typeof j.data.confidence === 'number' && j.data.confidence >= JEV_VISION_SURE) {
+        if (j && j.r.ok && j.data.ok) {
             const n = j.data.choice;
             const txt = q && q.choices && q.choices[n];
             j.data.answer = selectedSheet === 'ox,xo' ? n : (txt && !looksGarbled(txt, true) ? `${n}. ${txt}` : `${n}번`);
-            return j;
+            if (typeof j.data.confidence === 'number' && j.data.confidence >= JEV_VISION_SURE) return j;
+            if (onPartial) { try { onPartial(j.data); } catch (e) { /* 표시 실패 무시 */ } }
         }
         if (j && j.data && j.data.error === 'bad-password') return j;
         console.log('[AI] Jev 사진 확신 낮음/실패 → Claude 사진으로:', j && j.data);
@@ -1131,7 +1133,13 @@ async function askAiVision(q) {
     lastAiHtml = '';
     renderAiBox('<div class="result-sheet"><span class="sheet-tag ai-tag">🤖 AI 추정</span></div><div class="result-answer">📷 글자가 흐려서 화면 사진으로 확인하는 중…</div>', false);
     try {
-        const res = await askVisionSmart(q);
+        const res = await askVisionSmart(q, jd => {
+            if (key !== lastAiKey) return;
+            renderAiBox('<div class="result-sheet"><span class="sheet-tag ai-tag">🤖 AI 추정 · 📷 사진으로 읽음</span></div>'
+                + `<div class="result-question">${escapeHtml((q && q.question) || '')}</div>`
+                + aiAnswerRow(visionLabel(jd), jd, true)
+                + '<div class="result-answer ai-weak"><small class="ai-who">📷 Claude</small> 확인하는 중…</div>', false);
+        });
         if (!res) return;
         const { r, data } = res;
         if (key !== lastAiKey) return;
@@ -1243,7 +1251,11 @@ async function askAi(q, manual = false) {
         const useVision = q.fromOcr && lastCaptureCanvas && conf !== null && conf < AI_VISION_BELOW;
         let second = null;
         if (useVision) {
-            second = await askVisionSmart(q).catch(() => null);
+            second = await askVisionSmart(q, jd => {
+                if (key !== lastAiKey) return;
+                renderAiBox(head + first + aiAnswerRow(visionLabel(jd), jd, true)
+                    + '<div class="result-answer ai-weak"><small class="ai-who">📷 Claude</small> 확인하는 중…</div>', false);
+            }).catch(() => null);
             lastVisionTime = Date.now(); // 같은 화면에 사진을 또 보내지 않게
         }
         if (!second || !second.r.ok || !second.data.ok) second = await postAi(q, { second: 'claude' }).catch(() => null);
