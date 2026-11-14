@@ -712,7 +712,7 @@ function looksGarbled(text, isChoice = false) {
     if (!isChoice && hangul < 4 && latin < 8) return true;
     if (isChoice && hangul + latin + (jamo - vowelJamo) + (compact.match(/\d/g) || []).length < compact.length * 0.6) return true;
     // 대기실·방 목록 화면 ("큐플 버디 방정보 PLAVING 블랙리스트 성별 아이디 서바이벌 올라올라")
-    if (/방정보|블랙리스트|서바이벌|PLA[VY]ING|성별아이디|게임이종료/i.test(compact)) return true;
+    if (/방정보|블랙리스트|서바이벌|PLA[VY]ING|성별아이디|게임이종료|랭킹|에관한(관한)?문+제/i.test(compact)) return true;
     // 영문·숫자가 뒤섞인 덩어리("Za|2it", "H'EE2", "32142)")는 한글이 깨져 읽힌 것
     const tokens = t.split(/\s+/).filter(Boolean);
     const mixed = tokens.filter(w => /[a-zA-Z]/.test(w) && /\d/.test(w) && w.length >= 4).length;
@@ -745,7 +745,7 @@ function looksLikeQuestionScreen(raw) {
     const t = String(raw || '');
     const compact = t.replace(/\s/g, '');
     if (/정[답담][은는]/.test(compact)) return false;                         // 정답 발표 화면
-    if (/방정보|블랙리스트|서바이벌|PLA[VY]ING|성별아이디|게임이종료|에관한문제입니다/i.test(compact)) return false; // 대기실·안내
+    if (/방정보|블랙리스트|서바이벌|PLA[VY]ING|성별아이디|게임이종료|랭킹|에관한(관한)?문+제/i.test(compact)) return false; // 대기실·랭킹·안내
     return /문제/.test(compact) || /[?？]/.test(t);
 }
 
@@ -992,8 +992,52 @@ function rememberCapture(canvas) {
     } catch (e) { /* 캡처 보관 실패는 무시 */ }
 }
 
-async function askAiVision() {
+// ===== 확신 있는 AI 답 저장 (이 브라우저) =====
+// Jev 확신 80%+, Jev·Claude 일치, 사진으로 읽은 답은 저장해 두고 같은 문제가 다시 나오면 AI를 부르지 않는다
+const AI_CACHE_KEY = 'qplay:ai:cache:v1';
+const AI_CACHE_MAX = 3000;
+let aiCache = null;
+function aiCacheKey(q) {
+    const norm = t => String(t || '').replace(/[^0-9A-Za-z가-힣]/g, '');
+    const opts = Object.values(q.choices || {}).map(norm).sort().join('|');
+    return selectedSheet + '|' + norm(stripQuizTail(q.question)) + '|' + opts;
+}
+function aiCacheLoad() {
+    if (aiCache) return aiCache;
+    try { aiCache = JSON.parse(localStorage.getItem(AI_CACHE_KEY) || '{}'); } catch (e) { aiCache = {}; }
+    return aiCache;
+}
+function aiCacheGet(q) {
+    const c = aiCacheLoad();
+    return c[aiCacheKey(q)] || null;
+}
+function aiCachePut(q, html) {
+    const c = aiCacheLoad();
+    c[aiCacheKey(q)] = html;
+    const keys = Object.keys(c);
+    if (keys.length > AI_CACHE_MAX) keys.slice(0, keys.length - AI_CACHE_MAX).forEach(k => delete c[k]);
+    try { localStorage.setItem(AI_CACHE_KEY, JSON.stringify(c)); } catch (e) { /* 저장 불가 */ }
+}
+
+// 방금 답한 문제와 같은 문제인지 (화면 인식이 깨진 같은 문제에 또 묻지 않도록)
+let lastAnsweredQ = '';
+let lastAnsweredTime = 0;
+function markAnswered(question) { lastAnsweredQ = question || ''; lastAnsweredTime = Date.now(); }
+function recentAnswerFor(question) {
+    if (!lastAiHtml || !lastAnsweredTime) return false;
+    const age = Date.now() - lastAnsweredTime;
+    const sim = window.QplayCollect && window.QplayCollect.questionSimilarity;
+    if (question && sim && lastAnsweredQ) return age < 20000 && sim(question, lastAnsweredQ) >= 60;
+    return age < 12000; // 문제 글을 아예 못 읽었으면 방금(12초 안) 답한 문제로 본다
+}
+
+async function askAiVision(q) {
     if (!aiModeOn || !lastCaptureCanvas || !selectedSheet) return;
+    if (recentAnswerFor(q && q.question)) {
+        // 이미 답이 떠 있는 문제가 잠깐 깨져 읽힌 것 → 사진을 다시 보내지 않는다 (느려지고 요금도 나감)
+        renderAiBox(lastAiHtml);
+        return;
+    }
     const now = Date.now();
     // 같은 화면(원본 OCR이 비슷함)이면 30초 동안 다시 보내지 않는다
     const sim = window.QplayCollect && window.QplayCollect.questionSimilarity;
@@ -1031,6 +1075,8 @@ async function askAiVision() {
         renderAiBox('<div class="result-sheet"><span class="sheet-tag ai-tag" title="화면 인식이 흐려서 캡처 사진을 AI가 직접 보고 답했어요.">🤖 AI 추정 · 📷 사진으로 읽음</span></div>'
             + `<div class="result-question">${escapeHtml(data.question || '')}</div>`
             + aiAnswerRow('Claude', data, false));
+        markAnswered(data.question || (q && q.question));
+        if (data.question) aiCachePut({ question: data.question, choices: Object.assign({}, data.choices || []) }, lastAiHtml);
         autoCopyIfKkong(data.answer, 'AI(사진)');
     } catch (e) {
         if (key === lastAiKey) renderAiBox('<div class="result-sheet"><span class="sheet-tag ai-tag">🤖 AI 추정</span></div><div class="result-answer ai-weak">AI 서버에 연결하지 못했어요.</div>');
@@ -1077,8 +1123,17 @@ async function askAi(q, manual = false) {
     lastAiTime = Date.now();
     lastAiSheet = selectedSheet;
     lastAiChoices = Object.values(q.choices || {}).join(' ');
-    lastAiHtml = '';
-    renderAiBox('<div class="result-sheet"><span class="sheet-tag ai-tag">🤖 AI 추정</span></div><div class="result-answer">생각하는 중…</div>', false);
+    // 이 브라우저가 전에 확신 있게 답 받은 문제면 AI를 다시 부르지 않는다
+    const cached = aiCacheGet(q);
+    if (cached) {
+        renderAiBox(cached);
+        markAnswered(q.question);
+        console.log('[AI] 전에 받은 답을 다시 씀 (AI 호출 없음):', q.question);
+        return;
+    }
+    const keepShown = recentAnswerFor(q.question);
+    if (!keepShown) lastAiHtml = '';
+    if (!keepShown) renderAiBox('<div class="result-sheet"><span class="sheet-tag ai-tag">🤖 AI 추정</span></div><div class="result-answer">생각하는 중…</div>', false);
     try {
         const { r, data } = await postAi(q);
         if (key !== lastAiKey) return; // 그 사이 다른 문제로 넘어감
@@ -1102,6 +1157,8 @@ async function askAi(q, manual = false) {
         const first = aiAnswerRow(data.model === 'jev' ? `Jev${conf !== null ? ' ' + conf + '%' : ''}` : 'Claude', data, unsure);
         if (!unsure) {
             renderAiBox(head + first);
+            markAnswered(q.question);
+            if (conf === null || conf >= AI_SURE) aiCachePut(q, head + first);
             autoCopyIfKkong(data.answer, 'AI');
             return;
         }
@@ -1112,8 +1169,10 @@ async function askAi(q, manual = false) {
         if (second && second.r.ok && second.data.ok) {
             // 족보 시험(2026-11-14): Jev가 자신 없는 문제에서 둘이 같은 답이면 89% 정답, 갈리면 반반 → 갈리면 둘 다 흐리게
             const agree = second.data.choice && second.data.choice === data.choice;
+            markAnswered(q.question);
             if (agree) {
                 renderAiBox(head + aiAnswerRow('Jev·Claude 일치', data, false));
+                aiCachePut(q, head + aiAnswerRow('Jev·Claude 일치', data, false));
                 autoCopyIfKkong(data.answer, 'AI');
             } else {
                 renderAiBox(head + '<div class="result-answer ai-weak"><small>⚠️ AI 의견이 갈려요. 둘 다 참고만 하세요.</small></div>'
@@ -3101,7 +3160,7 @@ function processOCRResult(text, isAutoMode = false) {
         if (match) {
             autoCopyIfKkong(match.answer, '족보');
         } else if (aiQ && aiQ.vision) {
-            askAiVision();
+            askAiVision(aiQ);
         } else if (aiQ) {
             askAi(aiQ);
         }
