@@ -109,11 +109,35 @@ async function askJevImage(sheet, format, b64) {
 }
 
 let anthropic = null;
+// 문제에 적힌 글자 수: 꽁꽁 "(4 글자 )", 가로세로 "OO거리"의 동그라미
+function answerLength(question) {
+    const m = String(question).match(/\(\s*(\d{1,2})\s*글\s*자\s*\)/);
+    if (m) return parseInt(m[1], 10);
+    const o = String(question).match(/[O○◯]{2,}/);
+    return o ? o[0].length : null;
+}
+
+// 답이 길게 오면 글자 수에 맞는 낱말만 골라낸다 ("임상시험입니다" → "임상시험")
+function fitLength(answer, n) {
+    if (!n) return answer;
+    const compact = s => s.replace(/[^가-힣A-Za-z0-9]/g, '');
+    if (compact(answer).length === n) return compact(answer);
+    const words = answer.split(/[\s,.·()'"“”‘’\/:;!?~*]+/).map(compact).filter(Boolean);
+    const exact = words.find(w => w.length === n);
+    if (exact) return exact;
+    const c = compact(answer);
+    if (c.length > n && /^[가-힣]+$/.test(c.slice(0, n))) {
+        const rest = c.slice(n);
+        if (/^(입니다|이다|이에요|예요|요|임|다)$/.test(rest)) return c.slice(0, n); // 어미만 붙은 경우
+    }
+    return answer;
+}
+
 async function askClaude(sheet, question, choices = null, isOx = false) {
     if (!anthropic) anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: 10000, maxRetries: 1 });
-    const hint = sheet === '가로세로'
-        ? ' 뜻풀이에 맞는 낱말을 답하라. "OO"처럼 동그라미가 있으면 그 글자 수에 맞춰라.'
-        : '';
+    const n = (!choices && !isOx) ? answerLength(question) : null;
+    const hint = (sheet === '가로세로' ? ' 뜻풀이에 맞는 낱말을 답하라.' : '')
+        + (n ? ` 정답은 정확히 ${n}글자(띄어쓰기 없이)인 낱말이다. ${n}글자 낱말 하나만 출력하고 다른 말·조사·설명·문장부호는 절대 붙이지 마라.` : '');
     let content = `문제: ${question}`;
     let rule = '정답 낱말이나 짧은 구절 하나만 출력하고 설명은 하지 마라.';
     if (isOx) {
@@ -123,19 +147,31 @@ async function askClaude(sheet, question, choices = null, isOx = false) {
         content += '\n보기:\n' + Object.entries(choices).map(([k, v]) => `${k}. ${v}`).join('\n');
         rule = '정답 보기의 번호 하나만 출력하라.';
     }
-    const response = await anthropic.messages.create({
-        model: 'claude-haiku-5-5',
-        // 생각을 끄면 정답률이 크게 떨어진다 (2026-11-14 족보 200문제: 보기 문제 79%→87%, OX 76%→86%).
-        // 보기·OX(두 번째 의견)는 medium, 주관식은 속도 때문에 low.
-        max_tokens: 3000,
-        output_config: { effort: (isOx || choices) ? 'medium' : 'low' },
-        system: `너는 한국어 퀴즈 정답을 맞히는 도우미다. ${rule}${hint} 문제가 "아닌 것/않는 것/틀린 것"을 물으면 조건에 맞지 않는 보기를 골라라. 모르면 가장 그럴듯한 답을 하나 내라. 답은 한국어(한글)로 써라.`,
-        messages: [{ role: 'user', content }]
-    });
-    if (response.stop_reason === 'refusal') throw new Error('claude-refusal');
-    const text = response.content.filter(b => b.type === 'text').map(b => b.text).join('').trim();
-    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-    const answer = clean((lines[lines.length - 1] || '').replace(/^(정답|답)\s*[:：]\s*/, '').replace(/[.。]$/, ''), 60);
+    const system = `너는 한국어 퀴즈 정답을 맞히는 도우미다. ${rule}${hint} 문제가 "아닌 것/않는 것/틀린 것"을 물으면 조건에 맞지 않는 보기를 골라라. 모르면 가장 그럴듯한 답을 하나 내라. 답은 한국어(한글)로 써라.`;
+    const ask = async (userContent) => {
+        const response = await anthropic.messages.create({
+            model: 'claude-haiku-5-5',
+            // 생각을 끄면 정답률이 크게 떨어진다 (2026-11-14 족보 200문제: 보기 문제 79%→87%, OX 76%→86%).
+            // 보기·OX(두 번째 의견)는 medium, 주관식은 속도 때문에 low.
+            max_tokens: 3000,
+            output_config: { effort: (isOx || choices) ? 'medium' : 'low' },
+            system,
+            messages: [{ role: 'user', content: userContent }]
+        });
+        if (response.stop_reason === 'refusal') throw new Error('claude-refusal');
+        const text = response.content.filter(b => b.type === 'text').map(b => b.text).join('').trim();
+        const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+        let a = clean((lines[lines.length - 1] || '').replace(/^(정답|답)\s*[:：]\s*/, '').replace(/[*_`]/g, '').replace(/[.。]$/, ''), 60);
+        if (n) a = fitLength(a, n);
+        return a;
+    };
+    let answer = await ask(content);
+    // 글자 수가 안 맞으면 한 번만 다시 묻는다 (예: (4 글자) 문제에 '정치인')
+    const letters = s => String(s).replace(/[^가-힣A-Za-z0-9]/g, '').length;
+    if (n && answer && letters(answer) !== n) {
+        const retry = await ask(`${content}\n\n주의: "${answer}"는 ${letters(answer)}글자라서 오답이다. 정답은 정확히 ${n}글자다. ${n}글자 낱말 하나만 답하라.`).catch(() => '');
+        if (retry && letters(retry) === n) answer = retry;
+    }
     if (!answer) throw new Error('claude-empty');
     return answer;
 }
@@ -160,7 +196,7 @@ async function askClaudeVision(sheet, image) {
     const kind = sheet === 'ox,xo'
         ? 'OX 퀴즈다. 진술이 맞으면 answer_text를 "O", 틀리면 "X"로 하고 answer_number는 0.'
         : sheet === '가로세로' || sheet === '꽁꽁'
-            ? '주관식 퀴즈다. 정답 낱말을 answer_text에 쓰고 answer_number는 0.'
+            ? '주관식 퀴즈다. 정답 낱말 하나만 answer_text에 쓰고(설명·조사 없이) answer_number는 0. 화면에 "(4글자)"처럼 글자 수가 있으면 정확히 그 글자 수로.'
             : '보기가 있으면 정답 보기 번호를 answer_number(1부터)에, 그 보기 내용을 answer_text에 써라.';
     const response = await anthropic.messages.create({
         model: 'claude-haiku-5-5',
@@ -240,7 +276,7 @@ export default async function handler(req, res) {
             console.log('[ask] vision', JSON.stringify({ sheet: vsheet, quiz: v.is_quiz, q: v.question, c: v.choices, n: v.answer_number, a: v.answer_text }));
             if (!v.is_quiz) return res.status(200).json({ ok: false, error: 'not-quiz' });
             const choiceText = v.answer_number > 0 && v.choices[v.answer_number - 1] ? v.choices[v.answer_number - 1] : '';
-            const answer = v.answer_number > 0 ? `${v.answer_number}. ${choiceText || v.answer_text}` : v.answer_text;
+            const answer = v.answer_number > 0 ? `${v.answer_number}. ${choiceText || v.answer_text}` : fitLength(String(v.answer_text || ''), answerLength(v.question));
             // choice: Jev 답과 맞대 보기 위한 값 (OX는 O/X, 객관식은 보기 번호)
             const vChoice = vsheet === 'ox,xo'
                 ? ((String(v.answer_text).toUpperCase().match(/[OX]/) || [null])[0])
