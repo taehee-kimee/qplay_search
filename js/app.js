@@ -876,6 +876,7 @@ function renderAiBox(html, keep = true) {
 }
 
 const AI_SURE = 80; // Jev 확신이 이보다 낮으면 Claude에게 한 번 더 묻는다
+const AI_VISION_BELOW = 30; // Jev 확신이 이보다 낮으면(거의 찍음) 글자 대신 캡처 사진으로 다시 확인 ('2PM'을 '204'로 읽었을 때 7%)
 
 function aiAnswerRow(label, data, weak) {
     return `<div class="result-answer${weak ? ' ai-weak' : ''}"><small class="ai-who">${label}</small> ${escapeHtml(data.answer)}${weak ? ' <small>(참고만)</small>' : ''}</div>`;
@@ -1186,7 +1187,8 @@ async function askAi(q, manual = false) {
         renderAiBox(head + first + '<div class="result-answer ai-weak"><small class="ai-who">Claude</small> 확인하는 중…</div>', false);
         // 화면 인식으로 읽은 문제면 두 번째 의견은 캡처 사진으로 받는다.
         // (2PM을 '204'로 읽었을 때 Jev·Claude가 같은 깨진 글자를 보고 둘 다 '카시오페아'로 찍어 '일치'가 떴음 → 사진은 2PM을 읽고 '핫티스트')
-        const useVision = q.fromOcr && lastCaptureCanvas;
+        // 단 사진은 느리고(2~4초) 비싸서(약 0.3원) Jev가 거의 찍은 수준(30% 미만)일 때만. 30~80%는 Claude 글자로.
+        const useVision = q.fromOcr && lastCaptureCanvas && conf !== null && conf < AI_VISION_BELOW;
         let second = null;
         if (useVision) {
             let image = null;
