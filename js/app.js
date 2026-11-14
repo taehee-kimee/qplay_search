@@ -692,6 +692,7 @@ let lastAiQuestion = '';
 let lastAiSheet = '';
 let lastAiChoices = '';
 let lastAiTime = 0;
+let aiTypeTimer = null;
 
 // 화면 인식이 깨진 글("방 정 보 ㅣ 000043000 서 바 을 라")을 AI에게 보내면 엉뚱한 답이 나온다 → 깨끗한 글만 보낸다
 function looksGarbled(text, isChoice = false) {
@@ -2923,6 +2924,17 @@ function initSearch() {
             displayedCount = 0; // 검색어 변경 시 리셋
             performSearch();
         }, 300);
+
+        // 문제를 통째로 입력했는데(물음표로 끝나거나 10자 이상) 족보에 같은 문제가 없으면 AI에게 자동으로 묻는다.
+        // 타이핑이 끝나고 1초 기다린 뒤에만 (글자마다 부르지 않도록)
+        if (aiTypeTimer) clearTimeout(aiTypeTimer);
+        aiTypeTimer = setTimeout(() => {
+            const q = searchInput.value.trim();
+            const looksLikeQuestion = /[?？]$/.test(q) || q.replace(/\s/g, '').length >= 10;
+            if (!q || !looksLikeQuestion || looksGarbled(q)) return;
+            if (jokboHasQuestion(q, allFilteredResults, {})) return;
+            askAi({ question: q, choices: {} });
+        }, 1300);
     });
 
     // 지우기 버튼 클릭 이벤트
@@ -3094,6 +3106,8 @@ function performSearch(resetDisplay = false) {
         if (selectedSheet) {
             html += ` (카테고리: ${selectedSheet})`;
         }
+        // 족보 결과가 엉뚱할 때를 위해 언제든 AI에게 물어볼 수 있게
+        html += ` <button type="button" class="ai-ask-btn ai-ask-btn-small" onclick="askAiFromSearchBox()">🤖 AI에게 물어보기</button>`;
         html += `</div>`;
     }
 
