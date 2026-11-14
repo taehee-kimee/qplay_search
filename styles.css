@@ -1313,3 +1313,7 @@ body {
 .ai-pass-cancel { background: #f1f1f1; color: #444; }
 .ai-pass-ok { background: #8b5cf6; color: #fff; }
 .ai-pass-ok:disabled { opacity: 0.6; cursor: default; }
+.ai-copyable { cursor: pointer; border-radius: 6px; transition: background 0.2s; }
+.ai-copyable:hover { background: rgba(139, 92, 246, 0.12); }
+.ai-copyable.ai-copied { background: rgba(34, 197, 94, 0.25); }
+.ai-copy-hint { opacity: 0.5; font-size: 0.8em; }

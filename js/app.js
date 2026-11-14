@@ -882,7 +882,7 @@ async function tryCopyNow(text) {
     pendingCopyTime = Date.now();
     const box = document.getElementById('aiAnswer');
     if (box && !box.querySelector('.ai-copy-pending')) {
-        box.insertAdjacentHTML('beforeend', '<div class="result-answer ai-weak ai-copy-pending"><small>📋 이 창을 한 번 누르면 복사돼요</small></div>');
+        box.insertAdjacentHTML('beforeend', '<div class="result-answer ai-weak ai-copy-pending"><small>📋 답을 누르면 복사돼요</small></div>');
     }
 }
 window.addEventListener('focus', () => {
@@ -912,8 +912,11 @@ function renderAiBox(html, keep = true) {
 const AI_SURE = 80; // Jev 확신이 이보다 낮으면 Claude에게 한 번 더 묻는다
 const AI_VISION_BELOW = 30; // Jev 확신이 이보다 낮으면(거의 찍음) 글자 대신 캡처 사진으로 다시 확인 ('2PM'을 '204'로 읽었을 때 7%)
 
+// AI 답 줄: 누르면 답만 복사 (브라우저는 자동복사를 막을 때가 많아서, 누르는 건 항상 허용됨)
 function aiAnswerRow(label, data, weak) {
-    return `<div class="result-answer${weak ? ' ai-weak' : ''}"><small class="ai-who">${label}</small> ${escapeHtml(data.answer)}${weak ? ' <small>(참고만)</small>' : ''}</div>`;
+    const copy = cleanCopyAnswer(data.answer);
+    return `<div class="result-answer ai-copyable${weak ? ' ai-weak' : ''}" data-copy="${escapeHtml(copy).replace(/"/g, '&quot;')}" title="누르면 복사">`
+        + `<small class="ai-who">${label}</small> ${escapeHtml(data.answer)}${weak ? ' <small>(참고만)</small>' : ''} <small class="ai-copy-hint">📋</small></div>`;
 }
 
 // ===== AI 모드 (비밀번호) =====
@@ -1746,6 +1749,23 @@ function initEventListeners() {
     const resultsDiv = document.getElementById('results');
     if (resultsDiv) {
         resultsDiv.addEventListener('click', function (e) {
+            // 🤖 AI 답 줄 → 누르면 그 답 복사 (자동복사 설정과 상관없이)
+            const aiRow = e.target.closest('.ai-copyable');
+            if (aiRow) {
+                const text = aiRow.getAttribute('data-copy') || '';
+                if (text) {
+                    pendingCopyText = '';
+                    navigator.clipboard.writeText(text)
+                        .then(() => {
+                            showNotification('📋 복사했어요: ' + text);
+                            aiRow.classList.add('ai-copied');
+                            setTimeout(() => aiRow.classList.remove('ai-copied'), 600);
+                            document.querySelectorAll('.ai-copy-pending').forEach(el => el.remove());
+                        })
+                        .catch(() => copyToClipboard(text));
+                }
+                return;
+            }
             const resultItem = e.target.closest('.result-item');
             if (resultItem && autoCopyEnabled) {
                 const answer = resultItem.getAttribute('data-answer');
