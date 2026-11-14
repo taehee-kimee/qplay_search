@@ -994,7 +994,8 @@ function rememberCapture(canvas) {
 
 // ===== 확신 있는 AI 답 저장 (이 브라우저) =====
 // Jev 확신 80%+, Jev·Claude 일치, 사진으로 읽은 답은 저장해 두고 같은 문제가 다시 나오면 AI를 부르지 않는다
-const AI_CACHE_KEY = 'qplay:ai:cache:v1';
+const AI_CACHE_KEY = 'qplay:ai:cache:v2'; // v1엔 깨진 글자끼리 '일치'한 오답이 섞였을 수 있어 비움
+try { localStorage.removeItem('qplay:ai:cache:v1'); } catch (e) { /* 무시 */ }
 const AI_CACHE_MAX = 3000;
 let aiCache = null;
 function aiCacheKey(q) {
@@ -1164,16 +1165,41 @@ async function askAi(q, manual = false) {
         }
         // Jev가 확신하지 못함 → Jev 답을 먼저 흐리게 보여주고 Claude에게 다시 묻는다
         renderAiBox(head + first + '<div class="result-answer ai-weak"><small class="ai-who">Claude</small> 확인하는 중…</div>', false);
-        const second = await postAi(q, { second: 'claude' }).catch(() => null);
+        // 화면 인식으로 읽은 문제면 두 번째 의견은 캡처 사진으로 받는다.
+        // (2PM을 '204'로 읽었을 때 Jev·Claude가 같은 깨진 글자를 보고 둘 다 '카시오페아'로 찍어 '일치'가 떴음 → 사진은 2PM을 읽고 '핫티스트')
+        const useVision = q.fromOcr && lastCaptureCanvas;
+        let second = null;
+        if (useVision) {
+            let image = null;
+            try { image = lastCaptureCanvas.toDataURL('image/jpeg', 0.8); } catch (e) { /* 캡처 없음 */ }
+            if (image) {
+                second = await fetch(AI_ENDPOINT, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sheet: selectedSheet, image, pass: aiPass })
+                }).then(async r => ({ r, data: await r.json().catch(() => ({})) })).catch(() => null);
+                lastVisionTime = Date.now(); // 같은 화면에 사진을 또 보내지 않게
+            }
+        }
+        if (!second || !second.r.ok || !second.data.ok) second = await postAi(q, { second: 'claude' }).catch(() => null);
         if (key !== lastAiKey) return;
         if (second && second.r.ok && second.data.ok) {
             // 족보 시험(2026-11-14): Jev가 자신 없는 문제에서 둘이 같은 답이면 89% 정답, 갈리면 반반 → 갈리면 둘 다 흐리게
             const agree = second.data.choice && second.data.choice === data.choice;
+            const byVision = second.data.model === 'claude-vision';
             markAnswered(q.question);
             if (agree) {
-                renderAiBox(head + aiAnswerRow('Jev·Claude 일치', data, false));
-                aiCachePut(q, head + aiAnswerRow('Jev·Claude 일치', data, false));
+                const label = byVision ? 'Jev·사진 일치' : 'Jev·Claude 일치';
+                renderAiBox(head + aiAnswerRow(label, data, false));
+                aiCachePut(q, head + aiAnswerRow(label, data, false));
                 autoCopyIfKkong(data.answer, 'AI');
+            } else if (byVision) {
+                // 사진을 본 쪽이 화면을 제대로 읽었을 가능성이 높다 → 사진 답을 위에 진하게
+                const html = head + (second.data.question ? `<div class="result-answer ai-weak"><small>📷 사진으로 다시 읽은 문제: ${escapeHtml(second.data.question)}</small></div>` : '')
+                    + aiAnswerRow('📷 사진', second.data, false)
+                    + aiAnswerRow(`Jev${conf !== null ? ' ' + conf + '%' : ''}`, data, true);
+                renderAiBox(html);
+                autoCopyIfKkong(second.data.answer, 'AI(사진)');
             } else {
                 renderAiBox(head + '<div class="result-answer ai-weak"><small>⚠️ AI 의견이 갈려요. 둘 다 참고만 하세요.</small></div>'
                     + aiAnswerRow(`Jev${conf !== null ? ' ' + conf + '%' : ''}`, data, true)
@@ -3162,6 +3188,7 @@ function processOCRResult(text, isAutoMode = false) {
         } else if (aiQ && aiQ.vision) {
             askAiVision(aiQ);
         } else if (aiQ) {
+            aiQ.fromOcr = true;
             askAi(aiQ);
         }
 

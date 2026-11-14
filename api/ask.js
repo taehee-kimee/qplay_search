@@ -191,7 +191,11 @@ export default async function handler(req, res) {
             if (!v.is_quiz) return res.status(200).json({ ok: false, error: 'not-quiz' });
             const choiceText = v.answer_number > 0 && v.choices[v.answer_number - 1] ? v.choices[v.answer_number - 1] : '';
             const answer = v.answer_number > 0 ? `${v.answer_number}. ${choiceText || v.answer_text}` : v.answer_text;
-            return res.status(200).json({ ok: true, model: 'claude-vision', question: clean(v.question, 300), choices: v.choices.map(c => clean(c, 60)), answer: clean(answer, 80), confidence: null });
+            // choice: Jev 답과 맞대 보기 위한 값 (OX는 O/X, 객관식은 보기 번호)
+            const vChoice = vsheet === 'ox,xo'
+                ? ((String(v.answer_text).toUpperCase().match(/[OX]/) || [null])[0])
+                : (v.answer_number > 0 ? String(v.answer_number) : null);
+            return res.status(200).json({ ok: true, model: 'claude-vision', question: clean(v.question, 300), choices: v.choices.map(c => clean(c, 60)), answer: clean(vsheet === 'ox,xo' && vChoice ? vChoice : answer, 80), choice: vChoice, confidence: null });
         } catch (e) {
             console.error('ask vision failed:', e && e.message);
             return res.status(502).json({ ok: false, error: 'ai-failed' });
