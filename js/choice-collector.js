@@ -716,6 +716,15 @@
         uploadNow,
         removeCollected,
         editCollected,
+        // AI 질문용: 두 문제 글이 같은 문제인지 (0~100). 족보 1등이 진짜 같은 문제인지 판단에 쓴다
+        questionSimilarity: (a, b) => {
+            const x = compactKey(a), y = compactKey(b);
+            if (!x.length || !y.length) return 0;
+            const whole = ratio(x, y);
+            const shorter = Math.min(x.length, y.length);
+            // OCR이 문제 일부만 읽었거나 족보에 머리말("…에 관한 문제이다")이 붙은 경우
+            return shorter >= 10 ? Math.max(whole, partialRatio(x, y)) : whole;
+        },
         // AI 질문용: 문제 화면 원본 OCR → { body, choices } (문제 화면이 아니면 null)
         parseQuestion: (text) => { try { const r = parseQuestionScreen(flatten(text)); return r && !r.captcha ? r : null; } catch (e) { return null; } },
         pendingUploads: () => readJson(OUTBOX_KEY, []).length,

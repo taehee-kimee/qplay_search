@@ -699,6 +699,37 @@ function aiQuestionFromOcr(fallbackText) {
     return q && /[?？]/.test(q) ? { question: q, choices: {} } : null;
 }
 
+const AI_SAME_QUESTION = 75; // 이 점수 이상이면 족보에 있는 문제로 보고 AI를 부르지 않는다
+
+function stripQuizTail(q) {
+    return String(q || '')
+        .replace(/맞으면\s*[0Oo]\s*[,.]?\s*틀리면\s*[Xx×].*$/, '')
+        .replace(/[^?？]*에\s*관한\s*문제(입니다|이다)\.?/g, '')
+        .trim();
+}
+
+// 보기가 있으면 족보 답이 보기 중에 있어야 같은 문제로 본다 ("다음 중 …아닌 것은?"처럼 질문은 같고 보기만 다른 문제가 많다)
+function answerInChoices(answer, choices, sim) {
+    const opts = Object.values(choices || {});
+    if (opts.length < 2) return true;
+    const a = String(answer || '').replace(/\s*-[^-]{1,12}-\s*$/, '');
+    return opts.some(o => sim(a, o) >= 80);
+}
+
+function jokboHasQuestion(question, results, choices) {
+    const sim = window.QplayCollect && window.QplayCollect.questionSimilarity;
+    if (!sim) return results.length > 0;
+    const q = stripQuizTail(question);
+    let best = 0;
+    for (const r of (results || []).slice(0, 5)) {
+        const score = sim(q, stripQuizTail(r.question));
+        best = Math.max(best, score);
+        if (score >= AI_SAME_QUESTION && answerInChoices(r.answer, choices, sim)) return true;
+    }
+    console.log('[AI] 족보 최고 유사도', best, '→ AI에게 물어봄');
+    return false;
+}
+
 function renderAiBox(html, keep = true) {
     if (keep) lastAiHtml = html;
     const resultsDiv = document.getElementById('results');
@@ -2710,9 +2741,10 @@ function processOCRResult(text, isAutoMode = false) {
         // 검색 실행
         performSearch();
 
-        // 족보에 없으면 AI에게 물어본다
-        if (allFilteredResults.length === 0) {
-            askAi(aiQuestionFromOcr(cleanedText));
+        // 족보에 없으면 AI에게 물어본다 (검색은 비슷한 단어만 있어도 결과를 내므로, 1~5등이 진짜 같은 문제인지 본다)
+        const aiQ = aiQuestionFromOcr(cleanedText);
+        if (aiQ && !jokboHasQuestion(aiQ.question, allFilteredResults, aiQ.choices)) {
+            askAi(aiQ);
         }
 
         // 문제 수집기에 상위 답 전달 (정답 화면에서 족보가 맞았는지 판단용)
