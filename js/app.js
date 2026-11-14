@@ -769,10 +769,29 @@ function aiQuestionFromOcr(fallbackText) {
     return q;
 }
 
+// 화면 테두리·버튼 조각이 붙어 읽힌 것 떼기: 보기 끝 "탈춤 |", "칠레 /", "중국 ㄱ", "베이스노트 :", 문제 앞 "= 즈", ": "
+function trimOcrEdges(text, isChoice) {
+    let t = String(text || '').trim();
+    t = t.replace(/^[\s=:;|/\_~>\-'"`.,·]+/, '');
+    if (!isChoice) t = t.replace(/^(?:[가-힣ㄱ-ㅎ]{1,2}\s*[=:|]\s*)+/, ''); // "즈 = ", "르2 군제 10] " 같은 머리 부스러기
+    // 끝에 공백 뒤 붙은 1~2글자 조각 ("중국 ㄱ") — 단 "ㄱ, ㄴ" 같은 보기 목록은 그대로
+    t = t.replace(/(?:(?<![,，])\s+[ㄱ-ㅎㅏ-ㅣ|/\_~>\-:;'"`.,·]{1,2})+\s*$/, '');
+    if (!isChoice) t = t.replace(/([?？])\s*\S{1,3}$/, '$1'); // 물음표 뒤 부스러기 ("…것은? 즈")
+    t = t.replace(/[\s|/\_~>\-:;'"`,·]+$/, '');
+    return t.trim();
+}
+
 function aiQuestionFromOcrRaw(fallbackText) {
     const parsed = window.QplayCollect && window.QplayCollect.parseQuestion
         ? window.QplayCollect.parseQuestion(lastRawOcrText) : null;
-    if (parsed && parsed.body) return { question: parsed.body, choices: parsed.choices || {} };
+    if (parsed && parsed.body) {
+        const choices = {};
+        for (const [k, v] of Object.entries(parsed.choices || {})) {
+            const c = trimOcrEdges(v, true);
+            if (c) choices[k] = c;
+        }
+        return { question: trimOcrEdges(parsed.body, false) || parsed.body, choices };
+    }
     // 문제 화면으로 못 읽었으면: 물음표가 있는 질문만 (정답·안내 화면에 AI를 부르지 않도록)
     if (/정\s*[답담]\s*[은는]/.test(lastRawOcrText)) return null;
     const q = String(fallbackText || '').split('|CHOICES|')[0].trim();
