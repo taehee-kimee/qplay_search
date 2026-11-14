@@ -692,7 +692,41 @@ let lastAiQuestion = '';
 let lastAiSheet = '';
 let lastAiChoices = '';
 
+// 화면 인식이 깨진 글("방 정 보 ㅣ 000043000 서 바 을 라")을 AI에게 보내면 엉뚱한 답이 나온다 → 깨끗한 글만 보낸다
+function looksGarbled(text, isChoice = false) {
+    const t = String(text || '');
+    const compact = t.replace(/\s/g, '');
+    if (!compact) return true;
+    const hangul = (compact.match(/[가-힣]/g) || []).length;
+    const latin = (compact.match(/[a-zA-Z]/g) || []).length;
+    const jamo = (compact.match(/[ㄱ-ㅎㅏ-ㅣ]/g) || []).length;
+    const garbage = (compact.match(/[^가-힣a-zA-Z0-9?？.,'"‘’“”()<>\[\]〈〉《》『』「」!~·:%/\-+ㆍ]/g) || []).length;
+    if (/\d{5,}/.test(compact)) return true;          // 000043000 같은 숫자 덩어리
+    if (jamo >= (isChoice ? 1 : 2)) return true;      // 낱자 ㅣ ㅡ ㅁ
+    if (garbage / compact.length > (isChoice ? 0.15 : 0.1)) return true;
+    if (!isChoice && hangul < 4 && latin < 8) return true;
+    if (isChoice && hangul + latin + (compact.match(/\d/g) || []).length < compact.length * 0.6) return true;
+    return false;
+}
+
+function aiQuestionClean(q) {
+    if (!q || looksGarbled(q.question)) return false;
+    const opts = Object.values(q.choices || {});
+    // 보기 일부만 읽혔으면(1~3개) 정답 보기가 빠졌을 수 있다 → 틀린 보기 중에서 고르게 되므로 묻지 않는다
+    if (opts.length > 0 && opts.length < 4) return false;
+    return opts.every(c => !looksGarbled(c, true));
+}
+
 function aiQuestionFromOcr(fallbackText) {
+    const q = aiQuestionFromOcrRaw(fallbackText);
+    if (q && !aiQuestionClean(q)) {
+        console.log('[AI] 화면 인식이 깨져서 AI에게 묻지 않음:', q);
+        return null;
+    }
+    return q;
+}
+
+function aiQuestionFromOcrRaw(fallbackText) {
     const parsed = window.QplayCollect && window.QplayCollect.parseQuestion
         ? window.QplayCollect.parseQuestion(lastRawOcrText) : null;
     if (parsed && parsed.body) return { question: parsed.body, choices: parsed.choices || {} };

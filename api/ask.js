@@ -132,6 +132,12 @@ export default async function handler(req, res) {
     if (!SHEETS.has(sheet)) return res.status(400).json({ ok: false, error: 'bad-sheet' });
     if (sheet === 'ox,xo') question = stripOxTail(question);
     if (question.replace(/\s/g, '').length < 4) return res.status(400).json({ ok: false, error: 'too-short' });
+    // 화면 인식이 깨진 글(숫자 덩어리, 낱자 ㅣㅡㅁ)은 AI가 엉뚱한 답을 내므로 받지 않는다
+    const garbled = s => /\d{5,}/.test(s) || /[ㄱ-ㅎㅏ-ㅣ]/.test(s);
+    if (garbled(question) || Object.values(choices).some(garbled)) {
+        console.log('[ask] garbled', JSON.stringify({ sheet, q: question, c: choices }));
+        return res.status(422).json({ ok: false, error: 'garbled' });
+    }
 
     const isOx = sheet === 'ox,xo';
     const hasChoices = Object.keys(choices).length >= 2;
@@ -178,6 +184,8 @@ export default async function handler(req, res) {
             if (!process.env.ANTHROPIC_API_KEY) return res.status(503).json({ ok: false, error: 'claude-not-configured' });
             result = { ok: true, model: 'claude', answer: await askClaude(sheet, question), confidence: null };
         }
+        // 틀린 답 추적용 기록 (Vercel 런타임 로그). 문제 글과 답만 남긴다.
+        console.log('[ask]', JSON.stringify({ sheet, q: question, c: hasChoices ? choices : undefined, m: result.model, a: result.answer, p: result.confidence, second: forceClaude || undefined }));
         if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value);
         cache.set(hash, result);
         return res.status(200).json(result);
