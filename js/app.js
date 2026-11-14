@@ -740,25 +740,32 @@ function needsChoices(q) {
     return /아닌|않은|않는|틀린|옳지|다른\s*것|해당하지/.test(q.question || '');
 }
 
-function aiQuestionFromOcr(fallbackText) {
-    const q = aiQuestionFromOcrRaw(fallbackText);
-    if (q) {
-        const n = Object.keys(q.choices || {}).length;
-        // 보기가 덜 읽혔으면(1~3개) 정답 보기가 빠졌을 수 있다 (리눅스 마스코트: '펭귄'이 안 읽혀 '여우'를 고름)
-        // → 보기 없이 AI가 직접 답하게 한다. 단 '~아닌 것은?'처럼 보기가 있어야 하는 문제는 묻지 않는다
-        if (n > 0 && n < 4) {
-            if (needsChoices(q)) { console.log('[AI] 보기가 덜 읽혀서 묻지 않음:', q); return null; }
-            q.choices = {};
-            q.partial = true;
-        } else if (n === 0 && selectedSheet === '올라올라(꼬로록)' && needsChoices(q)) {
-            console.log('[AI] 보기가 안 읽혀서 묻지 않음:', q);
-            return null;
-        }
-    }
-    if (q && !aiQuestionClean(q)) {
-        console.log('[AI] 화면 인식이 깨져서 AI에게 묻지 않음:', q);
+// 글자로는 못 믿겠지만 문제 화면은 맞아 보일 때 → 캡처 사진을 AI에게 보여준다 (askAiVision)
+function looksLikeQuestionScreen(raw) {
+    const t = String(raw || '');
+    const compact = t.replace(/\s/g, '');
+    if (/정[답담][은는]/.test(compact)) return false;                         // 정답 발표 화면
+    if (/방정보|블랙리스트|서바이벌|PLA[VY]ING|성별아이디|게임이종료|에관한문제입니다/i.test(compact)) return false; // 대기실·안내
+    return /문제/.test(compact) || /[?？]/.test(t);
+}
+
+function visionFallback(reason, q) {
+    if (!looksLikeQuestionScreen(lastRawOcrText) || !lastCaptureCanvas) {
+        console.log('[AI] ' + reason + ' → 문제 화면이 아니라서 묻지 않음:', q);
         return null;
     }
+    console.log('[AI] ' + reason + ' → 캡처 사진으로 물어봄:', q);
+    return { vision: true, question: (q && q.question) || '' };
+}
+
+function aiQuestionFromOcr(fallbackText) {
+    const q = aiQuestionFromOcrRaw(fallbackText);
+    if (!q) return visionFallback('문제를 글자로 못 읽음', null);
+    const n = Object.keys(q.choices || {}).length;
+    // 보기가 덜 읽혔으면(1~3개) 정답 보기가 빠졌을 수 있다 (리눅스 마스코트: '펭귄'이 안 읽혀 '여우'를 고름) → 사진으로
+    if (n > 0 && n < 4) return visionFallback('보기가 덜 읽힘', q);
+    if (n === 0 && selectedSheet === '올라올라(꼬로록)' && needsChoices(q)) return visionFallback('보기가 안 읽힘', q);
+    if (!aiQuestionClean(q)) return visionFallback('화면 인식이 깨짐', q);
     return q;
 }
 
@@ -938,6 +945,67 @@ function initAiModeButton() {
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initAiModeButton);
 else initAiModeButton();
+
+// ===== 캡처 사진으로 AI에게 묻기 (화면 인식이 깨졌을 때) =====
+let lastCaptureCanvas = null;
+let lastVisionTime = 0;
+let lastVisionRaw = '';
+const VISION_INTERVAL_MS = 10000; // 같은 문제에 사진을 계속 보내지 않게 (요금)
+
+function rememberCapture(canvas) {
+    try {
+        const scale = Math.min(1, 1024 / canvas.width);
+        const c = lastCaptureCanvas || document.createElement('canvas');
+        c.width = Math.round(canvas.width * scale);
+        c.height = Math.round(canvas.height * scale);
+        c.getContext('2d').drawImage(canvas, 0, 0, c.width, c.height);
+        lastCaptureCanvas = c;
+    } catch (e) { /* 캡처 보관 실패는 무시 */ }
+}
+
+async function askAiVision() {
+    if (!aiModeOn || !lastCaptureCanvas || !selectedSheet) return;
+    const now = Date.now();
+    // 같은 화면(원본 OCR이 비슷함)이면 30초 동안 다시 보내지 않는다
+    const sim = window.QplayCollect && window.QplayCollect.questionSimilarity;
+    const raw = String(lastRawOcrText || '').slice(0, 200);
+    const sameScreen = sim && lastVisionRaw && now - lastVisionTime < 30000 && sim(raw, lastVisionRaw) >= 70;
+    if (now - lastVisionTime < VISION_INTERVAL_MS || sameScreen) {
+        if (lastAiHtml) renderAiBox(lastAiHtml); // 결과창이 새로 그려졌으면 이전 답을 다시 붙인다
+        return;
+    }
+    lastVisionTime = now;
+    lastVisionRaw = raw;
+    const key = 'vision|' + now;
+    lastAiKey = key;
+    lastAiHtml = '';
+    let image;
+    try { image = lastCaptureCanvas.toDataURL('image/jpeg', 0.8); } catch (e) { return; }
+    renderAiBox('<div class="result-sheet"><span class="sheet-tag ai-tag">🤖 AI 추정</span></div><div class="result-answer">📷 글자가 흐려서 화면 사진으로 확인하는 중…</div>', false);
+    try {
+        const r = await fetch(AI_ENDPOINT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sheet: selectedSheet, image, pass: aiPass })
+        });
+        const data = await r.json().catch(() => ({}));
+        if (key !== lastAiKey) return;
+        if (data.error === 'bad-password') { aiPass = ''; writeLocal(AI_PASS_KEY, ''); setAiMode(false); return; }
+        if (data.error === 'not-quiz') { document.getElementById('aiAnswer')?.remove(); lastVisionTime = 0; return; }
+        if (!r.ok || !data.ok) {
+            renderAiBox('<div class="result-sheet"><span class="sheet-tag ai-tag">🤖 AI 추정</span></div><div class="result-answer ai-weak">AI가 답하지 못했어요.</div>');
+            return;
+        }
+        // 같은 문제를 이어서 글자로 다시 묻지 않도록
+        lastAiQuestion = data.question || ''; lastAiSheet = selectedSheet; lastAiTime = Date.now();
+        lastAiChoices = '';
+        renderAiBox('<div class="result-sheet"><span class="sheet-tag ai-tag" title="화면 인식이 흐려서 캡처 사진을 AI가 직접 보고 답했어요.">🤖 AI 추정 · 📷 사진으로 읽음</span></div>'
+            + `<div class="result-question">${escapeHtml(data.question || '')}</div>`
+            + aiAnswerRow('Claude', data, false));
+    } catch (e) {
+        if (key === lastAiKey) renderAiBox('<div class="result-sheet"><span class="sheet-tag ai-tag">🤖 AI 추정</span></div><div class="result-answer ai-weak">AI 서버에 연결하지 못했어요.</div>');
+    }
+}
 
 async function postAi(q, extra = {}) {
     const r = await fetch(AI_ENDPOINT, {
@@ -1795,6 +1863,8 @@ async function captureAndOCRWithWorker(isAutoMode = false) {
             ctx.drawImage(cameraVideo, 0, 0, canvas.width, canvas.height);
         }
 
+        rememberCapture(canvas); // AI 사진 질문용 원본 (전처리 전)
+
         // 이미지 전처리 적용 (OCR 성능 향상)
         preprocessImageForOCR(canvas);
 
@@ -1993,6 +2063,8 @@ async function captureAndOCRLegacy(isAutoMode = false) {
             const ctx = canvas.getContext('2d');
             ctx.drawImage(cameraVideo, 0, 0, canvas.width, canvas.height);
         }
+
+        rememberCapture(canvas); // AI 사진 질문용 원본 (전처리 전)
 
         // 이미지 전처리 적용 (OCR 성능 향상)
         preprocessImageForOCR(canvas);
@@ -2991,7 +3063,9 @@ function processOCRResult(text, isAutoMode = false) {
 
         // 족보에 없으면 AI에게 물어본다 (검색은 비슷한 단어만 있어도 결과를 내므로, 1~5등이 진짜 같은 문제인지 본다)
         const aiQ = aiQuestionFromOcr(cleanedText);
-        if (aiQ && !jokboHasQuestion(aiQ.question, allFilteredResults, aiQ.choices)) {
+        if (aiQ && aiQ.vision) {
+            askAiVision();
+        } else if (aiQ && !jokboHasQuestion(aiQ.question, allFilteredResults, aiQ.choices)) {
             askAi(aiQ);
         }
 

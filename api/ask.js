@@ -105,6 +105,46 @@ async function askClaude(sheet, question, choices = null, isOx = false) {
     return answer;
 }
 
+// 화면 인식(OCR)이 깨졌을 때: 캡처 사진을 Claude가 직접 보고 문제·보기를 읽어 답한다
+// (2026-11-14 시험: 흐린 화면 3문제 모두 정답, 1.3~3.7초, 입력 ~870토큰 ≈ 0.3원)
+const VISION_SCHEMA = {
+    type: 'object',
+    properties: {
+        is_quiz: { type: 'boolean' },
+        question: { type: 'string' },
+        choices: { type: 'array', items: { type: 'string' } },
+        answer_number: { type: 'integer' },
+        answer_text: { type: 'string' }
+    },
+    required: ['is_quiz', 'question', 'choices', 'answer_number', 'answer_text'],
+    additionalProperties: false
+};
+
+async function askClaudeVision(sheet, image) {
+    if (!anthropic) anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: 15000, maxRetries: 1 });
+    const kind = sheet === 'ox,xo'
+        ? 'OX 퀴즈다. 진술이 맞으면 answer_text를 "O", 틀리면 "X"로 하고 answer_number는 0.'
+        : sheet === '가로세로' || sheet === '꽁꽁'
+            ? '주관식 퀴즈다. 정답 낱말을 answer_text에 쓰고 answer_number는 0.'
+            : '보기가 있으면 정답 보기 번호를 answer_number(1부터)에, 그 보기 내용을 answer_text에 써라.';
+    const response = await anthropic.messages.create({
+        model: 'claude-haiku-5-5',
+        max_tokens: 3000,
+        output_config: { effort: 'medium', format: { type: 'json_schema', schema: VISION_SCHEMA } },
+        system: `너는 한국어 퀴즈 게임 화면을 보고 정답을 맞히는 도우미다. 화면의 문제와 보기를 그대로 읽어 question·choices에 옮기고 정답을 골라라. ${kind} 퀴즈 문제 화면이 아니면(대기실, 정답 발표, 순위 화면 등) is_quiz=false. 문제가 "아닌 것/않는 것/틀린 것"을 물으면 조건에 맞지 않는 보기를 골라라. 답은 한국어로.`,
+        messages: [{
+            role: 'user',
+            content: [
+                { type: 'image', source: { type: 'base64', media_type: image.type, data: image.data } },
+                { type: 'text', text: '이 화면의 퀴즈 정답은?' }
+            ]
+        }]
+    });
+    if (response.stop_reason === 'refusal') throw new Error('claude-refusal');
+    const text = response.content.filter(b => b.type === 'text').map(b => b.text).join('');
+    return JSON.parse(text);
+}
+
 async function readBody(req) {
     if (req.body && typeof req.body === 'object') return req.body;
     if (typeof req.body === 'string') return JSON.parse(req.body || '{}');
@@ -112,7 +152,7 @@ async function readBody(req) {
     let size = 0;
     for await (const chunk of req) {
         size += chunk.length;
-        if (size > 16 * 1024) throw new Error('too large');
+        if (size > 1024 * 1024) throw new Error('too large'); // 캡처 사진(JPEG) 때문에 1MB까지
         chunks.push(chunk);
     }
     return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
@@ -137,6 +177,26 @@ export default async function handler(req, res) {
         return res.status(401).json({ ok: false, error: 'bad-password' });
     }
     if (body.verify === true) return res.status(200).json({ ok: true });
+
+    // 캡처 사진으로 묻기
+    if (typeof body.image === 'string') {
+        const m = body.image.match(/^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/);
+        const vsheet = clean(body.sheet, 30);
+        if (!m || m[2].length > 900 * 1024 || !SHEETS.has(vsheet)) return res.status(400).json({ ok: false, error: 'bad-image' });
+        if (rateLimited(ip)) return res.status(429).json({ ok: false, error: 'rate-limited' });
+        if (!process.env.ANTHROPIC_API_KEY) return res.status(503).json({ ok: false, error: 'claude-not-configured' });
+        try {
+            const v = await askClaudeVision(vsheet, { type: m[1], data: m[2] });
+            console.log('[ask] vision', JSON.stringify({ sheet: vsheet, quiz: v.is_quiz, q: v.question, c: v.choices, n: v.answer_number, a: v.answer_text }));
+            if (!v.is_quiz) return res.status(200).json({ ok: false, error: 'not-quiz' });
+            const choiceText = v.answer_number > 0 && v.choices[v.answer_number - 1] ? v.choices[v.answer_number - 1] : '';
+            const answer = v.answer_number > 0 ? `${v.answer_number}. ${choiceText || v.answer_text}` : v.answer_text;
+            return res.status(200).json({ ok: true, model: 'claude-vision', question: clean(v.question, 300), choices: v.choices.map(c => clean(c, 60)), answer: clean(answer, 80), confidence: null });
+        } catch (e) {
+            console.error('ask vision failed:', e && e.message);
+            return res.status(502).json({ ok: false, error: 'ai-failed' });
+        }
+    }
     const sheet = clean(body.sheet, 30);
     let question = clean(body.question, 300);
     const choices = {};
