@@ -1049,6 +1049,9 @@ function markAnswered(question) { lastAnsweredQ = question || ''; lastAnsweredTi
 function recentAnswerFor(question) {
     if (!lastAiHtml || !lastAnsweredTime) return false;
     const age = Date.now() - lastAnsweredTime;
+    // 답이 나온 지 8초도 안 됐으면 같은 문제다 (문제는 보통 20초 넘게 걸림).
+    // 같은 문제가 한 번 깨져 읽혀 사진으로 또 묻다가 맞는 답(타지마할→인도 100%)을 틀린 답(이집트)으로 덮어쓴 일이 있었음
+    if (age < 8000) return true;
     const sim = window.QplayCollect && window.QplayCollect.questionSimilarity;
     if (question && sim && lastAnsweredQ) return age < 20000 && sim(question, lastAnsweredQ) >= 60;
     return age < 12000; // 문제 글을 아예 못 읽었으면 방금(12초 안) 답한 문제로 본다
@@ -1059,7 +1062,8 @@ function recentAnswerFor(question) {
 // Jev 확신이 낮거나 실패하면 Claude 사진(1.5~4초·약 0.3원)으로 다시 묻는다.
 // 되돌리기: 아래 값을 false로 바꾸면 예전처럼 Claude 사진만 쓴다. (git 태그 before-jev-vision = 넣기 전 상태)
 const AI_JEV_VISION = true;
-const JEV_VISION_SURE = 0.6; // Jev 사진 확신이 이보다 낮으면 Claude 사진으로
+// Jev 사진 확신이 이보다 낮으면 Claude 사진으로. (실사용 2026-11-14: 0.8 이상은 다 정답, 0.67에서 타지마할→이집트 오답 → 0.6에서 올림)
+const JEV_VISION_SURE = 0.8;
 
 // 캡처를 JPEG로. Jev는 가로·세로 모두 280px 이상이어야 해서 작은 캡처는 여백을 붙인다
 function captureDataUrl(minSide = 0) {
