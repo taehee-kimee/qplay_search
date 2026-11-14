@@ -133,6 +133,31 @@ export function createHandler(getBlob) {
             return res.status(200).json({ ok: true, count: items.length });
         }
 
+        // 임시(관리자): 공개 주소가 막혔을 때 서버 안에서 제출 내용을 읽어 돌려준다
+        if (req.method === 'GET' && req.query?.dump !== undefined) {
+            if (!isAdminKey(req.query?.key)) return res.status(401).json({ ok: false, error: 'unauthorized' });
+            const page = await blob.list({ prefix: 'submissions/', cursor: req.query?.cursor || undefined, limit: 100 });
+            const records = [];
+            for (const b of page.blobs) {
+                try {
+                    let text;
+                    if (typeof blob.get === 'function') {
+                        const r = await blob.get(b.url, { access: 'public' });
+                        text = r && r.stream ? await new Response(r.stream).text() : null;
+                    }
+                    if (text == null) {
+                        const r = await fetch(b.url, { cache: 'no-store' });
+                        text = r.ok ? await r.text() : null;
+                        if (!r.ok) throw new Error(`fetch ${r.status}`);
+                    }
+                    records.push({ pathname: b.pathname, rec: JSON.parse(text) });
+                } catch (e) {
+                    records.push({ pathname: b.pathname, error: String(e && e.message || e).slice(0, 200) });
+                }
+            }
+            return res.status(200).json({ ok: true, records, cursor: page.cursor || null, hasMore: !!page.hasMore });
+        }
+
         if (req.method === 'GET') {
             if (!isAdminKey(req.query?.key)) return res.status(401).json({ ok: false, error: 'unauthorized' });
             const page = await blob.list({ prefix: 'submissions/', cursor: req.query?.cursor || undefined, limit: 1000 });
