@@ -56,3 +56,5 @@ package-lock.json
 # Excel 파일은 포함됨 (주석 해제하여 제외 가능)
 # *.xlsx
 # *.xls
+.vercel
+.env*.local
