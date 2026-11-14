@@ -5,7 +5,9 @@
 //   - 보기가 없는 주관식(가로세로, 꽁꽁 등) → Claude Haiku 5.5
 //   응답: { ok, answer, choice?, confidence?, model }
 //
-// 필요 설정 (Vercel 환경변수): TYPESAFE_API_KEY, ANTHROPIC_API_KEY
+// 필요 설정 (Vercel 환경변수): TYPESAFE_API_KEY, ANTHROPIC_API_KEY, AI_PASSWORD
+// AI 모드는 비밀번호를 아는 사람만 쓴다 (여러 사람이 같이 쓰는 사이트라 요금이 새지 않게). body.pass로 받는다.
+// POST { verify: true, pass } → 비밀번호만 확인
 // 남용 방지: IP당 1분 20회 (인스턴스 메모리 기준이라 대략적), 같은 문제는 캐시해서 다시 부르지 않음.
 // 진짜 상한은 TypeSafe/Anthropic 콘솔의 월 사용 한도로 건다.
 import crypto from 'node:crypto';
@@ -22,6 +24,14 @@ const cache = new Map();          // hash → response
 function clean(value, max) {
     if (typeof value !== 'string') return '';
     return value.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
+}
+
+function passwordOk(pass) {
+    const real = process.env.AI_PASSWORD;
+    if (!real || typeof pass !== 'string' || !pass) return false;
+    const a = crypto.createHash('sha256').update(pass).digest();
+    const b = crypto.createHash('sha256').update(real).digest();
+    return crypto.timingSafeEqual(a, b);
 }
 
 function rateLimited(ip) {
@@ -119,6 +129,14 @@ export default async function handler(req, res) {
     } catch (e) {
         return res.status(400).json({ ok: false, error: 'bad-body' });
     }
+    const ip = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'unknown';
+    if (!process.env.AI_PASSWORD) return res.status(503).json({ ok: false, error: 'password-not-configured' });
+    if (!passwordOk(body.pass)) {
+        // 비밀번호 마구 넣어보기도 횟수 제한에 걸리게
+        if (rateLimited(ip)) return res.status(429).json({ ok: false, error: 'rate-limited' });
+        return res.status(401).json({ ok: false, error: 'bad-password' });
+    }
+    if (body.verify === true) return res.status(200).json({ ok: true });
     const sheet = clean(body.sheet, 30);
     let question = clean(body.question, 300);
     const choices = {};
@@ -147,7 +165,6 @@ export default async function handler(req, res) {
     const hash = crypto.createHash('sha256').update(JSON.stringify([sheet, question, isOx ? null : choices, forceClaude])).digest('hex');
     if (cache.has(hash)) return res.status(200).json({ ...cache.get(hash), cached: true });
 
-    const ip = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'unknown';
     if (rateLimited(ip)) return res.status(429).json({ ok: false, error: 'rate-limited' });
 
     try {

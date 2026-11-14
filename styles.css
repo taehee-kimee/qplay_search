@@ -1255,3 +1255,61 @@ body {
     padding: 3px 9px;
     font-size: 12px;
 }
+
+/* 🤖 AI 모드 버튼 + 비밀번호 창 */
+.ai-mode-btn {
+    background: none;
+    border: 1px solid #c4b5fd;
+    border-radius: 999px;
+    color: #7c3aed;
+    font-size: 0.85em;
+    padding: 5px 12px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.ai-mode-btn.on {
+    background: #8b5cf6;
+    border-color: #8b5cf6;
+    color: #fff;
+}
+.ai-pass-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    padding: 16px;
+}
+.ai-pass-box {
+    background: #fff;
+    border-radius: 14px;
+    padding: 22px;
+    width: 100%;
+    max-width: 340px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+}
+.ai-pass-title { font-size: 17px; font-weight: 700; margin-bottom: 6px; color: #222; }
+.ai-pass-desc { font-size: 13px; color: #666; margin-bottom: 14px; }
+.ai-pass-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 15px;
+}
+.ai-pass-input:focus { outline: none; border-color: #8b5cf6; }
+.ai-pass-error { min-height: 18px; font-size: 12px; color: #e11d48; margin: 6px 0; }
+.ai-pass-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.ai-pass-actions button {
+    border: none;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 14px;
+    cursor: pointer;
+}
+.ai-pass-cancel { background: #f1f1f1; color: #444; }
+.ai-pass-ok { background: #8b5cf6; color: #fff; }
+.ai-pass-ok:disabled { opacity: 0.6; cursor: default; }

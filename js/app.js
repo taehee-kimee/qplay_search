@@ -796,11 +796,124 @@ function aiAnswerRow(label, data, weak) {
     return `<div class="result-answer${weak ? ' ai-weak' : ''}"><small class="ai-who">${label}</small> ${escapeHtml(data.answer)}${weak ? ' <small>(참고만)</small>' : ''}</div>`;
 }
 
+// ===== AI 모드 (비밀번호) =====
+// 여러 사람이 같이 쓰는 사이트라, 비밀번호를 아는 사람만 AI 답을 본다. 비밀번호 검사는 서버(api/ask.js)가 한다.
+const AI_PASS_KEY = 'qplay:ai:pass';
+const AI_MODE_KEY = 'qplay:ai:on';
+
+function readLocal(key) { try { return localStorage.getItem(key) || ''; } catch (e) { return ''; } }
+function writeLocal(key, value) { try { value ? localStorage.setItem(key, value) : localStorage.removeItem(key); } catch (e) { /* 저장 불가(사생활 보호 모드 등) */ } }
+
+let aiPass = readLocal(AI_PASS_KEY);
+let aiModeOn = !!aiPass && readLocal(AI_MODE_KEY) === '1';
+
+function updateAiModeBtn() {
+    const btn = document.getElementById('aiModeBtn');
+    if (!btn) return;
+    btn.textContent = aiModeOn ? '🤖 AI 켜짐' : '🤖 AI 꺼짐';
+    btn.classList.toggle('on', aiModeOn);
+    btn.title = aiModeOn ? '족보에 없는 문제를 AI가 추정해요. 누르면 꺼져요.' : '누르고 비밀번호를 넣으면 족보에 없는 문제를 AI가 추정해요.';
+}
+
+function setAiMode(on) {
+    aiModeOn = on;
+    writeLocal(AI_MODE_KEY, on ? '1' : '');
+    updateAiModeBtn();
+    if (!on) {
+        document.getElementById('aiAnswer')?.remove();
+        lastAiKey = ''; lastAiHtml = '';
+    }
+    if (typeof performSearch === 'function' && currentSearchTerm) performSearch(true); // 'AI에게 물어보기' 버튼 보이기/숨기기
+}
+
+function openAiPasswordModal(onSuccess) {
+    document.getElementById('aiPassModal')?.remove();
+    const wrap = document.createElement('div');
+    wrap.id = 'aiPassModal';
+    wrap.className = 'ai-pass-modal';
+    wrap.innerHTML = `
+        <form class="ai-pass-box">
+            <div class="ai-pass-title">🤖 AI 모드 켜기</div>
+            <div class="ai-pass-desc">족보에 없는 문제를 AI가 추정해 줘요. 비밀번호를 넣어 주세요.</div>
+            <input type="password" class="ai-pass-input" autocomplete="current-password" placeholder="비밀번호">
+            <div class="ai-pass-error"></div>
+            <div class="ai-pass-actions">
+                <button type="button" class="ai-pass-cancel">취소</button>
+                <button type="submit" class="ai-pass-ok">켜기</button>
+            </div>
+        </form>`;
+    document.body.appendChild(wrap);
+    const input = wrap.querySelector('.ai-pass-input');
+    const err = wrap.querySelector('.ai-pass-error');
+    const ok = wrap.querySelector('.ai-pass-ok');
+    const close = () => wrap.remove();
+    wrap.querySelector('.ai-pass-cancel').addEventListener('click', close);
+    wrap.addEventListener('click', e => { if (e.target === wrap) close(); });
+    wrap.querySelector('form').addEventListener('submit', async e => {
+        e.preventDefault();
+        const pass = input.value;
+        if (!pass) return;
+        ok.disabled = true;
+        err.textContent = '확인하는 중…';
+        try {
+            const r = await fetch(AI_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ verify: true, pass })
+            });
+            if (r.ok) {
+                aiPass = pass;
+                writeLocal(AI_PASS_KEY, pass);
+                close();
+                setAiMode(true);
+                showNotification('🤖 AI 모드를 켰어요');
+                if (onSuccess) onSuccess();
+                return;
+            }
+            err.textContent = r.status === 429 ? '너무 많이 시도했어요. 1분 뒤 다시 해 주세요.' : '비밀번호가 맞지 않아요.';
+        } catch (e2) {
+            err.textContent = 'AI 서버에 연결하지 못했어요.';
+        }
+        ok.disabled = false;
+        input.select();
+    });
+    input.focus();
+}
+
+function toggleAiMode() {
+    if (aiModeOn) {
+        setAiMode(false);
+        showNotification('AI 모드를 껐어요');
+    } else if (aiPass) {
+        setAiMode(true); // 이 브라우저에 이미 맞는 비밀번호가 있음
+        showNotification('🤖 AI 모드를 켰어요');
+    } else {
+        openAiPasswordModal();
+    }
+}
+
+function initAiModeButton() {
+    if (document.getElementById('aiModeBtn')) return;
+    const btn = document.createElement('button');
+    btn.id = 'aiModeBtn';
+    btn.type = 'button';
+    btn.className = 'ai-mode-btn';
+    btn.addEventListener('click', toggleAiMode);
+    const report = document.getElementById('reportBtn');          // 기본 화면: 헤더 버튼 줄
+    const autoJokbo = document.getElementById('autoJokboCheckbox'); // 심플 화면: 체크박스 줄
+    if (report) report.parentNode.insertBefore(btn, report);
+    else if (autoJokbo) autoJokbo.closest('.auto-copy-checkbox').after(btn);
+    else return;
+    updateAiModeBtn();
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initAiModeButton);
+else initAiModeButton();
+
 async function postAi(q, extra = {}) {
     const r = await fetch(AI_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sheet: selectedSheet, question: q.question, choices: q.choices || {}, ...extra })
+        body: JSON.stringify({ sheet: selectedSheet, question: q.question, choices: q.choices || {}, pass: aiPass, ...extra })
     });
     const data = await r.json().catch(() => ({}));
     return { r, data };
@@ -813,6 +926,7 @@ function sameChoices(a, b, sim) {
 }
 
 async function askAi(q, manual = false) {
+    if (!aiModeOn) return; // AI 모드가 꺼져 있으면 아무것도 묻지 않는다 (요금 0)
     if (!q || !q.question || !selectedSheet) return;
     const key = selectedSheet + '|' + q.question + '|' + JSON.stringify(q.choices || {});
     // 자동 캡처는 같은 문제를 계속 다시 읽고 OCR 글자가 조금씩 달라진다 → 비슷하면 같은 문제로 보고 다시 부르지 않는다 (API 요금 절약)
@@ -839,6 +953,13 @@ async function askAi(q, manual = false) {
         const { r, data } = await postAi(q);
         if (key !== lastAiKey) return; // 그 사이 다른 문제로 넘어감
         if (!r.ok || !data.ok) {
+            if (data.error === 'bad-password') {
+                // 비밀번호가 바뀌었음 → 다시 받기
+                aiPass = ''; writeLocal(AI_PASS_KEY, '');
+                setAiMode(false);
+                showNotification('AI 비밀번호가 바뀌었어요. 다시 켜 주세요.');
+                return;
+            }
             const msg = data.error === 'rate-limited' ? '잠깐 너무 많이 물어봤어요. 1분 뒤 다시 시도해 주세요.' : 'AI가 답하지 못했어요.';
             renderAiBox(`<div class="result-sheet"><span class="sheet-tag ai-tag">🤖 AI 추정</span></div><div class="result-answer ai-weak">${msg}</div>`);
             return;
@@ -3077,7 +3198,7 @@ function performSearch(resetDisplay = false) {
 
     if (allFilteredResults.length === 0) {
         resultsDiv.innerHTML = '<div class="no-results">검색 결과가 없습니다.'
-            + '<br><button type="button" class="ai-ask-btn" onclick="askAiFromSearchBox()">🤖 AI에게 물어보기</button></div>';
+            + (aiModeOn ? '<br><button type="button" class="ai-ask-btn" onclick="askAiFromSearchBox()">🤖 AI에게 물어보기</button>' : '') + '</div>';
         return;
     }
 
@@ -3107,7 +3228,7 @@ function performSearch(resetDisplay = false) {
             html += ` (카테고리: ${selectedSheet})`;
         }
         // 족보 결과가 엉뚱할 때를 위해 언제든 AI에게 물어볼 수 있게
-        html += ` <button type="button" class="ai-ask-btn ai-ask-btn-small" onclick="askAiFromSearchBox()">🤖 AI에게 물어보기</button>`;
+        if (aiModeOn) html += ` <button type="button" class="ai-ask-btn ai-ask-btn-small" onclick="askAiFromSearchBox()">🤖 AI에게 물어보기</button>`;
         html += `</div>`;
     }
 
