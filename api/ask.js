@@ -139,7 +139,8 @@ export default async function handler(req, res) {
         return res.status(422).json({ ok: false, error: 'garbled' });
     }
 
-    const isOx = sheet === 'ox,xo';
+    // OX 카테고리여도 "정장의 가장 기본색은?" 같은 질문(진술문이 아님)에 O/X로 답하면 안 된다 → '~다?'로 끝나는 진술문만 OX
+    const isOx = sheet === 'ox,xo' && /(다|요)\s*[.?？!]*\s*$/.test(question);
     const hasChoices = Object.keys(choices).length >= 2;
     // second: 'claude' → Jev가 확신 못 한 문제를 Claude에게 다시 묻는다 (화면이 Jev 답을 먼저 보여준 뒤 부름)
     const forceClaude = body.second === 'claude';
