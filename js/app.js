@@ -796,9 +796,10 @@ function answerInChoices(answer, choices, sim) {
     return opts.some(o => sim(a, o) >= 80);
 }
 
-function jokboHasQuestion(question, results, choices) {
+// 족보 1~5등 중 화면 문제와 '같은 문제'를 찾는다 (없으면 null)
+function jokboMatch(question, results, choices) {
     const sim = window.QplayCollect && window.QplayCollect.questionSimilarity;
-    if (!sim) return results.length > 0;
+    if (!sim) return (results && results[0]) || null;
     const q = stripQuizTail(question);
     let best = 0;
     for (const r of (results || []).slice(0, 5)) {
@@ -806,11 +807,39 @@ function jokboHasQuestion(question, results, choices) {
         best = Math.max(best, score);
         if (score >= AI_SAME_QUESTION && answerInChoices(r.answer, choices, sim)) {
             console.log('[AI] 족보에 같은 문제가 있어 AI는 안 부름 (유사도', score + '):', r.question, '→', r.answer);
-            return true;
+            return r;
         }
     }
     console.log('[AI] 족보 최고 유사도', best, '→ AI에게 물어봄');
-    return false;
+    return null;
+}
+
+function jokboHasQuestion(question, results, choices) {
+    return !!jokboMatch(question, results, choices);
+}
+
+// ===== 꽁꽁 자동복사 =====
+// 예전엔 족보 검색 1등을 무조건 복사해서, 족보에 없는 문제면 엉뚱한 단어가 복사됐다.
+// 이제: 족보에 같은 문제가 있으면 그 답, 없으면 AI 답(한글)만 복사한다.
+let suppressSearchAutoCopy = false;
+
+function cleanCopyAnswer(answer) {
+    return String(answer || '')
+        .replace(/\s*-[^-]{1,12}-\s*$/, '')   // 닉네임 꼬리 "-차니-"
+        .replace(/^\d+\.\s*/, '')              // AI 객관식 "4. "
+        .replace(/[\s|/\_~>-]+$/, '')
+        .trim();
+}
+
+function autoCopyIfKkong(answer, source) {
+    if (!autoCopyEnabled || selectedSheet !== '꽁꽁') return;
+    const text = cleanCopyAnswer(answer);
+    if (!text || !/[가-힣0-9]/.test(text) || /[a-zA-Z]/.test(text) && /[가-힣]/.test(text)) {
+        console.log('[복사] 한글 답이 아니라서 복사 안 함:', answer);
+        return;
+    }
+    console.log('[복사]', source, text);
+    copyToClipboard(text).catch(() => {});
 }
 
 function renderAiBox(html, keep = true) {
@@ -1002,6 +1031,7 @@ async function askAiVision() {
         renderAiBox('<div class="result-sheet"><span class="sheet-tag ai-tag" title="화면 인식이 흐려서 캡처 사진을 AI가 직접 보고 답했어요.">🤖 AI 추정 · 📷 사진으로 읽음</span></div>'
             + `<div class="result-question">${escapeHtml(data.question || '')}</div>`
             + aiAnswerRow('Claude', data, false));
+        autoCopyIfKkong(data.answer, 'AI(사진)');
     } catch (e) {
         if (key === lastAiKey) renderAiBox('<div class="result-sheet"><span class="sheet-tag ai-tag">🤖 AI 추정</span></div><div class="result-answer ai-weak">AI 서버에 연결하지 못했어요.</div>');
     }
@@ -1072,6 +1102,7 @@ async function askAi(q, manual = false) {
         const first = aiAnswerRow(data.model === 'jev' ? `Jev${conf !== null ? ' ' + conf + '%' : ''}` : 'Claude', data, unsure);
         if (!unsure) {
             renderAiBox(head + first);
+            autoCopyIfKkong(data.answer, 'AI');
             return;
         }
         // Jev가 확신하지 못함 → Jev 답을 먼저 흐리게 보여주고 Claude에게 다시 묻는다
@@ -1083,6 +1114,7 @@ async function askAi(q, manual = false) {
             const agree = second.data.choice && second.data.choice === data.choice;
             if (agree) {
                 renderAiBox(head + aiAnswerRow('Jev·Claude 일치', data, false));
+                autoCopyIfKkong(data.answer, 'AI');
             } else {
                 renderAiBox(head + '<div class="result-answer ai-weak"><small>⚠️ AI 의견이 갈려요. 둘 다 참고만 하세요.</small></div>'
                     + aiAnswerRow(`Jev${conf !== null ? ' ' + conf + '%' : ''}`, data, true)
@@ -3058,14 +3090,19 @@ function processOCRResult(text, isAutoMode = false) {
         window.currentQuestionKeywords = questionKeywords;
         window.currentChoiceKeywords = choiceKeywords;
 
-        // 검색 실행
-        performSearch();
+        // 검색 실행 (자동복사는 아래에서 '같은 문제'일 때만)
+        suppressSearchAutoCopy = true;
+        try { performSearch(); } finally { suppressSearchAutoCopy = false; }
 
         // 족보에 없으면 AI에게 물어본다 (검색은 비슷한 단어만 있어도 결과를 내므로, 1~5등이 진짜 같은 문제인지 본다)
         const aiQ = aiQuestionFromOcr(cleanedText);
-        if (aiQ && aiQ.vision) {
+        const rawQ = aiQuestionFromOcrRaw(cleanedText);
+        const match = rawQ ? jokboMatch(rawQ.question, allFilteredResults, rawQ.choices) : null;
+        if (match) {
+            autoCopyIfKkong(match.answer, '족보');
+        } else if (aiQ && aiQ.vision) {
             askAiVision();
-        } else if (aiQ && !jokboHasQuestion(aiQ.question, allFilteredResults, aiQ.choices)) {
+        } else if (aiQ) {
             askAi(aiQ);
         }
 
@@ -3400,9 +3437,10 @@ function performSearch(resetDisplay = false) {
         resultsDiv.insertAdjacentHTML('beforeend', html);
     }
 
-    // 자동복사 기능 (성능 최적화: 비동기 처리) - 첫 번째 결과만 복사
-    if (autoCopyEnabled && selectedSheet === "꽁꽁" && allFilteredResults.length > 0 && isFirstLoad) {
-        const firstAnswer = allFilteredResults[0].answer;
+    // 자동복사 기능 (직접 입력해서 검색할 때) - 첫 번째 결과만 복사.
+    // 화면 인식(📷)으로 검색할 때는 processOCRResult가 '같은 문제'일 때만 복사한다
+    if (autoCopyEnabled && selectedSheet === "꽁꽁" && allFilteredResults.length > 0 && isFirstLoad && !suppressSearchAutoCopy) {
+        const firstAnswer = cleanCopyAnswer(allFilteredResults[0].answer);
         // 렌더링 블로킹 방지를 위해 비동기 처리
         setTimeout(() => {
             copyToClipboard(firstAnswer).catch(() => {
