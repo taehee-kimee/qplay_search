@@ -793,8 +793,15 @@ async function askAi(q, manual = false) {
         const second = await postAi(q, { second: 'claude' }).catch(() => null);
         if (key !== lastAiKey) return;
         if (second && second.r.ok && second.data.ok) {
+            // 족보 시험(2026-11-14): Jev가 자신 없는 문제에서 둘이 같은 답이면 89% 정답, 갈리면 반반 → 갈리면 둘 다 흐리게
             const agree = second.data.choice && second.data.choice === data.choice;
-            renderAiBox(head + first + aiAnswerRow(agree ? 'Claude 동의' : 'Claude', second.data, false));
+            if (agree) {
+                renderAiBox(head + aiAnswerRow('Jev·Claude 일치', data, false));
+            } else {
+                renderAiBox(head + '<div class="result-answer ai-weak"><small>⚠️ AI 의견이 갈려요. 둘 다 참고만 하세요.</small></div>'
+                    + aiAnswerRow(`Jev${conf !== null ? ' ' + conf + '%' : ''}`, data, true)
+                    + aiAnswerRow('Claude', second.data, true));
+            }
         } else {
             renderAiBox(head + first);
         }

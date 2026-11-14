@@ -80,15 +80,17 @@ async function askClaude(sheet, question, choices = null, isOx = false) {
     }
     const response = await anthropic.messages.create({
         model: 'claude-haiku-5-5',
-        max_tokens: 64,
-        thinking: { type: 'disabled' },
-        output_config: { effort: 'low' },
-        system: `너는 한국어 퀴즈 정답을 맞히는 도우미다. ${rule}${hint} 모르면 가장 그럴듯한 답을 하나 내라.`,
+        // 생각을 끄면 정답률이 크게 떨어진다 (2026-11-14 족보 200문제: 보기 문제 79%→87%, OX 76%→86%).
+        // 보기·OX(두 번째 의견)는 medium, 주관식은 속도 때문에 low.
+        max_tokens: 3000,
+        output_config: { effort: (isOx || choices) ? 'medium' : 'low' },
+        system: `너는 한국어 퀴즈 정답을 맞히는 도우미다. ${rule}${hint} 문제가 "아닌 것/않는 것/틀린 것"을 물으면 조건에 맞지 않는 보기를 골라라. 모르면 가장 그럴듯한 답을 하나 내라. 답은 한국어(한글)로 써라.`,
         messages: [{ role: 'user', content }]
     });
     if (response.stop_reason === 'refusal') throw new Error('claude-refusal');
     const text = response.content.filter(b => b.type === 'text').map(b => b.text).join('').trim();
-    const answer = clean(text.split('\n')[0].replace(/^(정답|답)\s*[:：]\s*/, '').replace(/[.。]$/, ''), 60);
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    const answer = clean((lines[lines.length - 1] || '').replace(/^(정답|답)\s*[:：]\s*/, '').replace(/[.。]$/, ''), 60);
     if (!answer) throw new Error('claude-empty');
     return answer;
 }
@@ -149,11 +151,13 @@ export default async function handler(req, res) {
             let answer = text;
             let choice = null;
             if (isOx) {
-                choice = /^[OoㅇＯ0]/.test(text) ? 'O' : /^[XxＸ×]/.test(text) ? 'X' : null;
+                const ox = text.toUpperCase().match(/[OX]/g);
+                choice = ox ? ox[ox.length - 1] : null;
                 answer = choice || text;
             } else if (hasChoices) {
-                const m = text.match(/[1-6]/);
-                choice = m && choices[m[0]] ? m[0] : null;
+                const m = text.match(/[1-6]/g);
+                const last = m ? m[m.length - 1] : null;
+                choice = last && choices[last] ? last : null;
                 answer = choice ? `${choice}. ${choices[choice]}` : text;
             }
             result = { ok: true, model: 'claude', choice, answer, confidence: null };
