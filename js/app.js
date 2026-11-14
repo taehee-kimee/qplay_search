@@ -3208,7 +3208,7 @@ function performSearch(resetDisplay = false) {
 
     if (allFilteredResults.length === 0) {
         resultsDiv.innerHTML = '<div class="no-results">검색 결과가 없습니다.'
-            + (aiModeOn ? '<br><button type="button" class="ai-ask-btn" onclick="askAiFromSearchBox()">🤖 AI에게 물어보기</button>' : '') + '</div>';
+            + '</div>';
         return;
     }
 
@@ -3237,8 +3237,6 @@ function performSearch(resetDisplay = false) {
         if (selectedSheet) {
             html += ` (카테고리: ${selectedSheet})`;
         }
-        // 족보 결과가 엉뚱할 때를 위해 언제든 AI에게 물어볼 수 있게
-        if (aiModeOn) html += ` <button type="button" class="ai-ask-btn ai-ask-btn-small" onclick="askAiFromSearchBox()">🤖 AI에게 물어보기</button>`;
         html += `</div>`;
     }
 
