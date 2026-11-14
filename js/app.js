@@ -1053,8 +1053,9 @@ function rememberCapture(canvas) {
 
 // ===== 확신 있는 AI 답 저장 (이 브라우저) =====
 // Jev 확신 80%+, Jev·Claude 일치, 사진으로 읽은 답은 저장해 두고 같은 문제가 다시 나오면 AI를 부르지 않는다
-const AI_CACHE_KEY = 'qplay:ai:cache:v2'; // v1엔 깨진 글자끼리 '일치'한 오답이 섞였을 수 있어 비움
-try { localStorage.removeItem('qplay:ai:cache:v1'); } catch (e) { /* 무시 */ }
+// v1엔 깨진 글자끼리 '일치'한 오답, v2엔 '누르면 복사' 이전 모양이 저장돼 있어 비움
+const AI_CACHE_KEY = 'qplay:ai:cache:v3';
+try { localStorage.removeItem('qplay:ai:cache:v1'); localStorage.removeItem('qplay:ai:cache:v2'); } catch (e) { /* 무시 */ }
 const AI_CACHE_MAX = 3000;
 let aiCache = null;
 function aiCacheKey(q) {
