@@ -770,7 +770,10 @@ function jokboHasQuestion(question, results, choices) {
     for (const r of (results || []).slice(0, 5)) {
         const score = sim(q, stripQuizTail(r.question));
         best = Math.max(best, score);
-        if (score >= AI_SAME_QUESTION && answerInChoices(r.answer, choices, sim)) return true;
+        if (score >= AI_SAME_QUESTION && answerInChoices(r.answer, choices, sim)) {
+            console.log('[AI] 족보에 같은 문제가 있어 AI는 안 부름 (유사도', score + '):', r.question, '→', r.answer);
+            return true;
+        }
     }
     console.log('[AI] 족보 최고 유사도', best, '→ AI에게 물어봄');
     return false;
@@ -934,7 +937,9 @@ async function askAi(q, manual = false) {
     // OX는 '국내성이다/평양성이다'처럼 한 단어만 다른 다음 문제가 많다 → 15초 안 + 92점 이상일 때만 같은 문제로 본다
     const sameAsLast = !manual && lastAiQuestion && lastAiSheet === selectedSheet && sim
         && Date.now() - lastAiTime < 15000
-        && sim(q.question, lastAiQuestion) >= 92
+        // 보기가 있으면 보기가 같고 질문이 75점 이상이면 같은 문제(화면 인식이 흔들려도 다시 묻지 않음),
+        // 보기 없는 OX는 한 단어만 다른 다음 문제가 많아서 92점 이상일 때만
+        && sim(q.question, lastAiQuestion) >= (Object.keys(q.choices || {}).length ? 75 : 92)
         // "다음 중 …아닌 것은?"처럼 질문은 같고 보기만 다른 문제는 새 문제
         && sameChoices(Object.values(q.choices || {}).join(' '), lastAiChoices, sim);
     if (!manual && (key === lastAiKey || sameAsLast)) {
@@ -3051,9 +3056,14 @@ function initSearch() {
         if (aiTypeTimer) clearTimeout(aiTypeTimer);
         aiTypeTimer = setTimeout(() => {
             const q = searchInput.value.trim();
-            const looksLikeQuestion = /[?？]$/.test(q) || q.replace(/\s/g, '').length >= 10;
-            if (!q || !looksLikeQuestion || looksGarbled(q)) return;
-            if (jokboHasQuestion(q, allFilteredResults, {})) return;
+            if (!q || !aiModeOn) return;
+            const compactLen = q.replace(/\s/g, '').length;
+            const looksLikeQuestion = /[?？]$/.test(q) || compactLen >= 10;
+            // 족보 결과가 하나도 없으면 짧은 검색어("정장 기본색")라도 AI에게 묻는다
+            const noResults = allFilteredResults.length === 0 && compactLen >= 4;
+            if (!looksLikeQuestion && !noResults) { console.log('[AI] 자동 질문 안 함: 검색어가 짧고 족보 결과가 있음'); return; }
+            if (looksGarbled(q)) { console.log('[AI] 자동 질문 안 함: 글이 깨져 보임'); return; }
+            if (!noResults && jokboHasQuestion(q, allFilteredResults, {})) { console.log('[AI] 자동 질문 안 함: 족보에 같은 문제가 있음'); return; }
             askAi({ question: q, choices: {} });
         }, 1300);
     });
