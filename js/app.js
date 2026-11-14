@@ -858,8 +858,42 @@ function autoCopyIfKkong(answer, source) {
         return;
     }
     console.log('[복사]', source, text);
-    copyToClipboard(text).catch(() => {});
+    tryCopyNow(text);
 }
+
+// 브라우저는 창이 선택(포커스)돼 있을 때만 클립보드 복사를 허락한다.
+// AI 답은 1~3초 뒤에 오는데 그사이 게임 창을 누르면 복사가 거부됨 → 기억해 뒀다가 이 창으로 돌아오는 순간 복사
+let pendingCopyText = '';
+let pendingCopyTime = 0;
+async function tryCopyNow(text) {
+    let ok = false;
+    try {
+        if (document.hasFocus() && navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(text);
+            ok = true;
+        }
+    } catch (e) { console.log('[복사] 거부됨:', e && e.message); }
+    if (ok) {
+        pendingCopyText = '';
+        showNotification('답이 복사되었습니다');
+        return;
+    }
+    pendingCopyText = text;
+    pendingCopyTime = Date.now();
+    const box = document.getElementById('aiAnswer');
+    if (box && !box.querySelector('.ai-copy-pending')) {
+        box.insertAdjacentHTML('beforeend', '<div class="result-answer ai-weak ai-copy-pending"><small>📋 이 창을 한 번 누르면 복사돼요</small></div>');
+    }
+}
+window.addEventListener('focus', () => {
+    if (!pendingCopyText || Date.now() - pendingCopyTime > 30000) return;
+    const text = pendingCopyText;
+    pendingCopyText = '';
+    navigator.clipboard.writeText(text).then(() => {
+        showNotification('📋 복사했어요: ' + text);
+        document.querySelectorAll('.ai-copy-pending').forEach(el => el.remove());
+    }).catch(() => { pendingCopyText = text; });
+});
 
 function renderAiBox(html, keep = true) {
     if (keep) lastAiHtml = html;
@@ -1032,11 +1066,13 @@ function aiCacheLoad() {
 }
 function aiCacheGet(q) {
     const c = aiCacheLoad();
-    return c[aiCacheKey(q)] || null;
+    const v = c[aiCacheKey(q)];
+    if (!v) return null;
+    return typeof v === 'string' ? { html: v, answer: '' } : v; // 예전 저장분은 글자만
 }
-function aiCachePut(q, html) {
+function aiCachePut(q, html, answer = '') {
     const c = aiCacheLoad();
-    c[aiCacheKey(q)] = html;
+    c[aiCacheKey(q)] = { html, answer };
     const keys = Object.keys(c);
     if (keys.length > AI_CACHE_MAX) keys.slice(0, keys.length - AI_CACHE_MAX).forEach(k => delete c[k]);
     try { localStorage.setItem(AI_CACHE_KEY, JSON.stringify(c)); } catch (e) { /* 저장 불가 */ }
@@ -1170,7 +1206,7 @@ async function askAiVision(q) {
             + `<div class="result-question">${escapeHtml(data.question || (q && q.question) || '')}</div>`
             + aiAnswerRow(visionLabel(data), data, false));
         markAnswered(data.question || (q && q.question));
-        if (data.question) aiCachePut({ question: data.question, choices: Object.assign({}, data.choices || []) }, lastAiHtml);
+        if (data.question) aiCachePut({ question: data.question, choices: Object.assign({}, data.choices || []) }, lastAiHtml, data.answer);
         autoCopyIfKkong(data.answer, 'AI(사진)');
     } catch (e) {
         if (key === lastAiKey) renderAiBox('<div class="result-sheet"><span class="sheet-tag ai-tag">🤖 AI 추정</span></div><div class="result-answer ai-weak">AI 서버에 연결하지 못했어요.</div>');
@@ -1220,8 +1256,9 @@ async function askAi(q, manual = false) {
     // 이 브라우저가 전에 확신 있게 답 받은 문제면 AI를 다시 부르지 않는다
     const cached = aiCacheGet(q);
     if (cached) {
-        renderAiBox(cached);
+        renderAiBox(cached.html);
         markAnswered(q.question);
+        if (cached.answer) autoCopyIfKkong(cached.answer, 'AI(저장된 답)');
         console.log('[AI] 전에 받은 답을 다시 씀 (AI 호출 없음):', q.question);
         return;
     }
@@ -1252,7 +1289,7 @@ async function askAi(q, manual = false) {
         if (!unsure) {
             renderAiBox(head + first);
             markAnswered(q.question);
-            if (conf === null || conf >= AI_SURE) aiCachePut(q, head + first);
+            if (conf === null || conf >= AI_SURE) aiCachePut(q, head + first, data.answer);
             autoCopyIfKkong(data.answer, 'AI');
             return;
         }
@@ -1281,7 +1318,7 @@ async function askAi(q, manual = false) {
             if (agree) {
                 const label = byVision ? 'Jev·사진 일치' : 'Jev·Claude 일치';
                 renderAiBox(head + aiAnswerRow(label, data, false));
-                aiCachePut(q, head + aiAnswerRow(label, data, false));
+                aiCachePut(q, head + aiAnswerRow(label, data, false), data.answer);
                 autoCopyIfKkong(data.answer, 'AI');
             } else if (byVision) {
                 // 사진을 본 쪽이 화면을 제대로 읽었을 가능성이 높다 → 사진 답을 위에 진하게
