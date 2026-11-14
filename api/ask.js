@@ -133,7 +133,7 @@ export default async function handler(req, res) {
     if (sheet === 'ox,xo') question = stripOxTail(question);
     if (question.replace(/\s/g, '').length < 4) return res.status(400).json({ ok: false, error: 'too-short' });
     // 화면 인식이 깨진 글(숫자 덩어리, 낱자 ㅣㅡㅁ)은 AI가 엉뚱한 답을 내므로 받지 않는다
-    const garbled = s => /\d{5,}/.test(s) || /[ㄱ-ㅎㅏ-ㅣ]/.test(s);
+    const garbled = s => /\d{7,}/.test(s) || (s.match(/[ㅏ-ㅣ]/g) || []).length >= 2;
     if (garbled(question) || Object.values(choices).some(garbled)) {
         console.log('[ask] garbled', JSON.stringify({ sheet, q: question, c: choices }));
         return res.status(422).json({ ok: false, error: 'garbled' });

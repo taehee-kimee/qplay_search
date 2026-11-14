@@ -691,6 +691,7 @@ let lastAiHtml = '';
 let lastAiQuestion = '';
 let lastAiSheet = '';
 let lastAiChoices = '';
+let lastAiTime = 0;
 
 // 화면 인식이 깨진 글("방 정 보 ㅣ 000043000 서 바 을 라")을 AI에게 보내면 엉뚱한 답이 나온다 → 깨끗한 글만 보낸다
 function looksGarbled(text, isChoice = false) {
@@ -700,25 +701,32 @@ function looksGarbled(text, isChoice = false) {
     const hangul = (compact.match(/[가-힣]/g) || []).length;
     const latin = (compact.match(/[a-zA-Z]/g) || []).length;
     const jamo = (compact.match(/[ㄱ-ㅎㅏ-ㅣ]/g) || []).length;
-    const garbage = (compact.match(/[^가-힣a-zA-Z0-9?？.,'"‘’“”()<>\[\]〈〉《》『』「」!~·:%/\-+ㆍ]/g) || []).length;
-    if (/\d{5,}/.test(compact)) return true;          // 000043000 같은 숫자 덩어리
-    if (jamo >= (isChoice ? 1 : 2)) return true;      // 낱자 ㅣ ㅡ ㅁ
+    const garbage = (compact.match(/[^가-힣ㄱ-ㅎa-zA-Z0-9?？.,'"‘’“”()<>\[\]〈〉《》『』「」!~·:%/\-+ㆍ]/g) || []).length;
+    // 000043000 같은 숫자 덩어리 (100000원 같은 정상 숫자는 통과)
+    if (/\d{7,}/.test(compact)) return true;
+    // 낱자 모음(ㅣ ㅡ)은 깨진 글의 신호. 자음(ㄱ, ㄴ)은 '보기 ㄱ, ㄴ' 같은 정상 문제에도 쓰여서 많을 때만 본다
+    const vowelJamo = (compact.match(/[ㅏ-ㅣ]/g) || []).length;
+    if (vowelJamo >= (isChoice ? 1 : 2) || jamo - vowelJamo >= 6) return true;
     if (garbage / compact.length > (isChoice ? 0.15 : 0.1)) return true;
     if (!isChoice && hangul < 4 && latin < 8) return true;
-    if (isChoice && hangul + latin + (compact.match(/\d/g) || []).length < compact.length * 0.6) return true;
+    if (isChoice && hangul + latin + (jamo - vowelJamo) + (compact.match(/\d/g) || []).length < compact.length * 0.6) return true;
     return false;
 }
 
 function aiQuestionClean(q) {
     if (!q || looksGarbled(q.question)) return false;
     const opts = Object.values(q.choices || {});
-    // 보기 일부만 읽혔으면(1~3개) 정답 보기가 빠졌을 수 있다 → 틀린 보기 중에서 고르게 되므로 묻지 않는다
-    if (opts.length > 0 && opts.length < 4) return false;
     return opts.every(c => !looksGarbled(c, true));
 }
 
 function aiQuestionFromOcr(fallbackText) {
     const q = aiQuestionFromOcrRaw(fallbackText);
+    if (q) {
+        const n = Object.keys(q.choices || {}).length;
+        // 보기가 1~2개만 읽혔으면 보기 없이(주관식처럼) 묻고, 3개면 묻되 '보기 일부만 읽힘'으로 흐리게 표시
+        if (n > 0 && n < 3) q.choices = {};
+        if (n === 3) q.partial = true;
+    }
     if (q && !aiQuestionClean(q)) {
         console.log('[AI] 화면 인식이 깨져서 AI에게 묻지 않음:', q);
         return null;
@@ -808,8 +816,10 @@ async function askAi(q, manual = false) {
     const key = selectedSheet + '|' + q.question + '|' + JSON.stringify(q.choices || {});
     // 자동 캡처는 같은 문제를 계속 다시 읽고 OCR 글자가 조금씩 달라진다 → 비슷하면 같은 문제로 보고 다시 부르지 않는다 (API 요금 절약)
     const sim = window.QplayCollect && window.QplayCollect.questionSimilarity;
+    // OX는 '국내성이다/평양성이다'처럼 한 단어만 다른 다음 문제가 많다 → 15초 안 + 92점 이상일 때만 같은 문제로 본다
     const sameAsLast = !manual && lastAiQuestion && lastAiSheet === selectedSheet && sim
-        && sim(q.question, lastAiQuestion) >= 85
+        && Date.now() - lastAiTime < 15000
+        && sim(q.question, lastAiQuestion) >= 92
         // "다음 중 …아닌 것은?"처럼 질문은 같고 보기만 다른 문제는 새 문제
         && sameChoices(Object.values(q.choices || {}).join(' '), lastAiChoices, sim);
     if (!manual && (key === lastAiKey || sameAsLast)) {
@@ -819,6 +829,7 @@ async function askAi(q, manual = false) {
     }
     lastAiKey = key;
     lastAiQuestion = q.question;
+    lastAiTime = Date.now();
     lastAiSheet = selectedSheet;
     lastAiChoices = Object.values(q.choices || {}).join(' ');
     lastAiHtml = '';
@@ -832,9 +843,10 @@ async function askAi(q, manual = false) {
             return;
         }
         const conf = typeof data.confidence === 'number' ? Math.round(data.confidence * 100) : null;
-        const unsure = data.model === 'jev' && conf !== null && conf < AI_SURE;
+        const unsure = (data.model === 'jev' && conf !== null && conf < AI_SURE) || !!q.partial;
         const head = `<div class="result-sheet"><span class="sheet-tag ai-tag" title="족보에 없어 AI가 추정한 답이에요. 틀릴 수 있어요.">🤖 AI 추정</span></div>`
-            + `<div class="result-question">${escapeHtml(q.question)}</div>`;
+            + `<div class="result-question">${escapeHtml(q.question)}</div>`
+            + (q.partial ? '<div class="result-answer ai-weak"><small>⚠️ 보기 하나가 안 읽혀서 정답이 빠졌을 수 있어요.</small></div>' : '');
         const first = aiAnswerRow(data.model === 'jev' ? `Jev${conf !== null ? ' ' + conf + '%' : ''}` : 'Claude', data, unsure);
         if (!unsure) {
             renderAiBox(head + first);
