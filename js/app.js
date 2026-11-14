@@ -711,22 +711,49 @@ function looksGarbled(text, isChoice = false) {
     if (garbage / compact.length > (isChoice ? 0.15 : 0.1)) return true;
     if (!isChoice && hangul < 4 && latin < 8) return true;
     if (isChoice && hangul + latin + (jamo - vowelJamo) + (compact.match(/\d/g) || []).length < compact.length * 0.6) return true;
+    // 대기실·방 목록 화면 ("큐플 버디 방정보 PLAVING 블랙리스트 성별 아이디 서바이벌 올라올라")
+    if (/방정보|블랙리스트|서바이벌|PLA[VY]ING|성별아이디|게임이종료/i.test(compact)) return true;
+    // 영문·숫자가 뒤섞인 덩어리("Za|2it", "H'EE2", "32142)")는 한글이 깨져 읽힌 것
+    const tokens = t.split(/\s+/).filter(Boolean);
+    const mixed = tokens.filter(w => /[a-zA-Z]/.test(w) && /\d/.test(w) && w.length >= 4).length;
+    const symbolic = tokens.filter(w => /[|{}」€]|[a-zA-Z]'[a-zA-Z]/.test(w)).length;
+    if (isChoice ? (mixed + symbolic) >= 1 : (mixed >= 1 || symbolic >= 2)) return true;
     return false;
+}
+
+// 한글 보기들 사이에 한글 없는 보기("387", "314")가 끼어 있으면 깨져 읽힌 것
+function choicesLookMixedUp(opts) {
+    if (opts.length < 3) return false;
+    const withHangul = opts.filter(o => /[가-힣]/.test(o)).length;
+    return withHangul >= opts.length - 2 && withHangul < opts.length;
 }
 
 function aiQuestionClean(q) {
     if (!q || looksGarbled(q.question)) return false;
     const opts = Object.values(q.choices || {});
+    if (choicesLookMixedUp(opts)) return false;
     return opts.every(c => !looksGarbled(c, true));
+}
+
+// 객관식인데 보기 없이 물으면 "~아닌 것은?" 같은 문제는 답할 수가 없다
+function needsChoices(q) {
+    return /아닌|않은|않는|틀린|옳지|다른\s*것|해당하지/.test(q.question || '');
 }
 
 function aiQuestionFromOcr(fallbackText) {
     const q = aiQuestionFromOcrRaw(fallbackText);
     if (q) {
         const n = Object.keys(q.choices || {}).length;
-        // 보기가 1~2개만 읽혔으면 보기 없이(주관식처럼) 묻고, 3개면 묻되 '보기 일부만 읽힘'으로 흐리게 표시
-        if (n > 0 && n < 3) q.choices = {};
-        if (n === 3) q.partial = true;
+        // 보기가 덜 읽혔으면(1~3개) 정답 보기가 빠졌을 수 있다 (리눅스 마스코트: '펭귄'이 안 읽혀 '여우'를 고름)
+        // → 보기 없이 AI가 직접 답하게 한다. 단 '~아닌 것은?'처럼 보기가 있어야 하는 문제는 묻지 않는다
+        if (n > 0 && n < 4) {
+            if (needsChoices(q)) { console.log('[AI] 보기가 덜 읽혀서 묻지 않음:', q); return null; }
+            q.choices = {};
+            q.partial = true;
+        } else if (n === 0 && selectedSheet === '올라올라(꼬로록)' && needsChoices(q)) {
+            console.log('[AI] 보기가 안 읽혀서 묻지 않음:', q);
+            return null;
+        }
     }
     if (q && !aiQuestionClean(q)) {
         console.log('[AI] 화면 인식이 깨져서 AI에게 묻지 않음:', q);
@@ -973,7 +1000,7 @@ async function askAi(q, manual = false) {
         const unsure = (data.model === 'jev' && conf !== null && conf < AI_SURE) || !!q.partial;
         const head = `<div class="result-sheet"><span class="sheet-tag ai-tag" title="족보에 없어 AI가 추정한 답이에요. 틀릴 수 있어요.">🤖 AI 추정</span></div>`
             + `<div class="result-question">${escapeHtml(q.question)}</div>`
-            + (q.partial ? '<div class="result-answer ai-weak"><small>⚠️ 보기 하나가 안 읽혀서 정답이 빠졌을 수 있어요.</small></div>' : '');
+            + (q.partial ? '<div class="result-answer ai-weak"><small>⚠️ 보기가 다 안 읽혀서 AI가 보기 없이 직접 답했어요.</small></div>' : '');
         const first = aiAnswerRow(data.model === 'jev' ? `Jev${conf !== null ? ' ' + conf + '%' : ''}` : 'Claude', data, unsure);
         if (!unsure) {
             renderAiBox(head + first);
