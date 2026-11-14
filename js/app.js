@@ -688,6 +688,9 @@ let lastRawOcrText = '';
 const AI_ENDPOINT = 'https://qplay-search.vercel.app/api/ask';
 let lastAiKey = '';
 let lastAiHtml = '';
+let lastAiQuestion = '';
+let lastAiSheet = '';
+let lastAiChoices = '';
 
 function aiQuestionFromOcr(fallbackText) {
     const parsed = window.QplayCollect && window.QplayCollect.parseQuestion
@@ -760,15 +763,30 @@ async function postAi(q, extra = {}) {
     return { r, data };
 }
 
+function sameChoices(a, b, sim) {
+    if (!a && !b) return true;   // 주관식·OX (보기 없음)
+    if (!a || !b) return false;
+    return sim(a, b) >= 85;
+}
+
 async function askAi(q, manual = false) {
     if (!q || !q.question || !selectedSheet) return;
     const key = selectedSheet + '|' + q.question + '|' + JSON.stringify(q.choices || {});
-    if (!manual && key === lastAiKey) {
+    // 자동 캡처는 같은 문제를 계속 다시 읽고 OCR 글자가 조금씩 달라진다 → 비슷하면 같은 문제로 보고 다시 부르지 않는다 (API 요금 절약)
+    const sim = window.QplayCollect && window.QplayCollect.questionSimilarity;
+    const sameAsLast = !manual && lastAiQuestion && lastAiSheet === selectedSheet && sim
+        && sim(q.question, lastAiQuestion) >= 85
+        // "다음 중 …아닌 것은?"처럼 질문은 같고 보기만 다른 문제는 새 문제
+        && sameChoices(Object.values(q.choices || {}).join(' '), lastAiChoices, sim);
+    if (!manual && (key === lastAiKey || sameAsLast)) {
         // 자동 캡처가 같은 문제를 다시 읽어 결과창을 새로 그렸으면 이전 답을 다시 붙인다
         if (lastAiHtml) renderAiBox(lastAiHtml);
         return;
     }
     lastAiKey = key;
+    lastAiQuestion = q.question;
+    lastAiSheet = selectedSheet;
+    lastAiChoices = Object.values(q.choices || {}).join(' ');
     lastAiHtml = '';
     renderAiBox('<div class="result-sheet"><span class="sheet-tag ai-tag">🤖 AI 추정</span></div><div class="result-answer">생각하는 중…</div>', false);
     try {
