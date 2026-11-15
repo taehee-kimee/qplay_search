@@ -76,7 +76,9 @@ async function readBody(req, limit = 64 * 1024) {
 
 // Supabase REST(PostgREST)를 fetch로 직접 부른다 (SDK 없이). 설정이 없으면 null
 function supabase() {
-    const base = String(process.env.SUPABASE_URL || '').replace(/\/+$/, '');
+    // 환경변수에 주소가 두 번 붙어 들어간 적이 있어(…supabase.cohttps://…) 첫 주소만 쓴다
+    const raw = String(process.env.SUPABASE_URL || '').trim();
+    const base = (raw.match(/https:\/\/[a-z0-9-]+\.supabase\.co/i) || [raw.replace(/\/+$/, '')])[0];
     const key = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!base || !key) return null;
     return async (path, init = {}) => {
