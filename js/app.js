@@ -1186,7 +1186,11 @@ async function askAiVision(q) {
     const sim = window.QplayCollect && window.QplayCollect.questionSimilarity;
     const raw = String(lastRawOcrText || '').slice(0, 200);
     const sameScreen = sim && lastVisionRaw && now - lastVisionTime < 30000 && sim(raw, lastVisionRaw) >= 70;
-    if (sim && lastNotQuizRaw && now - lastNotQuizTime < 60000 && sim(raw, lastNotQuizRaw) >= 70) return; // 방금 '퀴즈 아님'이던 화면
+    // 방금 '퀴즈 아님'이던 화면이면 1분간 다시 안 보낸다. 단 글자 길이도 비슷해야 같은 화면으로 본다
+    // (비슷함 점수는 '한쪽이 다른 쪽에 들어 있으면' 높게 나와서, 메뉴 글자만 읽힌 안내 화면 뒤에
+    //  메뉴+문제 글이 함께 읽힌 진짜 문제 화면까지 같은 화면으로 보고 건너뛸 수 있었음)
+    const sameLength = lastNotQuizRaw && Math.abs(raw.length - lastNotQuizRaw.length) <= Math.max(raw.length, lastNotQuizRaw.length) * 0.3;
+    if (sim && lastNotQuizRaw && sameLength && now - lastNotQuizTime < 60000 && sim(raw, lastNotQuizRaw) >= 70) return;
     if (now - lastVisionTime < VISION_INTERVAL_MS || sameScreen) {
         if (lastAiHtml) renderAiBox(lastAiHtml); // 결과창이 새로 그려졌으면 이전 답을 다시 붙인다
         return;
