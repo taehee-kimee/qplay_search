@@ -333,7 +333,14 @@ export default async function handler(req, res) {
                 const m = text.match(/[1-6]/g);
                 const last = m ? m[m.length - 1] : null;
                 choice = last && choices[last] ? last : null;
-                answer = choice ? `${choice}. ${choices[choice]}` : text;
+                // 번호 없이 보기 글로 답했으면 그 보기를 찾는다. 보기와 무관한 문장(문제를 되풀이한 말)이면 실패 처리 — 화면에 엉뚱한 문장이 뜨던 문제
+                if (!choice) {
+                    const compact = s => String(s).replace(/[^가-힣A-Za-z0-9]/g, '');
+                    const hits = Object.keys(choices).filter(k => compact(choices[k]).length >= 2 && compact(text).includes(compact(choices[k])));
+                    if (hits.length === 1) choice = hits[0];
+                }
+                if (!choice) throw new Error('claude-no-choice');
+                answer = `${choice}. ${choices[choice]}`;
             }
             result = { ok: true, model: 'claude', choice, answer, confidence: null };
         } else if (isOx || hasChoices) {

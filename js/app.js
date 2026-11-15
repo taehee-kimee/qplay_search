@@ -735,11 +735,6 @@ function aiQuestionClean(q) {
     return opts.every(c => !looksGarbled(c, true));
 }
 
-// 객관식인데 보기 없이 물으면 "~아닌 것은?" 같은 문제는 답할 수가 없다
-function needsChoices(q) {
-    return /아닌|않은|않는|틀린|옳지|다른\s*것|해당하지/.test(q.question || '');
-}
-
 // 글자로는 못 믿겠지만 문제 화면은 맞아 보일 때 → 캡처 사진을 AI에게 보여준다 (askAiVision)
 function looksLikeQuestionScreen(raw) {
     const t = String(raw || '');
@@ -764,7 +759,8 @@ function aiQuestionFromOcr(fallbackText) {
     const n = Object.keys(q.choices || {}).length;
     // 보기가 덜 읽혔으면(1~3개) 정답 보기가 빠졌을 수 있다 (리눅스 마스코트: '펭귄'이 안 읽혀 '여우'를 고름) → 사진으로
     if (n > 0 && n < 4) return visionFallback('보기가 덜 읽힘', q);
-    if (n === 0 && selectedSheet === '올라올라(꼬로록)' && needsChoices(q)) return visionFallback('보기가 안 읽힘', q);
+    // 올라올라는 늘 4지선다 → 보기 없이 글자로 물으면 "정확한 문장은?"처럼 답할 수 없는 문제가 된다 (2026-11-15 로그)
+    if (n === 0 && selectedSheet === '올라올라(꼬로록)') return visionFallback('보기가 안 읽힘', q);
     if (!aiQuestionClean(q)) return visionFallback('화면 인식이 깨짐', q);
     return q;
 }
@@ -778,6 +774,8 @@ function trimOcrEdges(text, isChoice) {
     t = t.replace(/(?:(?<![,，])\s+[ㄱ-ㅎㅏ-ㅣ|/\_~>\-:;'"`.,·]{1,2})+\s*$/, '');
     if (!isChoice) t = t.replace(/([?？])\s*\S{1,3}$/, '$1'); // 물음표 뒤 부스러기 ("…것은? 즈")
     t = t.replace(/[\s|/\_~>\-:;'"`,·]+$/, '');
+    // 짝 없는 여는 괄호 꼬리 ("스크래치 (")
+    if (/[(\[]$/.test(t)) t = t.replace(/\s*[(\[]$/, '');
     return t.trim();
 }
 
