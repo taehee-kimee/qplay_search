@@ -1,24 +1,24 @@
 {
   "version": "5.0",
   "type": "category_split",
-  "total_items": 89812,
+  "total_items": 90525,
   "categories": [
     {
       "id": "ox_xo",
       "name": "ox,xo",
-      "count": 28171,
+      "count": 28199,
       "file": "categories/ox_xo.csv"
     },
     {
       "id": "garoseseo",
       "name": "가로세로",
-      "count": 24212,
+      "count": 24219,
       "file": "categories/garosero.csv"
     },
     {
       "id": "ollaolla",
       "name": "올라올라(꼬로록)",
-      "count": 24456,
+      "count": 25134,
       "file": "categories/ollaolla.csv"
     },
     {
@@ -28,5 +28,5 @@
       "file": "categories/kkong.csv"
     }
   ],
-  "generated_at": "2026-11-14"
+  "generated_at": "2026-11-15"
 }
