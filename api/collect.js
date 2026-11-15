@@ -185,7 +185,8 @@ export default async function handler(req, res) {
     try {
         return await handle(req, res, db);
     } catch (e) {
-        console.error('collect failed:', e && e.message);
+        // 원인(cause)까지 남긴다: 주소 오타면 'fetch failed'만으로는 알 수 없다 (ENOTFOUND 등)
+        console.error('collect failed:', e && e.message, e && e.cause ? `(${e.cause.code || ''} ${e.cause.message || ''})` : '');
         return res.status(502).json({ ok: false, error: 'storage-failed' });
     }
 }
