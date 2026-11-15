@@ -4,6 +4,7 @@
 //   웹 수집기가 정답 화면으로 확정한 문제를 보낸다. retract: true 면 예전에 보낸 문제를 취소한다. 제출 1건 = submissions 표의 1줄.
 // GET  /api/collect?key=...&cursor=...
 //   족보 병합 루틴(관리자)만 읽는다. key는 관리자 PC에만 있고, 여기에는 해시만 둔다.
+// DELETE /api/collect?key=...&before=2026-11-15T12:00:00Z   관리자: 그 시각 전에 올라온 제출 지우기
 // GET  /api/collect?item=submissions/...
 //   목록이 알려준 주소로 제출 1건을 읽는다 (이름 끝의 무작위 글자를 알아야 읽힘)
 //
@@ -31,16 +32,36 @@ function clean(value, max) {
     return value.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
 }
 
+// 화면 인식이 엉뚱한 화면(대기실·방 목록)을 문제로 읽은 것
+const LOBBY = /엠블럼|닉\s*네\s*임|사이버머니|블[랙택]\s*리스트|큐플\s*[버비H]|입은옷보기|[게계]?[임인]\s*[래레러]』?벨/;
+const OX_ANSWER = { '0': 'O', o: 'O', O: 'O', 'ㅇ': 'O', '×': 'X', x: 'X', X: 'X' };
+const compact = s => String(s).replace(/[^0-9A-Za-z가-힣]/g, '');
+
+// 받을 때 거른다: 대기실 화면, OX 안내 꼬리, O/X가 아닌 OX 답, 보기에 없는 답, 깨진 글자가 든 답
+// (2026-11-15: 걸러지지 않은 제출에 '국경일이 아닌 것은? → 반복 재생산' 같은 엉뚱한 답이 많았음)
 export function validateItems(items) {
     if (!Array.isArray(items)) return [];
     const out = [];
     for (const raw of items.slice(0, MAX_ITEMS)) {
         if (!raw || typeof raw !== 'object') continue;
         const sheet = clean(raw.sheet, 30);
-        const question = clean(raw.question, 300);
-        const answer = clean(raw.answer, 80);
+        let question = clean(raw.question, 300);
+        let answer = clean(raw.answer, 80);
         const note = clean(raw.note, 80);
-        if (!SHEETS.has(sheet) || question.length < 4 || !answer) continue;
+        if (!SHEETS.has(sheet) || !answer || LOBBY.test(question)) continue;
+        if (sheet === 'ox,xo') {
+            question = question.replace(/\s*맞으면.*$/, '').replace(/[\s.]+$/, '');
+            if (question && !question.endsWith('?')) question += '?';
+            answer = OX_ANSWER[answer] || '';
+            if (!answer) continue;
+        }
+        // 가려진 문제는 답이 보기 가운데 있어야 한다
+        if (question.startsWith('(가려진 문제)')) {
+            const choices = question.replace(/^.*?보기:\s*/, '').split('/').map(compact);
+            if (!choices.includes(compact(answer))) continue;
+        }
+        if ((question.match(/[가-힣A-Za-z]/g) || []).length < 4) continue;
+        if (/[「」『』«»|\{}※]/.test(answer)) continue;
         out.push({ sheet, question, answer, note });
     }
     return out;
@@ -57,7 +78,7 @@ export function setCors(req, res) {
         res.setHeader('Access-Control-Allow-Origin', origin);
         res.setHeader('Vary', 'Origin');
     }
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 }
 
@@ -148,6 +169,18 @@ async function handle(req, res, db) {
             body: JSON.stringify({ pathname, uploaded_at: record.at, record })
         });
         return res.status(200).json({ ok: true, count: items.length });
+    }
+
+    // 관리자 정리: 주어진 시각보다 먼저 올라온 제출을 지운다 (정리본을 다시 올린 뒤 예전 것을 비울 때)
+    if (req.method === 'DELETE') {
+        if (!isAdminKey(req.query?.key)) return res.status(401).json({ ok: false, error: 'unauthorized' });
+        const before = String(req.query?.before || '');
+        if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/.test(before)) return res.status(400).json({ ok: false, error: 'bad-before' });
+        const rows = await db(`submissions?uploaded_at=lt.${encodeURIComponent(before)}&select=id`, {
+            method: 'DELETE',
+            headers: { Prefer: 'return=representation' }
+        });
+        return res.status(200).json({ ok: true, deleted: (rows || []).length });
     }
 
     if (req.method === 'GET') {
