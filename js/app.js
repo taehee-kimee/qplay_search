@@ -1151,11 +1151,15 @@ async function askVisionSmart(q, onPartial, skipJev = false) {
     if (!skipJev && AI_JEV_VISION && (selectedSheet === 'ox,xo' || selectedSheet === '올라올라(꼬로록)')) {
         const jimg = captureDataUrl(280);
         const j = jimg ? await postVision(jimg, { engine: 'jev' }).catch(() => null) : null;
+        // Jev가 '퀴즈 화면이 아님'이라고 했으면 Claude 사진도 부르지 않는다 (대기실·정답 발표 화면에 요금 나가던 것)
+        if (j && j.data && j.data.error === 'not-quiz') return j;
         if (j && j.r.ok && j.data.ok) {
             const n = j.data.choice;
             const txt = q && q.choices && q.choices[n];
             j.data.answer = selectedSheet === 'ox,xo' ? n : (txt && !looksGarbled(txt, true) ? `${n}. ${txt}` : `${n}번`);
-            if (typeof j.data.confidence === 'number' && j.data.confidence >= JEV_VISION_SURE) return j;
+            // 퀴즈 화면인지 애매하면(70% 미만) 답 확신이 높아도 Claude 사진으로 확인한다
+            const screenOk = typeof j.data.screen !== 'number' || j.data.screen >= 0.7;
+            if (screenOk && typeof j.data.confidence === 'number' && j.data.confidence >= JEV_VISION_SURE) return j;
             if (onPartial) { try { onPartial(j.data); } catch (e) { /* 표시 실패 무시 */ } }
         }
         if (j && j.data && j.data.error === 'bad-password') return j;

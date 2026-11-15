@@ -135,6 +135,16 @@ async function askJevImage(sheet, format, b64) {
                     ? '`screen`은 한국어 OX 퀴즈 게임 화면이다. 화면에 적힌 진술이 맞는가'
                     : '`screen`은 한국어 퀴즈 게임 화면이다. 화면의 문제에 대한 정답 보기 번호',
                 criteria
+            },
+            // 같은 요청에서 "지금 퀴즈 문제 화면인가"도 함께 묻는다 (동시에 처리돼 시간이 거의 안 늘어남).
+            // 예전엔 대기실·정답 발표 화면에서도 1~4번 중 하나를 높은 확신으로 골라 틀린 답이 100%로 떴다.
+            is_quiz: {
+                type: 'noul',
+                instructions: '`screen`에 지금 풀어야 할 퀴즈 문제가 떠 있는가',
+                criteria: {
+                    true: '문제 글(질문이나 OX 진술)이 화면에 보이고 아직 답을 고르는 중이다',
+                    false: '대기실·방 목록·순위·정답 발표·다음 문제 준비·안내 화면이거나 문제 글이 보이지 않는다'
+                }
             } }
         }),
         signal: AbortSignal.timeout(8000)
@@ -143,7 +153,12 @@ async function askJevImage(sheet, format, b64) {
     const data = await r.json();
     const ans = data?.answers?.answer;
     if (!ans || !ans.choice) throw new Error('jev-vision-no-answer');
-    return { choice: ans.choice, confidence: typeof ans.confidence === 'number' ? ans.confidence : null };
+    const quiz = data?.answers?.is_quiz?.noul;
+    return {
+        choice: ans.choice,
+        confidence: typeof ans.confidence === 'number' ? ans.confidence : null,
+        screen: typeof quiz === 'number' ? quiz : null
+    };
 }
 
 let anthropic = null;
@@ -304,8 +319,10 @@ export default async function handler(req, res) {
             if (!/^image\/(jpeg|png)$/.test(m[1])) return res.status(400).json({ ok: false, error: 'bad-image' });
             try {
                 const v = await askJevImage(vsheet, m[1] === 'image/png' ? 'png' : 'jpg', m[2]);
-                console.log('[ask] jev-vision', JSON.stringify({ sheet: vsheet, a: v.choice, p: v.confidence }));
-                return res.status(200).json({ ok: true, model: 'jev-vision', choice: v.choice, answer: v.choice, confidence: v.confidence });
+                console.log('[ask] jev-vision', JSON.stringify({ sheet: vsheet, a: v.choice, p: v.confidence, quiz: v.screen }));
+                // 퀴즈 화면 확률 30% 미만이면 답을 내지 않는다 (Jev 문서 권장 기준: 0.3 미만 '아니오', 0.7 이상 '예')
+                if (v.screen !== null && v.screen < 0.3) return res.status(200).json({ ok: false, error: 'not-quiz', screen: v.screen });
+                return res.status(200).json({ ok: true, model: 'jev-vision', choice: v.choice, answer: v.choice, confidence: v.confidence, screen: v.screen });
             } catch (e) {
                 console.error('ask jev-vision failed:', e && e.message);
                 return res.status(502).json({ ok: false, error: 'ai-failed' });
