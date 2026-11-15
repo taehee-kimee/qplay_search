@@ -14,6 +14,7 @@
 //
 // 필요 설정 (Vercel 환경변수): SUPABASE_URL, SUPABASE_SECRET_KEY (예전 이름 SUPABASE_SERVICE_ROLE_KEY도 됨)
 // 표 만들기: supabase/schema.sql 을 Supabase SQL Editor에서 한 번 실행
+// submissions 표의 pathname 'ai/…' 줄은 AI 답 저장소(api/ask.js)라서 수집 목록·최근 정답·정리에서 모두 뺀다
 import crypto from 'node:crypto';
 
 const ADMIN_KEY_SHA256 = '9589b6af72b43970e160a4a5483b7099e3908fa6fe282647ea898a7e6e240233';
@@ -103,7 +104,7 @@ async function recentAnswers(db) {
     const live = new Map(); // sheet|질문|답 → { item, sources:Set }
     let after = 0;
     for (let page = 0; page < 10; page++) {
-        const rows = await db(`submissions?select=id,record&uploaded_at=gt.${encodeURIComponent(since)}&id=gt.${after}&order=id.asc&limit=${PAGE}`) || [];
+        const rows = await db(`submissions?select=id,record&pathname=like.submissions%2F*&uploaded_at=gt.${encodeURIComponent(since)}&id=gt.${after}&order=id.asc&limit=${PAGE}`) || [];
         for (const { id, record } of rows) {
             after = id;
             const source = String(record?.source || 'unknown');
@@ -205,7 +206,7 @@ async function handle(req, res, db) {
         if (!isAdminKey(req.query?.key)) return res.status(401).json({ ok: false, error: 'unauthorized' });
         const before = String(req.query?.before || '');
         if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/.test(before)) return res.status(400).json({ ok: false, error: 'bad-before' });
-        const rows = await db(`submissions?uploaded_at=lt.${encodeURIComponent(before)}&select=id`, {
+        const rows = await db(`submissions?pathname=like.submissions%2F*&uploaded_at=lt.${encodeURIComponent(before)}&select=id`, {
             method: 'DELETE',
             headers: { Prefer: 'return=representation' }
         });
@@ -229,7 +230,7 @@ async function handle(req, res, db) {
         }
         if (!isAdminKey(req.query?.key)) return res.status(401).json({ ok: false, error: 'unauthorized' });
         const after = /^\d{1,15}$/.test(String(req.query?.cursor || '')) ? String(req.query.cursor) : '0';
-        const rows = await db(`submissions?select=id,pathname,uploaded_at&id=gt.${after}&order=id.asc&limit=${PAGE}`) || [];
+        const rows = await db(`submissions?select=id,pathname,uploaded_at&pathname=like.submissions%2F*&id=gt.${after}&order=id.asc&limit=${PAGE}`) || [];
         const origin = `https://${req.headers.host || 'qplay-search.vercel.app'}`;
         const hasMore = rows.length === PAGE;
         return res.status(200).json({

@@ -14,18 +14,19 @@ import crypto from 'node:crypto';
 import Anthropic from '@anthropic-ai/sdk';
 import { setCors, supabase } from './collect.js';
 
-// AI 답 공유 저장소 (Supabase ai_answers 표). 서버 인스턴스가 바뀌어도, 다른 사람이 같은 문제를 물어도 AI를 다시 부르지 않는다.
-// 표가 없거나 저장소가 느리면 그냥 건너뛴다 (AI 답은 그대로 나감).
+// AI 답 공유 저장소. 서버 인스턴스가 바뀌어도, 다른 사람이 같은 문제를 물어도 AI를 다시 부르지 않는다.
+// 새 표를 만들지 않고 submissions 표에 pathname 'ai/<hash>'로 둔다 (수집 제출은 'submissions/…'라 섞이지 않음).
+// 저장소가 느리거나 실패하면 그냥 건너뛴다 (AI 답은 그대로 나감).
 const AI_STORE_MS = 1500;
 const withTimeout = (p, ms) => Promise.race([p, new Promise(resolve => setTimeout(() => resolve(null), ms))]);
 async function storedAnswer(hash) {
     const db = supabase();
     if (!db) return null;
     try {
-        const rows = await withTimeout(db(`ai_answers?select=result&hash=eq.${hash}&limit=1`), AI_STORE_MS);
-        return rows && rows[0] ? rows[0].result : null;
+        const rows = await withTimeout(db(`submissions?select=record&pathname=eq.ai/${hash}&limit=1`), AI_STORE_MS);
+        return rows && rows[0] && rows[0].record ? rows[0].record.result : null;
     } catch (e) {
-        console.error('ai_answers read failed:', e && e.message);
+        console.error('ai cache read failed:', e && e.message);
         return null;
     }
 }
@@ -33,13 +34,13 @@ async function storeAnswer(hash, sheet, question, result) {
     const db = supabase();
     if (!db) return;
     try {
-        await withTimeout(db('ai_answers?on_conflict=hash', {
+        await withTimeout(db('submissions?on_conflict=pathname', {
             method: 'POST',
             headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
-            body: JSON.stringify({ hash, sheet, question, result })
+            body: JSON.stringify({ pathname: `ai/${hash}`, record: { ai: true, sheet, question, result } })
         }), AI_STORE_MS);
     } catch (e) {
-        console.error('ai_answers write failed:', e && e.message);
+        console.error('ai cache write failed:', e && e.message);
     }
 }
 

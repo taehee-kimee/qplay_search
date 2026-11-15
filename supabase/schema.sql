@@ -15,15 +15,7 @@ create table if not exists public.merge_state (
     updated_at timestamptz not null default now()
 );
 
--- AI 답 공유 저장소 (api/ask.js): 같은 문제를 누가 다시 물어도 AI를 다시 부르지 않게
-create table if not exists public.ai_answers (
-    hash       text        primary key,
-    sheet      text        not null,
-    question   text        not null,
-    result     jsonb       not null,
-    created_at timestamptz not null default now()
-);
-alter table public.ai_answers enable row level security;
+-- AI 답 저장소는 따로 표를 만들지 않고 submissions 표에 pathname 'ai/<hash>'로 둔다 (api/ask.js)
 
 -- 정책 없이 RLS만 켠다 → 공개 키로는 못 읽고 못 쓰고, 서버가 쓰는 비밀 키만 접근한다.
 alter table public.submissions enable row level security;
