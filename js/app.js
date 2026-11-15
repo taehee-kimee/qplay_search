@@ -2322,6 +2322,7 @@ function preprocessImageForOCR(canvas) {
 // (2026-11-15 측정, 같은 이미지: 매번 새로 3.0초 → 재사용 2.4초)
 let ocrEnginePromise = null;
 let ocrBusy = false;
+let ocrBusySince = 0;
 function getOcrEngine() {
     if (!ocrEnginePromise) {
         ocrEnginePromise = (async () => {
@@ -2339,27 +2340,53 @@ function getOcrEngine() {
     return ocrEnginePromise;
 }
 
+// 엔진이 멈추면(응답 없음) '읽는 중'이 안 풀려 자동 캡처가 전부 건너뛰어진다 → 시간 제한을 두고 넘으면 엔진을 버리고 새로 띄운다
+const OCR_TIMEOUT_MS = 15000;
+function withOcrTimeout(promise, what) {
+    let timer;
+    return Promise.race([
+        promise,
+        new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(what + ' 시간 초과')), OCR_TIMEOUT_MS); })
+    ]).finally(() => clearTimeout(timer));
+}
+function dropOcrEngine(reason) {
+    const p = ocrEnginePromise;
+    ocrEnginePromise = null;
+    console.warn('[OCR] 엔진을 다시 띄움:', reason);
+    if (p) p.then(w => w.terminate()).catch(() => { /* 이미 죽은 엔진 */ });
+}
+
 async function recognizeText(imageData) {
     let engine = null;
     try {
-        engine = await getOcrEngine();
+        engine = await withOcrTimeout(getOcrEngine(), '엔진 준비');
     } catch (e) {
-        console.warn('[OCR] 엔진을 띄우지 못해 예전 방식으로:', e && e.message);
+        dropOcrEngine(e && e.message);
+        console.warn('[OCR] 엔진을 띄우지 못해 이번엔 예전 방식으로:', e && e.message);
     }
     const t0 = performance.now();
-    const { data: { text } } = engine
-        ? await engine.recognize(imageData)
-        : await Tesseract.recognize(imageData, 'kor+eng');
-    console.log('[OCR]', Math.round(performance.now() - t0), 'ms');
-    return text;
+    let result;
+    if (engine) {
+        try {
+            result = await withOcrTimeout(engine.recognize(imageData), '글자 읽기');
+        } catch (e) {
+            dropOcrEngine(e && e.message);
+            result = await Tesseract.recognize(imageData, 'kor+eng'); // 이번 캡처는 예전 방식으로라도 읽는다
+        }
+    } else {
+        result = await Tesseract.recognize(imageData, 'kor+eng');
+    }
+    console.log('[OCR]', Math.round(performance.now() - t0), 'ms', engine ? '(엔진 재사용)' : '(새로 띄움)');
+    return result.data.text;
 }
 
 // 기존 OCR 함수 (레거시)
 async function captureAndOCRLegacy(isAutoMode = false) {
     if (!cameraStream) return;
     // 엔진은 하나라서, 앞 캡처를 읽는 중이면 자동 캡처는 이번 차례를 건너뛴다 (밀려서 쌓이면 답이 점점 늦어짐)
-    if (isAutoMode && ocrBusy) return;
+    if (isAutoMode && ocrBusy && Date.now() - ocrBusySince < OCR_TIMEOUT_MS * 2) return;
     ocrBusy = true;
+    ocrBusySince = Date.now();
 
     try {
         if (!isAutoMode) {
