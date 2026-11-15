@@ -330,15 +330,37 @@
         return Object.values(loadStore()).reduce((n, list) => n + (Array.isArray(list) ? list.length : 0), 0);
     }
 
-    // 족보 데이터 + 이 브라우저에서 모은 문제
+    // ===== 다른 사용자들이 최근 모은 정답 (밤 병합 전이라 아직 족보 파일에 없는 것) =====
+    let shared = {};          // sheet → [{ question, answer, n }]
+    let sharedAt = 0;
+    async function loadShared() {
+        if (typeof fetch === 'undefined' || Date.now() - sharedAt < 4 * 60 * 1000) return false;
+        sharedAt = Date.now();
+        try {
+            const res = await fetch(COLLECT_ENDPOINT + '?recent=1');
+            if (!res.ok) return false;
+            const body = await res.json();
+            const next = {};
+            for (const it of body.items || []) (next[it.sheet] = next[it.sheet] || []).push(it);
+            shared = next;
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    // 족보 데이터 + 이 브라우저에서 모은 문제 + 다른 사용자들이 최근 모은 문제
     function withCollected(data, sheet) {
-        const extra = collectedFor(sheet).map(c => ({
-            question: c.question,
-            answer: c.answer,
-            index: -1,
-            sheet,
-            collected: true
-        }));
+        const seen = new Set(data.map(d => `${compactKey(d.question)}|${compactKey(String(d.answer).replace(/\s*-[^-]{1,12}-\s*$/, ''))}`));
+        const extra = [];
+        const add = (c, flag) => {
+            const k = `${compactKey(c.question)}|${compactKey(c.answer)}`;
+            if (seen.has(k)) return;
+            seen.add(k);
+            extra.push({ question: c.question, answer: c.answer, index: -1, sheet, [flag]: true });
+        };
+        collectedFor(sheet).forEach(c => add(c, 'collected'));
+        (shared[sheet] || []).forEach(c => add(c, 'shared'));
         return extra.length ? data.concat(extra) : data;
     }
 
@@ -710,6 +732,7 @@
         observe,
         setMatchedAnswers,
         withCollected,
+        loadShared,
         totalCount,
         toTsv,
         flushOutbox,

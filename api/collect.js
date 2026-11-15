@@ -5,6 +5,7 @@
 // GET  /api/collect?key=...&cursor=...
 //   족보 병합 루틴(관리자)만 읽는다. key는 관리자 PC에만 있고, 여기에는 해시만 둔다.
 // DELETE /api/collect?key=...&before=2026-11-15T12:00:00Z   관리자: 그 시각 전에 올라온 제출 지우기
+// GET  /api/collect?recent=1   누구나: 최근 3일 수집된 정답(질문·답만). 검색 화면이 밤 병합 전에도 바로 쓴다
 // GET  /api/collect?item=submissions/...
 //   목록이 알려준 주소로 제출 1건을 읽는다 (이름 끝의 무작위 글자를 알아야 읽힘)
 //
@@ -95,8 +96,36 @@ async function readBody(req, limit = 64 * 1024) {
     return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
 }
 
+// 최근 수집된 정답 (밤 병합 전이라 아직 족보에 없는 문제): 보낸 사람별 '보냄/취소'를 순서대로 반영해 남은 것만
+const RECENT_DAYS = 3;
+async function recentAnswers(db) {
+    const since = new Date(Date.now() - RECENT_DAYS * 86400000).toISOString();
+    const live = new Map(); // sheet|질문|답 → { item, sources:Set }
+    let after = 0;
+    for (let page = 0; page < 10; page++) {
+        const rows = await db(`submissions?select=id,record&uploaded_at=gt.${encodeURIComponent(since)}&id=gt.${after}&order=id.asc&limit=${PAGE}`) || [];
+        for (const { id, record } of rows) {
+            after = id;
+            const source = String(record?.source || 'unknown');
+            for (const it of validateItems(record?.items)) {
+                const k = `${it.sheet}|${compact(it.question)}|${compact(it.answer)}`;
+                if (record.retract === true) {
+                    const e = live.get(k);
+                    if (e) { e.sources.delete(source); if (!e.sources.size) live.delete(k); }
+                } else {
+                    const e = live.get(k) || { item: { sheet: it.sheet, question: it.question, answer: it.answer }, sources: new Set() };
+                    e.sources.add(source);
+                    live.set(k, e);
+                }
+            }
+        }
+        if (rows.length < PAGE) break;
+    }
+    return [...live.values()].map(e => ({ ...e.item, n: e.sources.size }));
+}
+
 // Supabase REST(PostgREST)를 fetch로 직접 부른다 (SDK 없이). 설정이 없으면 null
-function supabase() {
+export function supabase() {
     // 환경변수에 주소가 두 번 붙어 들어간 적이 있어(…supabase.cohttps://…) 첫 주소만 쓴다
     const raw = String(process.env.SUPABASE_URL || '').trim();
     const base = (raw.match(/https:\/\/[a-z0-9-]+\.supabase\.co/i) || [raw.replace(/\/+$/, '')])[0];
@@ -184,6 +213,12 @@ async function handle(req, res, db) {
     }
 
     if (req.method === 'GET') {
+        // 누구나: 최근 수집된 정답 → 검색 화면이 족보에 섞어서 보여준다 (질문·답만, 보낸 사람 정보 없음)
+        if (req.query?.recent !== undefined) {
+            const items = await recentAnswers(db);
+            res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
+            return res.status(200).json({ ok: true, days: RECENT_DAYS, items });
+        }
         // 제출 1건 읽기 (목록의 url이 가리키는 곳)
         if (req.query?.item !== undefined) {
             const item = String(req.query.item);

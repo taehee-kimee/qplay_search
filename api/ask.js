@@ -12,7 +12,36 @@
 // 진짜 상한은 TypeSafe/Anthropic 콘솔의 월 사용 한도로 건다.
 import crypto from 'node:crypto';
 import Anthropic from '@anthropic-ai/sdk';
-import { setCors } from './collect.js';
+import { setCors, supabase } from './collect.js';
+
+// AI 답 공유 저장소 (Supabase ai_answers 표). 서버 인스턴스가 바뀌어도, 다른 사람이 같은 문제를 물어도 AI를 다시 부르지 않는다.
+// 표가 없거나 저장소가 느리면 그냥 건너뛴다 (AI 답은 그대로 나감).
+const AI_STORE_MS = 1500;
+const withTimeout = (p, ms) => Promise.race([p, new Promise(resolve => setTimeout(() => resolve(null), ms))]);
+async function storedAnswer(hash) {
+    const db = supabase();
+    if (!db) return null;
+    try {
+        const rows = await withTimeout(db(`ai_answers?select=result&hash=eq.${hash}&limit=1`), AI_STORE_MS);
+        return rows && rows[0] ? rows[0].result : null;
+    } catch (e) {
+        console.error('ai_answers read failed:', e && e.message);
+        return null;
+    }
+}
+async function storeAnswer(hash, sheet, question, result) {
+    const db = supabase();
+    if (!db) return;
+    try {
+        await withTimeout(db('ai_answers?on_conflict=hash', {
+            method: 'POST',
+            headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+            body: JSON.stringify({ hash, sheet, question, result })
+        }), AI_STORE_MS);
+    } catch (e) {
+        console.error('ai_answers write failed:', e && e.message);
+    }
+}
 
 const SHEETS = new Set(['가로세로', '꽁꽁', '올라올라(꼬로록)', 'ox,xo']);
 const RATE_LIMIT = 20;            // IP당 1분
@@ -315,6 +344,12 @@ export default async function handler(req, res) {
     const forceClaude = body.second === 'claude';
     const hash = crypto.createHash('sha256').update(JSON.stringify([sheet, question, isOx ? null : choices, forceClaude])).digest('hex');
     if (cache.has(hash)) return res.status(200).json({ ...cache.get(hash), cached: true });
+    const stored = await storedAnswer(hash);
+    if (stored && stored.ok) {
+        cache.set(hash, stored);
+        console.log('[ask] shared', JSON.stringify({ sheet, q: question, m: stored.model, a: stored.answer }));
+        return res.status(200).json({ ...stored, cached: true });
+    }
 
     if (rateLimited(ip)) return res.status(429).json({ ok: false, error: 'rate-limited' });
 
@@ -364,6 +399,7 @@ export default async function handler(req, res) {
         console.log('[ask]', JSON.stringify({ sheet, q: question, c: hasChoices ? choices : undefined, m: result.model, a: result.answer, p: result.confidence, second: forceClaude || undefined }));
         if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value);
         cache.set(hash, result);
+        await storeAnswer(hash, sheet, question, result);
         return res.status(200).json(result);
     } catch (e) {
         console.error('ask failed:', e && e.message);

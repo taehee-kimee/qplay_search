@@ -485,6 +485,20 @@ async function loadDefaultData() {
             window.buildSearchIndex();
         }
 
+        // 다른 사용자들이 최근 모은 정답을 받아 검색 데이터에 섞는다 (밤 병합 전이라 족보 파일엔 아직 없는 문제).
+        // 족보에 같은 문제가 잡히면 AI를 부르지 않으므로 요금·대기 시간이 함께 준다. 4분마다 새로 받음.
+        const refreshShared = async () => {
+            if (!window.QplayCollect || !window.QplayCollect.loadShared) return;
+            if (!(await window.QplayCollect.loadShared())) return;
+            const cat = metadata.categories.find(c => c.name === selectedSheet);
+            if (!cat || !loadedCategories[cat.id]) return;
+            questionsData = window.QplayCollect.withCollected(loadedCategories[cat.id], cat.name);
+            window.questionsData = questionsData;
+            console.log('[공유] 최근 수집 정답 반영:', questionsData.length - loadedCategories[cat.id].length, '개');
+        };
+        refreshShared();
+        setInterval(refreshShared, 4 * 60 * 1000 + 5000);
+
         // 카테고리 변경 시 해당 데이터 로드
         window.onCategoryChange = async function (categoryName) {
             const categoryObj = metadata.categories.find(cat => cat.name === categoryName);
@@ -3645,7 +3659,7 @@ function performSearch(resetDisplay = false) {
         html += `
                     <div class="result-item" data-answer="${answerEscaped.replace(/"/g, '&quot;')}">
                         <div class="result-sheet">
-                            <span class="sheet-tag">${escapeHtml(item.sheet || '알 수 없음')}</span>${item.collected ? '<span class="sheet-tag collected-tag" title="이 브라우저에서 직접 모은 문제">📥 내가 모은 문제</span>' : ''}${item.choiceFallback ? '<span class="sheet-tag collected-tag" title="문제가 가려져 보기로 찾은 결과">🔎 보기로 찾음</span>' : ''}
+                            <span class="sheet-tag">${escapeHtml(item.sheet || '알 수 없음')}</span>${item.collected ? '<span class="sheet-tag collected-tag" title="이 브라우저에서 직접 모은 문제">📥 내가 모은 문제</span>' : ''}${item.shared ? '<span class="sheet-tag collected-tag" title="다른 사용자가 최근 정답 화면에서 모은 문제 (밤에 족보에 정식으로 들어가기 전)">🆕 최근 수집</span>' : ''}${item.choiceFallback ? '<span class="sheet-tag collected-tag" title="문제가 가려져 보기로 찾은 결과">🔎 보기로 찾음</span>' : ''}
                         </div>
                         <div class="result-question">${highlightedQuestion}</div>
                         <div class="result-answer">${highlightedAnswer}</div>
