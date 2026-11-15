@@ -1131,8 +1131,9 @@ async function postVision(image, extra = {}) {
 
 // q: 화면 인식으로 읽은 문제(보기 글자를 답에 붙이는 데 씀, 없어도 됨)
 // onPartial(jevData): Jev 사진 답이 자신 없을 때 Claude 사진을 기다리는 동안 먼저 보여주기 (답이 늦어 보이지 않게)
-async function askVisionSmart(q, onPartial) {
-    if (AI_JEV_VISION && (selectedSheet === 'ox,xo' || selectedSheet === '올라올라(꼬로록)')) {
+// skipJev: 글자로 물은 Jev가 이미 자신 없다고 한 문제 → Jev에게 사진으로 또 묻지 않고 바로 Claude 사진 (2026-11-15 로그: 한 문제에 3번 나감)
+async function askVisionSmart(q, onPartial, skipJev = false) {
+    if (!skipJev && AI_JEV_VISION && (selectedSheet === 'ox,xo' || selectedSheet === '올라올라(꼬로록)')) {
         const jimg = captureDataUrl(280);
         const j = jimg ? await postVision(jimg, { engine: 'jev' }).catch(() => null) : null;
         if (j && j.r.ok && j.data.ok) {
@@ -1203,7 +1204,7 @@ async function askAiVision(q) {
         }
         // 같은 문제를 이어서 글자로 다시 묻지 않도록
         lastAiQuestion = data.question || (q && q.question) || ''; lastAiSheet = selectedSheet; lastAiTime = Date.now();
-        lastAiChoices = '';
+        lastAiChoices = (data.choices || []).join(' ');
         renderAiBox('<div class="result-sheet"><span class="sheet-tag ai-tag" title="화면 인식이 흐려서 캡처 사진을 AI가 직접 보고 답했어요.">🤖 AI 추정 · 📷 사진으로 읽음</span></div>'
             + `<div class="result-question">${escapeHtml(data.question || (q && q.question) || '')}</div>`
             + aiAnswerRow(visionLabel(data), data, false));
@@ -1250,6 +1251,8 @@ async function askAi(q, manual = false) {
         if (lastAiHtml) renderAiBox(lastAiHtml);
         return;
     }
+    // 방금 답이 나온 문제가 조금 다르게 읽힌 것 → 다시 묻지 않는다 (사진으로 답한 뒤 5초 만에 글자로 2번 더 물었음, 2026-11-15 로그)
+    if (!manual && q.fromOcr && recentAnswerFor(q.question)) { renderAiBox(lastAiHtml); return; }
     lastAiKey = key;
     lastAiQuestion = q.question;
     lastAiTime = Date.now();
@@ -1307,7 +1310,7 @@ async function askAi(q, manual = false) {
                 if (key !== lastAiKey) return;
                 renderAiBox(head + first + aiAnswerRow(visionLabel(jd), jd, true)
                     + '<div class="result-answer ai-weak"><small class="ai-who">📷 Claude</small> 확인하는 중…</div>', false);
-            }).catch(() => null);
+            }, true).catch(() => null);
             lastVisionTime = Date.now(); // 같은 화면에 사진을 또 보내지 않게
         }
         if (!second || !second.r.ok || !second.data.ok) second = await postAi(q, { second: 'claude' }).catch(() => null);
