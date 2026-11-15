@@ -1994,7 +1994,6 @@ async function openCamera() {
         cameraVideo.srcObject = cameraStream;
         cameraModal.classList.add('show');
         cameraCaptureBtn.disabled = false;
-        getOcrEngine().catch(() => { /* 첫 캡처 때 다시 시도 */ }); // 영역을 고르는 동안 엔진을 미리 띄워 둠
 
         // 영역 선택 초기화
         setTimeout(() => {
@@ -2317,76 +2316,12 @@ function preprocessImageForOCR(canvas) {
     return canvas;
 }
 
-// ===== 화면 인식 엔진: 한 번 띄워 계속 재사용 =====
-// 예전엔 2초마다 캡처할 때마다 Tesseract.recognize()가 엔진을 새로 띄우고 한국어 데이터를 다시 읽어서 매번 느렸다.
-// (2026-11-15 측정, 같은 이미지: 매번 새로 3.0초 → 재사용 2.4초)
-let ocrEnginePromise = null;
-let ocrBusy = false;
-let ocrBusySince = 0;
-function getOcrEngine() {
-    if (!ocrEnginePromise) {
-        ocrEnginePromise = (async () => {
-            const t0 = performance.now();
-            const worker = await Tesseract.createWorker();
-            await worker.loadLanguage('kor+eng');
-            await worker.initialize('kor+eng');
-            console.log('[OCR] 엔진 준비', Math.round(performance.now() - t0), 'ms');
-            return worker;
-        })().catch(e => {
-            ocrEnginePromise = null; // 다음 캡처 때 다시 시도
-            throw e;
-        });
-    }
-    return ocrEnginePromise;
-}
-
-// 엔진이 멈추면(응답 없음) '읽는 중'이 안 풀려 자동 캡처가 전부 건너뛰어진다 → 시간 제한을 두고 넘으면 엔진을 버리고 새로 띄운다
-const OCR_TIMEOUT_MS = 15000;
-function withOcrTimeout(promise, what) {
-    let timer;
-    return Promise.race([
-        promise,
-        new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(what + ' 시간 초과')), OCR_TIMEOUT_MS); })
-    ]).finally(() => clearTimeout(timer));
-}
-function dropOcrEngine(reason) {
-    const p = ocrEnginePromise;
-    ocrEnginePromise = null;
-    console.warn('[OCR] 엔진을 다시 띄움:', reason);
-    if (p) p.then(w => w.terminate()).catch(() => { /* 이미 죽은 엔진 */ });
-}
-
-async function recognizeText(imageData) {
-    let engine = null;
-    try {
-        engine = await withOcrTimeout(getOcrEngine(), '엔진 준비');
-    } catch (e) {
-        dropOcrEngine(e && e.message);
-        console.warn('[OCR] 엔진을 띄우지 못해 이번엔 예전 방식으로:', e && e.message);
-    }
-    const t0 = performance.now();
-    let result;
-    if (engine) {
-        try {
-            result = await withOcrTimeout(engine.recognize(imageData), '글자 읽기');
-        } catch (e) {
-            dropOcrEngine(e && e.message);
-            result = await Tesseract.recognize(imageData, 'kor+eng'); // 이번 캡처는 예전 방식으로라도 읽는다
-        }
-    } else {
-        result = await Tesseract.recognize(imageData, 'kor+eng');
-    }
-    console.log('[OCR]', Math.round(performance.now() - t0), 'ms', engine ? '(엔진 재사용)' : '(새로 띄움)');
-    return result.data.text;
-}
+// 2026-11-15: 화면 인식 엔진을 한 번 띄워 재사용하는 방식을 시험했다가(같은 이미지 3.0초→2.4초)
+// 퀴즈 화면을 인식하지 않는 문제가 생겨 캡처마다 새로 띄우는 예전 방식으로 되돌렸다.
 
 // 기존 OCR 함수 (레거시)
 async function captureAndOCRLegacy(isAutoMode = false) {
     if (!cameraStream) return;
-    // 엔진은 하나라서, 앞 캡처를 읽는 중이면 자동 캡처는 이번 차례를 건너뛴다 (밀려서 쌓이면 답이 점점 늦어짐)
-    if (isAutoMode && ocrBusy && Date.now() - ocrBusySince < OCR_TIMEOUT_MS * 2) return;
-    ocrBusy = true;
-    ocrBusySince = Date.now();
 
     try {
         if (!isAutoMode) {
@@ -2437,9 +2372,17 @@ async function captureAndOCRLegacy(isAutoMode = false) {
         // 캔버스를 이미지로 변환
         const imageData = canvas.toDataURL('image/png');
 
-        // Tesseract.js로 OCR 수행 (한국어 + 영어). 엔진은 재사용한다 (recognizeText)
-        // 참고: 예전에 넘기던 tessedit_pageseg_mode: '6'은 v4의 recognize()에서 무시되던 값이라 빼도 결과가 같다
-        const text = await recognizeText(imageData);
+        // Tesseract.js로 OCR 수행 (한국어 + 영어)
+        const { data: { text } } = await Tesseract.recognize(imageData, 'kor+eng', {
+            logger: m => {
+                // OCR 처리 중 진행률 표시 숨김
+                // if (m.status === 'recognizing text' && !isAutoMode) {
+                //     cameraLoading.textContent = `OCR 처리 중... ${Math.round(m.progress * 100)}%`;
+                // }
+            },
+            // OCR 정확도 향상을 위한 옵션
+            tessedit_pageseg_mode: '6' // 단일 텍스트 블록으로 인식
+        });
 
         // 보기 역추적 / 문제 수집 (원본 OCR 글자 기준). 처리됐으면 일반 검색 생략
         if (handleRawOcrText(text, isAutoMode, captureRect)) {
@@ -2513,8 +2456,6 @@ async function captureAndOCRLegacy(isAutoMode = false) {
         } else {
             cameraLoading.style.display = 'none';
         }
-    } finally {
-        ocrBusy = false;
     }
 }
 
