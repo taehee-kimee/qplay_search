@@ -921,7 +921,8 @@ function renderAiBox(html, keep = true) {
     box.innerHTML = html;
 }
 
-const AI_SURE = 80; // Jev 확신이 이보다 낮으면 Claude에게 한 번 더 묻는다
+const AI_SURE = 80; // OX: Jev 확신(confidence)이 이보다 낮으면 Claude(Opus)에게 한 번 더 묻는다
+const AI_SURE_CHOICE = 70; // 보기 문제: Jev가 고른 보기의 확률이 이보다 낮으면 Claude(Haiku)에게 한 번 더 묻는다
 const AI_VISION_BELOW = 30; // Jev 확신이 이보다 낮으면(거의 찍음) 글자 대신 캡처 사진으로 다시 확인 ('2PM'을 '204'로 읽었을 때 7%)
 
 // AI 답 줄: 누르면 답만 복사 (브라우저는 자동복사를 막을 때가 많아서, 누르는 건 항상 허용됨)
@@ -1299,8 +1300,14 @@ async function askAi(q, manual = false) {
             renderAiBox(`<div class="result-sheet"><span class="sheet-tag ai-tag">🤖 AI 추정</span></div><div class="result-answer ai-weak">${msg}</div>`);
             return;
         }
-        const conf = typeof data.confidence === 'number' ? Math.round(data.confidence * 100) : null;
-        const unsure = (data.model === 'jev' && conf !== null && conf < AI_SURE) || !!q.partial;
+        // Jev 확신: 보기 문제는 고른 보기의 확률(70%+), OX는 confidence(80%+)
+        // (2026-11-15 족보 300문제 실측: 보기 문제는 확률 70% 기준이 정답률 그대로이고 느린 응답이 2.1초→1.1초)
+        const isChoiceQ = selectedSheet !== 'ox,xo' && Object.keys(q.choices || {}).length >= 2;
+        const conf = isChoiceQ && typeof data.probability === 'number'
+            ? Math.round(data.probability * 100)
+            : (typeof data.confidence === 'number' ? Math.round(data.confidence * 100) : null);
+        const sureLine = isChoiceQ && typeof data.probability === 'number' ? AI_SURE_CHOICE : AI_SURE;
+        const unsure = (data.model === 'jev' && conf !== null && conf < sureLine) || !!q.partial;
         const head = `<div class="result-sheet"><span class="sheet-tag ai-tag" title="족보에 없어 AI가 추정한 답이에요. 틀릴 수 있어요.">🤖 AI 추정</span></div>`
             + `<div class="result-question">${escapeHtml(q.question)}</div>`
             + (q.partial ? '<div class="result-answer ai-weak"><small>⚠️ 보기가 다 안 읽혀서 AI가 보기 없이 직접 답했어요.</small></div>' : '');
@@ -1308,7 +1315,7 @@ async function askAi(q, manual = false) {
         if (!unsure) {
             renderAiBox(head + first);
             markAnswered(q.question);
-            if (conf === null || conf >= AI_SURE) aiCachePut(q, head + first, data.answer);
+            if (conf === null || conf >= sureLine) aiCachePut(q, head + first, data.answer);
             autoCopyIfKkong(data.answer, 'AI');
             return;
         }
@@ -1317,7 +1324,9 @@ async function askAi(q, manual = false) {
         // 화면 인식으로 읽은 문제면 두 번째 의견은 캡처 사진으로 받는다.
         // (2PM을 '204'로 읽었을 때 Jev·Claude가 같은 깨진 글자를 보고 둘 다 '카시오페아'로 찍어 '일치'가 떴음 → 사진은 2PM을 읽고 '핫티스트')
         // 단 사진은 느리고(2~4초) 비싸서(약 0.3원) Jev가 거의 찍은 수준(30% 미만)일 때만. 30~80%는 Claude 글자로.
-        const useVision = q.fromOcr && lastCaptureCanvas && conf !== null && conf < AI_VISION_BELOW;
+        // 사진 확인 기준은 예전 그대로 confidence 30% 미만 (위의 conf는 보기 문제에선 확률이라 값의 뜻이 다름)
+        const rawConf = typeof data.confidence === 'number' ? Math.round(data.confidence * 100) : null;
+        const useVision = q.fromOcr && lastCaptureCanvas && rawConf !== null && rawConf < AI_VISION_BELOW;
         let second = null;
         if (useVision) {
             second = await askVisionSmart(q, jd => {

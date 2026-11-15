@@ -2,8 +2,9 @@
 //
 // POST /api/ask  { sheet, question, choices: { "1": "...", "2": "..." } }
 //   - 보기가 있는 문제(OX, 객관식) → TypeSafe Jev (Choice 질문, ~0.2초, 확신 점수 포함)
-//   - 보기가 없는 주관식(가로세로, 꽁꽁 등) → Claude Haiku 5.5
-//   응답: { ok, answer, choice?, confidence?, model }
+//   - 보기가 없는 주관식(가로세로, 꽁꽁 등) → Claude Sonnet 5.5
+//   - Jev가 자신 없을 때 두 번째 의견(second: 'claude'): OX는 Opus 5.5, 보기 문제는 Haiku 5.5
+//   응답: { ok, answer, choice?, confidence?, probability?, model }
 //
 // 필요 설정 (Vercel 환경변수): TYPESAFE_API_KEY, ANTHROPIC_API_KEY, AI_PASSWORD
 // AI 모드는 비밀번호를 아는 사람만 쓴다 (여러 사람이 같이 쓰는 사이트라 요금이 새지 않게). body.pass로 받는다.
@@ -100,7 +101,14 @@ async function askJev(question, criteria) {
     const data = await r.json();
     const ans = data?.answers?.answer;
     if (!ans || !ans.choice) throw new Error('jev-no-answer');
-    return { choice: ans.choice, confidence: typeof ans.confidence === 'number' ? ans.confidence : null };
+    // probability: 고른 보기의 확률. 문서가 확신 기준으로 confidence보다 이것을 권한다
+    // (2026-11-15 실측: 4지선다는 확률 70% 기준이 정답률 그대로, 느린 응답 2.1초→1.1초)
+    const p = ans.probabilities && ans.probabilities[ans.choice];
+    return {
+        choice: ans.choice,
+        confidence: typeof ans.confidence === 'number' ? ans.confidence : null,
+        probability: typeof p === 'number' ? p : null
+    };
 }
 
 // Jev 사진 읽기 (https://docs.typesafe.ai/images.md, 헤더 TypeSafe-Danger-Zone-Images 필요, 280~1568px)
@@ -178,16 +186,19 @@ async function askClaude(sheet, question, choices = null, isOx = false) {
         rule = '정답 보기의 번호 하나만 출력하라.';
     }
     const system = `너는 한국어 퀴즈 정답을 맞히는 도우미다. ${rule}${hint} 문제가 "아닌 것/않는 것/틀린 것"을 물으면 조건에 맞지 않는 보기를 골라라. 모르면 가장 그럴듯한 답을 하나 내라. 답은 한국어(한글)로 써라.`;
+    // 모델 (2026-11-15 족보 300문제 실측):
+    //   주관식  Haiku 59% → Sonnet 5.5 76% (문제당 약 1.2원)
+    //   OX 두 번째 의견  Jev→Haiku 88% → Jev→Opus 5.5 91%
+    //   보기 두 번째 의견  Haiku 그대로 (모델을 올려도 95%로 같음)
+    // 생각을 끄면 정답률이 크게 떨어진다 (2026-11-14: 보기 79%→87%, OX 76%→86%) → 생각은 켜 두고 effort로 조절
+    const model = isOx ? 'claude-opus-5-5' : choices ? 'claude-haiku-5-5' : 'claude-sonnet-5-5';
+    const effort = model === 'claude-haiku-5-5' ? 'medium' : 'low';
     const ask = async (userContent) => {
-        const response = await anthropic.messages.create({
-            model: 'claude-haiku-5-5',
-            // 생각을 끄면 정답률이 크게 떨어진다 (2026-11-14 족보 200문제: 보기 문제 79%→87%, OX 76%→86%).
-            // 보기·OX(두 번째 의견)는 medium, 주관식은 속도 때문에 low.
-            max_tokens: 3000,
-            output_config: { effort: (isOx || choices) ? 'medium' : 'low' },
-            system,
-            messages: [{ role: 'user', content: userContent }]
-        });
+        const params = { model, max_tokens: 3000, output_config: { effort }, system, messages: [{ role: 'user', content: userContent }] };
+        // Sonnet·Opus는 안전 필터가 드물게 거절하면 서버가 다른 모델로 바로 이어서 답하게 한다 (fallbacks: 'default')
+        const response = model === 'claude-haiku-5-5'
+            ? await anthropic.messages.create(params)
+            : await anthropic.beta.messages.create({ ...params, betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' });
         if (response.stop_reason === 'refusal') throw new Error('claude-refusal');
         const text = response.content.filter(b => b.type === 'text').map(b => b.text).join('').trim();
         const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
@@ -384,13 +395,14 @@ export default async function handler(req, res) {
             const criteria = isOx
                 ? { O: '문제의 진술이 사실이다(맞다)', X: '문제의 진술이 사실이 아니다(틀리다)' }
                 : choices;
-            const { choice, confidence } = await askJev(question, criteria);
+            const { choice, confidence, probability } = await askJev(question, criteria);
             result = {
                 ok: true,
                 model: 'jev',
                 choice,
                 answer: isOx ? choice : `${choice}. ${choices[choice] || ''}`.trim(),
-                confidence
+                confidence,
+                probability
             };
         } else {
             if (!process.env.ANTHROPIC_API_KEY) return res.status(503).json({ ok: false, error: 'claude-not-configured' });
