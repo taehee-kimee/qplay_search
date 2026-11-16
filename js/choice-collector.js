@@ -430,6 +430,13 @@
         pending = null; // 한 문제당 한 번만
         trueAnswer = trueAnswer.trim();
 
+        // 화면(app.js)이 방금 띄운 AI 답을 이 정답으로 채점한다 (족보에 이미 있는 문제여도 알림)
+        try {
+            window.dispatchEvent(new CustomEvent('qplay:answer', {
+                detail: { sheet: p.sheet, question: p.body, choices: { ...p.choices }, number: ans.number || null, answer: trueAnswer }
+            }));
+        } catch (e) { /* 채점 실패는 수집에 영향 없음 */ }
+
         // 검색 결과 상위권에 이미 정답이 있으면 족보가 알고 있는 것 (OCR 오인식은 너그럽게)
         const readings = [trueAnswer];
         if (ans.text) readings.push(ans.text);

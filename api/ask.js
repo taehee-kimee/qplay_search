@@ -305,6 +305,33 @@ export default async function handler(req, res) {
     }
     if (body.verify === true) return res.status(200).json({ ok: true });
 
+    // 정답 화면으로 채점한 AI 답 기록 (어느 경로가 실제로 얼마나 틀리는지 보려고). submissions 표에 'grade/…'로 둔다
+    if (body.grade === true) {
+        const db = supabase();
+        if (!db) return res.status(200).json({ ok: false, error: 'storage-not-configured' });
+        const ai = body.ai && typeof body.ai === 'object' ? body.ai : {};
+        const record = {
+            grade: true,
+            sheet: clean(body.sheet, 30),
+            question: clean(body.question, 300),
+            choices: Object.fromEntries(Object.entries(body.choices || {}).slice(0, 6).map(([k, v]) => [clean(String(k), 2), clean(String(v), 60)])),
+            truth: clean(String(body.truth || ''), 80),
+            correct: body.correct === true,
+            ai: { model: clean(String(ai.model || ''), 20), label: clean(String(ai.label || ''), 40), choice: clean(String(ai.choice || ''), 4),
+                answer: clean(String(ai.answer || ''), 80), confidence: typeof ai.confidence === 'number' ? ai.confidence : null,
+                probability: typeof ai.probability === 'number' ? ai.probability : null, question: clean(String(ai.question || ''), 300),
+                other: ai.other && typeof ai.other === 'object' ? { model: clean(String(ai.other.model || ''), 20), answer: clean(String(ai.other.answer || ''), 80) } : null }
+        };
+        try {
+            await withTimeout(db('submissions', {
+                method: 'POST', headers: { Prefer: 'return=minimal' },
+                body: JSON.stringify({ pathname: `grade/${Date.now()}-${crypto.randomBytes(6).toString('hex')}`, record })
+            }), AI_STORE_MS);
+        } catch (e) { console.error('grade write failed:', e && e.message); }
+        console.log('[grade]', JSON.stringify({ sheet: record.sheet, q: record.question, ai: record.ai.label, a: record.ai.answer, truth: record.truth, ok: record.correct }));
+        return res.status(200).json({ ok: true });
+    }
+
     // 캡처 사진으로 묻기
     if (typeof body.image === 'string') {
         const m = body.image.match(/^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/);

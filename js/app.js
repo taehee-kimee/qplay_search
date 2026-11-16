@@ -1266,6 +1266,7 @@ async function askAiVision(q) {
         markAnswered(data.question || (q && q.question));
         if (data.question) aiCachePut({ question: data.question, choices: Object.assign({}, data.choices || []) }, lastAiHtml, data.answer);
         autoCopyIfKkong(data.answer, 'AI(사진)');
+        noteAiAnswer(data.question || (q && q.question), data.choices, data, visionLabel(data));
     } catch (e) {
         if (key === lastAiKey) renderAiBox('<div class="result-sheet"><span class="sheet-tag ai-tag">🤖 AI 추정</span></div><div class="result-answer ai-weak">AI 서버에 연결하지 못했어요.</div>');
     }
@@ -1356,6 +1357,7 @@ async function askAi(q, manual = false) {
             renderAiBox(head + first);
             markAnswered(q.question);
             if (conf === null || conf >= sureLine) aiCachePut(q, head + first, data.answer);
+            noteAiAnswer(q.question, q.choices, data, data.model === 'jev' ? 'Jev' : 'Claude');
             autoCopyIfKkong(data.answer, 'AI');
             return;
         }
@@ -1386,6 +1388,7 @@ async function askAi(q, manual = false) {
             if (agree) {
                 const label = byVision ? 'Jev·사진 일치' : 'Jev·Claude 일치';
                 renderAiBox(head + aiAnswerRow(label, data, false));
+                noteAiAnswer(q.question, q.choices, data, label);
                 aiCachePut(q, head + aiAnswerRow(label, data, false), data.answer);
                 autoCopyIfKkong(data.answer, 'AI');
             } else if (byVision) {
@@ -1395,10 +1398,12 @@ async function askAi(q, manual = false) {
                     + aiAnswerRow(`Jev${conf !== null ? ' ' + conf + '%' : ''}`, data, true);
                 renderAiBox(html);
                 autoCopyIfKkong(second.data.answer, 'AI(사진)');
+                noteAiAnswer(q.question, q.choices, second.data, visionLabel(second.data) + ' (Jev와 다름)');
             } else {
                 renderAiBox(head + '<div class="result-answer ai-weak"><small>⚠️ AI 의견이 갈려요. 둘 다 참고만 하세요.</small></div>'
                     + aiAnswerRow(`Jev${conf !== null ? ' ' + conf + '%' : ''}`, data, true)
                     + aiAnswerRow('Claude', second.data, true));
+                noteAiAnswer(q.question, q.choices, second.data, 'Claude (Jev와 갈림)', data);
             }
         } else {
             renderAiBox(head + first);
@@ -1407,6 +1412,54 @@ async function askAi(q, manual = false) {
         if (key === lastAiKey) renderAiBox('<div class="result-sheet"><span class="sheet-tag ai-tag">🤖 AI 추정</span></div><div class="result-answer ai-weak">AI 서버에 연결하지 못했어요.</div>');
     }
 }
+
+// ===== 정답 화면으로 AI 답 채점 =====
+// 문제 화면 뒤에 바로 정답 화면이 나오므로, 방금 띄운 AI 답이 맞았는지 화면에 표시하고 서버에 기록한다.
+// 기록이 쌓이면 어느 경로(Jev, Claude 글자, Claude 사진)가 실제로 얼마나 틀리는지 숫자로 볼 수 있다.
+let lastShownAi = null;
+function noteAiAnswer(question, choices, data, label, other) {
+    if (!data) return;
+    const opts = Array.isArray(choices) ? Object.fromEntries(choices.map((c, i) => [String(i + 1), c])) : (choices || {});
+    lastShownAi = {
+        sheet: selectedSheet, question: String(question || ''), choices: opts,
+        choice: data.choice ? String(data.choice) : null, answer: String(data.answer || ''),
+        model: data.model || '', label, confidence: typeof data.confidence === 'number' ? data.confidence : null,
+        probability: typeof data.probability === 'number' ? data.probability : null,
+        other: other ? { model: other.model || '', choice: other.choice ? String(other.choice) : null, answer: String(other.answer || '') } : null,
+        at: Date.now()
+    };
+}
+function sameAnswerText(a, b) {
+    const c = s => String(s || '').replace(/^\d+\.\s*/, '').replace(/\s*-[^-]{1,12}-\s*$/, '').replace(/[^0-9A-Za-z가-힣]/g, '').toLowerCase();
+    const x = c(a), y = c(b);
+    return !!x && !!y && (x === y || (Math.min(x.length, y.length) >= 2 && (x.includes(y) || y.includes(x))));
+}
+window.addEventListener('qplay:answer', e => {
+    const ai = lastShownAi;
+    const t = e.detail || {};
+    if (!ai || ai.sheet !== t.sheet || Date.now() - ai.at > 90000) return;
+    const sim = window.QplayCollect && window.QplayCollect.questionSimilarity;
+    if (sim && ai.question && t.question && sim(ai.question, t.question) < 55) return; // 다른 문제의 정답 화면
+    lastShownAi = null; // 한 번만 채점
+    const isOx = t.sheet === 'ox,xo';
+    let correct;
+    if (isOx) correct = String(ai.choice || ai.answer).toUpperCase().slice(0, 1) === String(t.answer).toUpperCase().replace(/^0$/, 'O').slice(0, 1);
+    else if (t.number && ai.choice) correct = String(t.number) === ai.choice || sameAnswerText(ai.answer, t.answer);
+    else correct = sameAnswerText(ai.answer, t.answer);
+    const box = document.getElementById('aiAnswer');
+    if (box) {
+        box.insertAdjacentHTML('beforeend', correct
+            ? '<div class="result-answer"><small>✅ 정답 화면 확인: AI 맞음</small></div>'
+            : `<div class="result-answer"><small>❌ 정답 화면 확인: AI 틀림 → 정답 <b>${escapeHtml(t.answer)}</b></small></div>`);
+    }
+    console.log('[채점]', correct ? '맞음' : '틀림', ai.label, ai.answer, '→ 정답', t.answer);
+    if (!aiPass) return;
+    fetch(AI_ENDPOINT, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ grade: true, pass: aiPass, sheet: t.sheet, question: t.question || ai.question, choices: t.choices || ai.choices,
+            truth: t.answer, truthNumber: t.number, correct, ai })
+    }).catch(() => { /* 기록 실패는 무시 */ });
+});
 
 function askAiFromSearchBox() {
     const q = searchInput ? searchInput.value.trim() : '';

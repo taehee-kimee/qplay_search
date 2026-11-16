@@ -230,9 +230,15 @@ async function handle(req, res, db) {
         }
         if (!isAdminKey(req.query?.key)) return res.status(401).json({ ok: false, error: 'unauthorized' });
         // 관리자: 저장된 AI 답 목록 (틀린 AI 답을 찾을 때, 정답 화면에서 모은 답과 맞대 보는 용도)
-        if (req.query?.ai !== undefined) {
+        // 관리자: 정답 화면으로 채점한 AI 답 기록 (?grades=1)
+        if (req.query?.ai !== undefined || req.query?.grades !== undefined) {
+            const prefix = req.query?.grades !== undefined ? 'grade' : 'ai';
             const after = /^\d{1,15}$/.test(String(req.query?.cursor || '')) ? String(req.query.cursor) : '0';
-            const rows = await db(`submissions?select=id,uploaded_at,record&pathname=like.ai%2F*&id=gt.${after}&order=id.asc&limit=${PAGE}`) || [];
+            const rows = await db(`submissions?select=id,uploaded_at,record&pathname=like.${prefix}%2F*&id=gt.${after}&order=id.asc&limit=${PAGE}`) || [];
+            if (prefix === 'grade') {
+                const hasMoreG = rows.length === PAGE;
+                return res.status(200).json({ ok: true, items: rows.map(r => ({ at: r.uploaded_at, ...r.record })), cursor: hasMoreG ? String(rows[rows.length - 1].id) : null, hasMore: hasMoreG });
+            }
             const hasMore = rows.length === PAGE;
             return res.status(200).json({
                 ok: true,
