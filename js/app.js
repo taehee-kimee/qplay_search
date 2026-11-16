@@ -3507,6 +3507,9 @@ function processOCRResult(text, isAutoMode = false) {
         window.currentQuestionKeywords = questionKeywords;
         window.currentChoiceKeywords = choiceKeywords;
 
+        // 검색 결과를 화면 문제 전체와 비교해 다시 줄 세울 때 쓰는 기준 (rerankByWholeQuestion)
+        window.currentOcrQuestion = aiQuestionFromOcrRaw(cleanedText);
+
         // 검색 실행 (자동복사는 아래에서 '같은 문제'일 때만)
         suppressSearchAutoCopy = true;
         try { performSearch(); } finally { suppressSearchAutoCopy = false; }
@@ -3581,6 +3584,7 @@ function initSearch() {
     searchInput.addEventListener('input', function (e) {
         const value = e.target.value.trim();
         currentSearchTerm = value;
+        window.currentOcrQuestion = null; // 직접 입력: 입력한 문장을 기준으로 줄 세움
 
         // 지우기 버튼 표시/숨김
         if (currentSearchTerm) {
@@ -3652,6 +3656,26 @@ if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initAll);
 } else {
     initAll();
+}
+
+// 낱말 점수로 찾은 후보 위쪽 50개를 '화면 문제 전체와 얼마나 같은 문장인가'로 다시 줄 세운다.
+// 낱말 점수는 흔한 낱말을 여럿 품은 긴 문제나 답 칸에 낱말이 든 문제를 위로 올려, 같은 문제가 1등이 아닐 때가 있었다.
+// 족보 답이 화면 보기 중에 있으면 더 위로. 기준 문장이 짧으면(10글자 미만, 직접 친 짧은 검색어) 예전 순서 그대로.
+function rerankByWholeQuestion(results) {
+    const sim = window.QplayCollect && window.QplayCollect.questionSimilarity;
+    const ref = window.currentOcrQuestion;
+    const refQ = stripQuizTail((ref && ref.question) || currentSearchTerm || '');
+    if (!sim || results.length < 2 || refQ.replace(/[^0-9A-Za-z가-힣]/g, '').length < 10) return results;
+    const choices = (ref && ref.choices) || {};
+    const hasChoices = Object.keys(choices).length >= 2;
+    const head = results.slice(0, 50).map((r, i) => {
+        let s = sim(refQ, stripQuizTail(r.question));
+        if (hasChoices && answerInChoices(r.answer, choices, sim)) s += 15;
+        return { r, s, i };
+    });
+    head.sort((a, b) => b.s - a.s || a.i - b.i);
+    if (head[0].i !== 0) console.log('[검색] 문장 유사도로 순서 바꿈:', head.slice(0, 3).map(x => `${Math.round(x.s)} ${x.r.question.slice(0, 30)}`));
+    return head.map(x => ({ ...x.r, wholeSim: Math.round(x.s) })).concat(results.slice(50));
 }
 
 function performSearch(resetDisplay = false) {
@@ -3759,7 +3783,7 @@ function performSearch(resetDisplay = false) {
             }
         }
 
-        allFilteredResults = filtered;
+        allFilteredResults = rerankByWholeQuestion(filtered);
         displayedCount = 0;
     }
 
