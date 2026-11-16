@@ -759,23 +759,27 @@ function knownBigrams() {
     jokboBigramsFor = questionsData;
     return set;
 }
+// 'latin': 한글 뒤에 영문 한 글자 조각 ('여푸디 n') → 이것 하나만으로 잘못 읽힌 것
+// 'unseen': 족보에 없는 두 글자 조합이 절반 이상 → '개버딘'·'심석희' 같은 이름도 걸리므로 보기 2개 이상일 때만 잘못 읽힌 것으로 본다
+// (2026-11-16 실제 캡처 18장: 보기 하나만 걸린 3장은 모두 멀쩡한 화면이었는데 사진으로 넘어감)
 function choiceLooksMisread(choice) {
     const t = String(choice || '');
-    if (/[가-힣]\s+[a-zA-Z]$|^[a-zA-Z]\s+[가-힣]/.test(t.trim())) return true; // '여푸디 n' 같은 한 글자 영문 조각
+    if (/[가-힣]\s+[a-zA-Z]$|^[a-zA-Z]\s+[가-힣]/.test(t.trim())) return 'latin';
     const known = knownBigrams();
-    if (known.size < 10000) return false; // 족보가 아직 안 읽혔으면 판단하지 않음
+    if (known.size < 10000) return ''; // 족보가 아직 안 읽혔으면 판단하지 않음
     const words = t.replace(/\s+/g, '').match(/[가-힣]+/g) || [];
     let all = 0, unseen = 0;
     for (const w of words) for (let i = 0; i < w.length - 1; i++) { all++; if (!known.has(w.slice(i, i + 2))) unseen++; }
-    return all >= 2 && unseen >= 1 && unseen / all >= 0.5;
+    return all >= 2 && unseen >= 1 && unseen / all >= 0.5 ? 'unseen' : '';
 }
 
 function aiQuestionClean(q) {
     if (!q || looksGarbled(q.question)) return false;
     const opts = Object.values(q.choices || {});
     if (choicesLookMixedUp(opts)) return false;
-    if (opts.some(choiceLooksMisread)) {
-        console.log('[AI] 보기가 잘못 읽힌 듯:', opts.filter(choiceLooksMisread));
+    const flags = opts.map(choiceLooksMisread);
+    if (flags.includes('latin') || flags.filter(f => f === 'unseen').length >= 2) {
+        console.log('[AI] 보기가 잘못 읽힌 듯:', opts.filter((o, i) => flags[i]));
         return false;
     }
     return opts.every(c => !looksGarbled(c, true));
