@@ -742,10 +742,42 @@ function choicesLookMixedUp(opts) {
     return withHangul >= opts.length - 2 && withHangul < opts.length;
 }
 
+// 보기가 '멀쩡한 한글처럼 보이지만 잘못 읽힌 것'인지: 족보에 한 번도 안 나온 두 글자 조합이 절반 이상이면 의심
+// (2026-11-16 실사용: '여쭈다'를 '여푸디 n'으로 읽어 Jev가 남은 보기 중 '청하다'를 골라 틀림. 사진으로 본 Claude는 '여쭈다'로 맞힘)
+// 측정: 아직 족보에 없는 실제 정답 971개 중 5%만 의심(그중 대부분은 실제로 깨진 답)
+let jokboBigrams = null;
+let jokboBigramsFor = null;
+function knownBigrams() {
+    if (jokboBigrams && jokboBigramsFor === questionsData) return jokboBigrams;
+    const set = new Set();
+    for (const item of questionsData || []) {
+        const text = String(item.question || '') + ' ' + String(item.answer || '');
+        const words = text.match(/[가-힣]+/g) || [];
+        for (const w of words) for (let i = 0; i < w.length - 1; i++) set.add(w.slice(i, i + 2));
+    }
+    jokboBigrams = set;
+    jokboBigramsFor = questionsData;
+    return set;
+}
+function choiceLooksMisread(choice) {
+    const t = String(choice || '');
+    if (/[가-힣]\s+[a-zA-Z]$|^[a-zA-Z]\s+[가-힣]/.test(t.trim())) return true; // '여푸디 n' 같은 한 글자 영문 조각
+    const known = knownBigrams();
+    if (known.size < 10000) return false; // 족보가 아직 안 읽혔으면 판단하지 않음
+    const words = t.replace(/\s+/g, '').match(/[가-힣]+/g) || [];
+    let all = 0, unseen = 0;
+    for (const w of words) for (let i = 0; i < w.length - 1; i++) { all++; if (!known.has(w.slice(i, i + 2))) unseen++; }
+    return all >= 2 && unseen >= 1 && unseen / all >= 0.5;
+}
+
 function aiQuestionClean(q) {
     if (!q || looksGarbled(q.question)) return false;
     const opts = Object.values(q.choices || {});
     if (choicesLookMixedUp(opts)) return false;
+    if (opts.some(choiceLooksMisread)) {
+        console.log('[AI] 보기가 잘못 읽힌 듯:', opts.filter(choiceLooksMisread));
+        return false;
+    }
     return opts.every(c => !looksGarbled(c, true));
 }
 
