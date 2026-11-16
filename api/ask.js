@@ -305,6 +305,34 @@ export default async function handler(req, res) {
     }
     if (body.verify === true) return res.status(200).json({ ok: true });
 
+    // 화면 인식 비교용 캡처 (주소에 ?samples=1을 붙여 켠 브라우저만 보냄). 'sample/<id>', 정답은 'truth/<id>'
+    if (body.sample === true || body.sampleTruth === true) {
+        const db = supabase();
+        if (!db) return res.status(200).json({ ok: false, error: 'storage-not-configured' });
+        const id = String(body.id || '');
+        if (!/^\d{13}-[0-9a-f]{6}$/.test(id)) return res.status(400).json({ ok: false, error: 'bad-id' });
+        let row;
+        if (body.sample === true) {
+            const img = typeof body.image === 'string' ? body.image : '';
+            if (!/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(img) || img.length > 900 * 1024) return res.status(400).json({ ok: false, error: 'bad-image' });
+            const ocr = body.ocr && typeof body.ocr === 'object' ? body.ocr : null;
+            row = { pathname: `sample/${id}`, record: {
+                sheet: clean(body.sheet, 30), raw: String(body.raw || '').slice(0, 2000),
+                ocr: ocr ? { question: clean(String(ocr.question || ''), 300), vision: ocr.vision === true,
+                    choices: Object.fromEntries(Object.entries(ocr.choices || {}).slice(0, 6).map(([k, v]) => [clean(String(k), 2), clean(String(v), 60)])) } : null,
+                image: img } };
+        } else {
+            row = { pathname: `truth/${id}`, record: {
+                sheet: clean(body.sheet, 30), question: clean(String(body.question || ''), 300), truth: clean(String(body.truth || ''), 80),
+                number: body.number ? clean(String(body.number), 2) : null,
+                choices: Object.fromEntries(Object.entries(body.choices || {}).slice(0, 6).map(([k, v]) => [clean(String(k), 2), clean(String(v), 60)])) } };
+        }
+        try {
+            await withTimeout(db('submissions?on_conflict=pathname', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(row) }), 4000);
+        } catch (e) { console.error('sample write failed:', e && e.message); }
+        return res.status(200).json({ ok: true });
+    }
+
     // 정답 화면으로 채점한 AI 답 기록 (어느 경로가 실제로 얼마나 틀리는지 보려고). submissions 표에 'grade/…'로 둔다
     if (body.grade === true) {
         const db = supabase();

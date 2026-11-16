@@ -231,6 +231,15 @@ async function handle(req, res, db) {
         if (!isAdminKey(req.query?.key)) return res.status(401).json({ ok: false, error: 'unauthorized' });
         // 관리자: 저장된 AI 답 목록 (틀린 AI 답을 찾을 때, 정답 화면에서 모은 답과 맞대 보는 용도)
         // 관리자: 정답 화면으로 채점한 AI 답 기록 (?grades=1)
+        // 관리자: 화면 인식 비교용 캡처(?samples=1, 이미지 포함)와 그 정답(?truths=1)
+        if (req.query?.samples !== undefined || req.query?.truths !== undefined) {
+            const prefix = req.query?.samples !== undefined ? 'sample' : 'truth';
+            const after = /^\d{1,15}$/.test(String(req.query?.cursor || '')) ? String(req.query.cursor) : '0';
+            const n = prefix === 'sample' ? 20 : PAGE; // 캡처는 이미지가 커서 20장씩
+            const rows = await db(`submissions?select=id,pathname,uploaded_at,record&pathname=like.${prefix}%2F*&id=gt.${after}&order=id.asc&limit=${n}`) || [];
+            const more = rows.length === n;
+            return res.status(200).json({ ok: true, items: rows.map(r => ({ id: r.pathname.split('/')[1], at: r.uploaded_at, ...r.record })), cursor: more ? String(rows[rows.length - 1].id) : null, hasMore: more });
+        }
         if (req.query?.ai !== undefined || req.query?.grades !== undefined) {
             const prefix = req.query?.grades !== undefined ? 'grade' : 'ai';
             const after = /^\d{1,15}$/.test(String(req.query?.cursor || '')) ? String(req.query.cursor) : '0';

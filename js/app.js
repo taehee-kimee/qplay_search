@@ -1413,6 +1413,66 @@ async function askAi(q, manual = false) {
     }
 }
 
+// ===== 화면 인식 비교용 캡처 모으기 (켠 브라우저에서만) =====
+// 주소 끝에 ?samples=1 → 이 브라우저에서 켬, ?samples=0 → 끔. AI 비밀번호가 있어야 서버가 받는다.
+// 문제 화면 캡처(원본)와 지금 인식기가 읽은 글자를 보내고, 이어지는 정답 화면의 정답을 붙인다.
+// 인식기(Tesseract·PaddleOCR·사진 AI)를 같은 화면으로 비교하려는 것이라 사이트 동작은 바꾸지 않는다.
+const SAMPLE_MAX = 300;
+const SAMPLE_MODE = (() => {
+    try {
+        const v = new URLSearchParams(location.search).get('samples');
+        if (v === '1') localStorage.setItem('qplay:samples', '1');
+        if (v === '0') localStorage.removeItem('qplay:samples');
+        return localStorage.getItem('qplay:samples') === '1';
+    } catch (e) { return false; }
+})();
+let sampleCount = (() => { try { return parseInt(localStorage.getItem('qplay:samples:n') || '0', 10) || 0; } catch (e) { return 0; } })();
+let lastSample = null; // { id, raw, at }
+function sampleBadge() {
+    if (!SAMPLE_MODE) return;
+    let b = document.getElementById('sampleBadge');
+    if (!b) {
+        b = document.createElement('div');
+        b.id = 'sampleBadge';
+        b.style.cssText = 'position:fixed;right:max(12px, env(safe-area-inset-right, 0px));bottom:calc(12px + env(safe-area-inset-bottom, 0px));z-index:50;background:#1d2320;color:#fff;font-size:12px;padding:6px 10px;border-radius:8px;opacity:.85;pointer-events:none';
+        document.body.appendChild(b);
+    }
+    b.textContent = sampleCount >= SAMPLE_MAX ? `📸 캡처 수집 끝 (${SAMPLE_MAX}장)` : `📸 캡처 수집 중 ${sampleCount}장`;
+}
+if (SAMPLE_MODE) { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', sampleBadge); else sampleBadge(); }
+
+function maybeSaveSample(aiQ) {
+    if (!SAMPLE_MODE || !aiPass || !lastCaptureCanvas || sampleCount >= SAMPLE_MAX) return;
+    const raw = String(lastRawOcrText || '');
+    if (!aiQ && !looksLikeQuestionScreen(raw)) return; // 문제 화면으로 보이는 것만
+    const now = Date.now();
+    const sim = window.QplayCollect && window.QplayCollect.questionSimilarity;
+    if (lastSample && now - lastSample.at < 15000 && (!sim || sim(raw.slice(0, 200), lastSample.raw.slice(0, 200)) >= 60)) return; // 같은 화면은 한 번만
+    let image;
+    try { image = lastCaptureCanvas.toDataURL('image/jpeg', 0.85); } catch (e) { return; }
+    if (image.length > 880 * 1024) return;
+    const id = `${now}-${Math.random().toString(16).slice(2, 8)}`;
+    lastSample = { id, raw, at: now };
+    sampleCount++;
+    try { localStorage.setItem('qplay:samples:n', String(sampleCount)); } catch (e) { /* 무시 */ }
+    sampleBadge();
+    fetch(AI_ENDPOINT, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sample: true, pass: aiPass, id, sheet: selectedSheet, raw: raw.slice(0, 2000),
+            ocr: aiQ ? { question: aiQ.question || '', choices: aiQ.choices || {}, vision: !!aiQ.vision } : null, image })
+    }).catch(() => { /* 실패는 무시 */ });
+}
+window.addEventListener('qplay:answer', e => {
+    const s = lastSample;
+    const t = e.detail || {};
+    if (!SAMPLE_MODE || !aiPass || !s || Date.now() - s.at > 90000) return;
+    lastSample = null;
+    fetch(AI_ENDPOINT, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sampleTruth: true, pass: aiPass, id: s.id, sheet: t.sheet, question: t.question || '', choices: t.choices || {}, truth: t.answer, number: t.number })
+    }).catch(() => { /* 실패는 무시 */ });
+});
+
 // ===== 정답 화면으로 AI 답 채점 =====
 // 문제 화면 뒤에 바로 정답 화면이 나오므로, 방금 띄운 AI 답이 맞았는지 화면에 표시하고 서버에 기록한다.
 // 기록이 쌓이면 어느 경로(Jev, Claude 글자, Claude 사진)가 실제로 얼마나 틀리는지 숫자로 볼 수 있다.
@@ -3449,6 +3509,7 @@ function processOCRResult(text, isAutoMode = false) {
 
         // 족보에 없으면 AI에게 물어본다 (검색은 비슷한 단어만 있어도 결과를 내므로, 1~5등이 진짜 같은 문제인지 본다)
         const aiQ = aiQuestionFromOcr(cleanedText);
+        maybeSaveSample(aiQ);
         const rawQ = aiQuestionFromOcrRaw(cleanedText);
         const match = rawQ ? jokboMatch(rawQ.question, allFilteredResults, rawQ.choices) : null;
         if (match) {
