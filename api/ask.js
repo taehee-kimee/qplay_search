@@ -3,7 +3,9 @@
 // POST /api/ask  { sheet, question, choices: { "1": "...", "2": "..." } }
 //   - 보기가 있는 문제(OX, 객관식) → TypeSafe Jev (Choice 질문, ~0.2초, 확신 점수 포함)
 //   - 보기가 없는 주관식(가로세로, 꽁꽁 등) → Claude Sonnet 5.5
-//   - Jev가 자신 없을 때 두 번째 의견(second: 'claude'): OX는 Opus 5.5, 보기 문제는 Haiku 5.5
+//   - Jev가 자신 없을 때 두 번째 의견(second: 'claude'): OX는 Opus 5.5, 보기 문제는 Sonnet 5.5
+//   - 보기 문제에서 Jev와 Claude 답이 갈리면 세 번째 의견(second: 'verify'): Opus 5.5
+//   - 사진 읽기: 올라올라는 Sonnet 5.5, OX·주관식은 Haiku 5.5
 //   응답: { ok, answer, choice?, confidence?, probability?, model }
 //
 // 필요 설정 (Vercel 환경변수): TYPESAFE_API_KEY, ANTHROPIC_API_KEY, AI_PASSWORD
@@ -186,7 +188,7 @@ function fitLength(answer, n) {
     return answer;
 }
 
-async function askClaude(sheet, question, choices = null, isOx = false) {
+async function askClaude(sheet, question, choices = null, isOx = false, verify = false) {
     if (!anthropic) anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: 10000, maxRetries: 1 });
     const n = (!choices && !isOx) ? answerLength(question) : null;
     const hint = (sheet === '가로세로' ? ' 뜻풀이에 맞는 낱말을 답하라.' : '')
@@ -204,16 +206,16 @@ async function askClaude(sheet, question, choices = null, isOx = false) {
     // 모델 (2026-11-15 족보 300문제 실측):
     //   주관식  Haiku 59% → Sonnet 5.5 76% (문제당 약 1.2원)
     //   OX 두 번째 의견  Jev→Haiku 88% → Jev→Opus 5.5 91%
-    //   보기 두 번째 의견  Haiku 그대로 (모델을 올려도 95%로 같음)
+    //   보기 두 번째 의견  그때는 Haiku와 상위 모델이 95%로 같았음. 2026-11-19 실사용에서 답이 갈리는 문제가 나와
+    //     Sonnet 5.5로 올림 (올린 뒤 정답률은 아직 안 잼 → ?grades=1 채점 기록으로 확인)
+    //   verify: Jev와 Claude 답이 갈린 보기 문제를 Opus 5.5가 한 번 더 본다 (세 번째 의견)
     // 생각을 끄면 정답률이 크게 떨어진다 (2026-11-14: 보기 79%→87%, OX 76%→86%) → 생각은 켜 두고 effort로 조절
-    const model = isOx ? 'claude-opus-5-5' : choices ? 'claude-haiku-5-5' : 'claude-sonnet-5-5';
-    const effort = model === 'claude-haiku-5-5' ? 'medium' : 'low';
+    // effort는 low (2026-11-15 240문제: Sonnet low 219·medium 217, Opus low 230·medium 226 — 올려도 안 좋아짐)
+    const model = (isOx || verify) ? 'claude-opus-5-5' : 'claude-sonnet-5-5';
     const ask = async (userContent) => {
-        const params = { model, max_tokens: 3000, output_config: { effort }, system, messages: [{ role: 'user', content: userContent }] };
-        // Sonnet·Opus는 안전 필터가 드물게 거절하면 서버가 다른 모델로 바로 이어서 답하게 한다 (fallbacks: 'default')
-        const response = model === 'claude-haiku-5-5'
-            ? await anthropic.messages.create(params)
-            : await anthropic.beta.messages.create({ ...params, betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' });
+        const params = { model, max_tokens: 3000, output_config: { effort: 'low' }, system, messages: [{ role: 'user', content: userContent }] };
+        // 안전 필터가 드물게 거절하면 서버가 다른 모델로 바로 이어서 답하게 한다 (fallbacks: 'default')
+        const response = await anthropic.beta.messages.create({ ...params, betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' });
         if (response.stop_reason === 'refusal') throw new Error('claude-refusal');
         const text = response.content.filter(b => b.type === 'text').map(b => b.text).join('').trim();
         const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
@@ -254,10 +256,13 @@ async function askClaudeVision(sheet, image) {
         : sheet === '가로세로' || sheet === '꽁꽁'
             ? '주관식 퀴즈다. 정답 낱말 하나만 answer_text에 쓰고(설명·조사 없이) answer_number는 0. 화면에 "(4글자)"처럼 글자 수가 있으면 정확히 그 글자 수로.'
             : '보기가 있으면 정답 보기 번호를 answer_number(1부터)에, 그 보기 내용을 answer_text에 써라.';
-    const response = await anthropic.messages.create({
-        model: 'claude-haiku-5-5',
+    // 올라올라 사진은 Sonnet 5.5 (2026-11-19, 사진 정답률은 아직 안 잼). OX·주관식 사진은 Haiku 그대로.
+    const sonnet = sheet === '올라올라(꼬로록)';
+    const response = await (sonnet ? anthropic.beta.messages : anthropic.messages).create({
+        model: sonnet ? 'claude-sonnet-5-5' : 'claude-haiku-5-5',
         max_tokens: 3000,
-        output_config: { effort: 'medium', format: { type: 'json_schema', schema: VISION_SCHEMA } },
+        ...(sonnet ? { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' } : {}),
+        output_config: { effort: sonnet ? 'low' : 'medium', format: { type: 'json_schema', schema: VISION_SCHEMA } },
         system: `너는 한국어 퀴즈 게임 화면을 보고 정답을 맞히는 도우미다. 화면의 문제와 보기를 그대로 읽어 question·choices에 옮기고 정답을 골라라. ${kind} 퀴즈 문제 화면이 아니면(대기실, 정답 발표, 순위 화면 등) is_quiz=false. 문제가 "아닌 것/않는 것/틀린 것"을 물으면 조건에 맞지 않는 보기를 골라라. 답은 한국어로.`,
         messages: [{
             role: 'user',
@@ -425,8 +430,12 @@ export default async function handler(req, res) {
     const isOx = sheet === 'ox,xo';
     const hasChoices = Object.keys(choices).length >= 2;
     // second: 'claude' → Jev가 확신 못 한 문제를 Claude에게 다시 묻는다 (화면이 Jev 답을 먼저 보여준 뒤 부름)
-    const forceClaude = body.second === 'claude';
-    const hash = crypto.createHash('sha256').update(JSON.stringify([sheet, question, isOx ? null : choices, forceClaude])).digest('hex');
+    // second: 'verify' → Jev와 Claude 답이 갈린 보기 문제를 더 높은 모델(Opus)이 한 번 더 본다
+    const verify = body.second === 'verify' && hasChoices && !isOx;
+    const forceClaude = body.second === 'claude' || verify;
+    // 저장된 답은 모델별로 따로 둔다 (보기 문제의 예전 Haiku 답이 다시 나오지 않게 'sonnet' 표시)
+    const tier = verify ? 'verify' : !forceClaude ? false : (hasChoices && !isOx) ? 'sonnet' : true;
+    const hash = crypto.createHash('sha256').update(JSON.stringify([sheet, question, isOx ? null : choices, tier])).digest('hex');
     if (cache.has(hash)) return res.status(200).json({ ...cache.get(hash), cached: true });
     const stored = await storedAnswer(hash);
     if (stored && stored.ok) {
@@ -441,7 +450,7 @@ export default async function handler(req, res) {
         let result;
         if (forceClaude) {
             if (!process.env.ANTHROPIC_API_KEY) return res.status(503).json({ ok: false, error: 'claude-not-configured' });
-            const text = await askClaude(sheet, question, hasChoices ? choices : null, isOx);
+            const text = await askClaude(sheet, question, hasChoices ? choices : null, isOx, verify);
             let answer = text;
             let choice = null;
             if (isOx) {
@@ -461,7 +470,7 @@ export default async function handler(req, res) {
                 if (!choice) throw new Error('claude-no-choice');
                 answer = `${choice}. ${choices[choice]}`;
             }
-            result = { ok: true, model: 'claude', choice, answer, confidence: null };
+            result = { ok: true, model: verify ? 'claude-verify' : 'claude', choice, answer, confidence: null };
         } else if (isOx || hasChoices) {
             if (!process.env.TYPESAFE_API_KEY) return res.status(503).json({ ok: false, error: 'jev-not-configured' });
             const criteria = isOx
@@ -481,7 +490,7 @@ export default async function handler(req, res) {
             result = { ok: true, model: 'claude', answer: await askClaude(sheet, question), confidence: null };
         }
         // 틀린 답 추적용 기록 (Vercel 런타임 로그). 문제 글과 답만 남긴다.
-        console.log('[ask]', JSON.stringify({ sheet, q: question, c: hasChoices ? choices : undefined, m: result.model, a: result.answer, p: result.confidence, second: forceClaude || undefined }));
+        console.log('[ask]', JSON.stringify({ sheet, q: question, c: hasChoices ? choices : undefined, m: result.model, a: result.answer, p: result.confidence, second: verify ? 'verify' : (forceClaude || undefined) }));
         if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value);
         cache.set(hash, result);
         await storeAnswer(hash, sheet, question, result);

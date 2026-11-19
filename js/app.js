@@ -958,7 +958,7 @@ function renderAiBox(html, keep = true) {
 }
 
 const AI_SURE = 80; // OX: Jev 확신(confidence)이 이보다 낮으면 Claude(Opus)에게 한 번 더 묻는다
-const AI_SURE_CHOICE = 70; // 보기 문제: Jev가 고른 보기의 확률이 이보다 낮으면 Claude(Haiku)에게 한 번 더 묻는다
+const AI_SURE_CHOICE = 70; // 보기 문제: Jev가 고른 보기의 확률이 이보다 낮으면 Claude(Sonnet)에게 한 번 더 묻고, 답이 갈리면 Opus가 검증한다
 const AI_VISION_BELOW = 30; // Jev 확신이 이보다 낮으면(거의 찍음) 글자 대신 캡처 사진으로 다시 확인 ('2PM'을 '204'로 읽었을 때 7%)
 
 // AI 답 줄: 누르면 답만 복사 (브라우저는 자동복사를 막을 때가 많아서, 누르는 건 항상 허용됨)
@@ -1404,10 +1404,37 @@ async function askAi(q, manual = false) {
                 autoCopyIfKkong(second.data.answer, 'AI(사진)');
                 noteAiAnswer(q.question, q.choices, second.data, visionLabel(second.data) + ' (Jev와 다름)');
             } else {
-                renderAiBox(head + '<div class="result-answer ai-weak"><small>⚠️ AI 의견이 갈려요. 둘 다 참고만 하세요.</small></div>'
-                    + aiAnswerRow(`Jev${conf !== null ? ' ' + conf + '%' : ''}`, data, true)
-                    + aiAnswerRow('Claude', second.data, true));
-                noteAiAnswer(q.question, q.choices, second.data, 'Claude (Jev와 갈림)', data);
+                const jevRow = aiAnswerRow(`Jev${conf !== null ? ' ' + conf + '%' : ''}`, data, true);
+                const claudeRow = aiAnswerRow('Claude', second.data, true);
+                const split = '<div class="result-answer ai-weak"><small>⚠️ AI 의견이 갈려요. 둘 다 참고만 하세요.</small></div>';
+                if (!isChoiceQ) {
+                    renderAiBox(head + split + jevRow + claudeRow);
+                    noteAiAnswer(q.question, q.choices, second.data, 'Claude (Jev와 갈림)', data);
+                    return;
+                }
+                // 보기 문제에서 답이 갈리면 더 높은 모델(Opus)이 한 번 더 본다 → 둘 중 Opus와 같은 쪽을 진하게
+                renderAiBox(head + split + jevRow + claudeRow
+                    + '<div class="result-answer ai-weak"><small class="ai-who">Opus</small> 갈린 답을 검증하는 중…</div>', false);
+                const third = await postAi(q, { second: 'verify' }).catch(() => null);
+                if (key !== lastAiKey) return;
+                const v = third && third.r.ok && third.data.ok ? third.data : null;
+                if (v && v.choice === data.choice) {
+                    renderAiBox(head + aiAnswerRow('Jev·Opus 일치', data, false) + claudeRow);
+                    noteAiAnswer(q.question, q.choices, data, 'Jev·Opus 일치 (Claude와 갈림)', second.data);
+                    autoCopyIfKkong(data.answer, 'AI');
+                } else if (v && v.choice === second.data.choice) {
+                    renderAiBox(head + aiAnswerRow('Claude·Opus 일치', second.data, false) + jevRow);
+                    noteAiAnswer(q.question, q.choices, second.data, 'Claude·Opus 일치 (Jev와 갈림)', data);
+                    autoCopyIfKkong(second.data.answer, 'AI');
+                } else if (v) {
+                    // 셋 다 다름 → 가장 높은 모델 답을 위에 두되 전부 흐리게
+                    renderAiBox(head + '<div class="result-answer ai-weak"><small>⚠️ AI 셋의 답이 모두 달라요. 참고만 하세요.</small></div>'
+                        + aiAnswerRow('Opus', v, true) + jevRow + claudeRow);
+                    noteAiAnswer(q.question, q.choices, v, 'Opus (셋 다 갈림)', data);
+                } else {
+                    renderAiBox(head + split + jevRow + claudeRow);
+                    noteAiAnswer(q.question, q.choices, second.data, 'Claude (Jev와 갈림)', data);
+                }
             }
         } else {
             renderAiBox(head + first);
