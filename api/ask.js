@@ -188,7 +188,7 @@ function fitLength(answer, n) {
     return answer;
 }
 
-async function askClaude(sheet, question, choices = null, isOx = false) {
+async function askClaude(sheet, question, choices = null, isOx = false, signal = undefined) {
     if (!anthropic) anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: 10000, maxRetries: 1 });
     const n = (!choices && !isOx) ? answerLength(question) : null;
     const hint = (sheet === '가로세로' ? ' 뜻풀이에 맞는 낱말을 답하라.' : '')
@@ -220,11 +220,11 @@ async function askClaude(sheet, question, choices = null, isOx = false) {
             betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' };
         let response;
         try {
-            response = await anthropic.beta.messages.create(fast ? { ...params, speed: 'fast' } : params);
+            response = await anthropic.beta.messages.create(fast ? { ...params, speed: 'fast' } : params, { signal });
         } catch (e) {
             // 빠른 모드는 한도가 따로라서, 한도에 걸리면 보통 속도로 한 번 더 묻는다
             if (!(fast && e instanceof Anthropic.RateLimitError)) throw e;
-            response = await anthropic.beta.messages.create(params);
+            response = await anthropic.beta.messages.create(params, { signal });
         }
         if (response.stop_reason === 'refusal') throw new Error('claude-refusal');
         const text = response.content.filter(b => b.type === 'text').map(b => b.text).join('').trim();
@@ -445,20 +445,18 @@ export default async function handler(req, res) {
     const tier = !forceClaude ? false : (hasChoices && !isOx) ? 'opus' : true;
     const hash = crypto.createHash('sha256').update(JSON.stringify([sheet, question, isOx ? null : choices, tier])).digest('hex');
     if (cache.has(hash)) return res.status(200).json({ ...cache.get(hash), cached: true });
-    const stored = await storedAnswer(hash);
-    if (stored && stored.ok) {
-        cache.set(hash, stored);
-        console.log('[ask] shared', JSON.stringify({ sheet, q: question, m: stored.model, a: stored.answer }));
-        return res.status(200).json({ ...stored, cached: true });
-    }
-
+    const useJev = !forceClaude && (isOx || hasChoices);
+    if (useJev && !process.env.TYPESAFE_API_KEY) return res.status(503).json({ ok: false, error: 'jev-not-configured' });
+    if (!useJev && !process.env.ANTHROPIC_API_KEY) return res.status(503).json({ ok: false, error: 'claude-not-configured' });
     if (rateLimited(ip)) return res.status(429).json({ ok: false, error: 'rate-limited' });
 
-    try {
+    // 저장된 답 조회(약 0.6초, 2026-11-19 실측)를 기다렸다가 AI에게 물으면 모든 답이 그만큼 늦는다
+    // → 조회와 AI 질문을 동시에 시작해 먼저 온 쪽을 쓴다. 저장된 답이 먼저 오면 Claude 요청은 끊는다.
+    const abort = new AbortController();
+    const compute = async () => {
         let result;
         if (forceClaude) {
-            if (!process.env.ANTHROPIC_API_KEY) return res.status(503).json({ ok: false, error: 'claude-not-configured' });
-            const text = await askClaude(sheet, question, hasChoices ? choices : null, isOx);
+            const text = await askClaude(sheet, question, hasChoices ? choices : null, isOx, abort.signal);
             let answer = text;
             let choice = null;
             if (isOx) {
@@ -479,8 +477,7 @@ export default async function handler(req, res) {
                 answer = `${choice}. ${choices[choice]}`;
             }
             result = { ok: true, model: 'claude', choice, answer, confidence: null };
-        } else if (isOx || hasChoices) {
-            if (!process.env.TYPESAFE_API_KEY) return res.status(503).json({ ok: false, error: 'jev-not-configured' });
+        } else if (useJev) {
             const criteria = isOx
                 ? { O: '문제의 진술이 사실이다(맞다)', X: '문제의 진술이 사실이 아니다(틀리다)' }
                 : choices;
@@ -494,9 +491,23 @@ export default async function handler(req, res) {
                 probability
             };
         } else {
-            if (!process.env.ANTHROPIC_API_KEY) return res.status(503).json({ ok: false, error: 'claude-not-configured' });
-            result = { ok: true, model: 'claude', answer: await askClaude(sheet, question), confidence: null };
+            result = { ok: true, model: 'claude', answer: await askClaude(sheet, question, null, false, abort.signal), confidence: null };
         }
+        return result;
+    };
+
+    try {
+        const fresh = compute();
+        fresh.catch(() => {}); // 저장된 답이 이겨서 끊긴 요청의 오류는 무시
+        const storedHit = storedAnswer(hash).then(s => (s && s.ok) ? s : new Promise(() => {})); // 없으면 끝까지 AI를 기다림
+        const first = await Promise.race([fresh.then(r => ({ r })), storedHit.then(s => ({ s }))]);
+        if (first.s) {
+            abort.abort();
+            cache.set(hash, first.s);
+            console.log('[ask] shared', JSON.stringify({ sheet, q: question, m: first.s.model, a: first.s.answer }));
+            return res.status(200).json({ ...first.s, cached: true });
+        }
+        const result = first.r;
         // 틀린 답 추적용 기록 (Vercel 런타임 로그). 문제 글과 답만 남긴다.
         console.log('[ask]', JSON.stringify({ sheet, q: question, c: hasChoices ? choices : undefined, m: result.model, a: result.answer, p: result.confidence, second: forceClaude || undefined }));
         if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value);
