@@ -74,6 +74,7 @@
 
             <div class="cc-section">
                 <h3>이 브라우저에서 모은 문제 <span class="count" id="mineCount"></span></h3>
+                <p class="cc-note" id="mineNote"></p>
                 <div id="mine"></div>
             </div>
 
@@ -112,6 +113,29 @@
             var lastStatus = null;
             var mineList = [];
             var NL = String.fromCharCode(10);
+            // 족보 파일 자체와 맞대 본 결과. 현황 파일(collected-status.json)은 최근 반영 500개만, 그것도 고치기 전 글자로 담고 있어서
+            // 띄어쓰기를 고쳐 넣은 문제나 원래 족보에 있던 문제가 '서버로 보냄'으로 남아 있었다 (2026-11-19)
+            var bank = {};          // sheet → { q: {질문키: true}, byAnswer: {답키: [질문키…]} }
+            var showInBank = false; // 족보에 이미 있는 문제는 목록에서 숨긴다 (눌러서 볼 수 있음)
+            function loadBank(sheets) {
+                return fetch('metadata.json', { cache: 'no-cache' }).then(function (r) { return r.json(); }).then(function (meta) {
+                    return Promise.all((meta.categories || []).filter(function (c) { return sheets.indexOf(c.name) >= 0; }).map(function (c) {
+                        return fetch(c.file, { cache: 'no-cache' }).then(function (r) { return r.text(); }).then(function (text) {
+                            var b = { q: {}, byAnswer: {} };
+                            text.split(NL).forEach(function (line) {
+                                var t = line.indexOf('	'), q, a;
+                                if (t >= 0) { q = line.slice(0, t); a = line.slice(t + 1); }
+                                else { var k = line.lastIndexOf('?'); if (k < 0) return; q = line.slice(0, k + 1); a = line.slice(k + 1); }
+                                var qkey = qk(q), akey = ak(a);
+                                if (qkey.length < 4) return;
+                                b.q[qkey] = true;
+                                if (akey) (b.byAnswer[akey] = b.byAnswer[akey] || []).push(qkey);
+                            });
+                            bank[c.name] = b;
+                        });
+                    }));
+                });
+            }
 
             function render(status) {
                 lastStatus = status;
@@ -141,6 +165,16 @@
                         return nearlySame(m.q, k, 8) && nearlySame(m.a, a, 2);
                     });
                 }
+                // 족보 파일에 이미 있는 문제인가: 질문이 글자까지 같거나, 답이 같고 질문이 한두 글자만 다르면(화면 인식 오타) 같은 문제
+                function inBank(sheet, question, answer) {
+                    var b = bank[sheet];
+                    if (!b) return false;
+                    var k = qk(tidy(question, true));
+                    if (k.length < 4) return false;
+                    if (b.q[k]) return true;
+                    var cands = b.byAnswer[ak(tidy(answer, false))] || [];
+                    return cands.some(function (c) { return nearlySame(c, k, 8); });
+                }
                 var outboxKeys = {};
                 outbox.forEach(function (o) { outboxKeys[qk(o.question) + '|' + ak(o.answer)] = true; });
 
@@ -151,18 +185,22 @@
                 mine.sort(function (a, b) { return String(b.c.time || '').localeCompare(String(a.c.time || '')); });
                 mineList = mine;
 
-                var mergedMine = 0, waiting = 0;
+                var mergedMine = 0, waiting = 0, hidden = 0;
                 unmerged = [];
                 var mineRows = mine.map(function (m, idx) {
                     var key = qk(m.c.question) + '|' + ak(m.c.answer);
                     var badge;
+                    var done = true;
                     if (isMerged(m.c.question, m.c.answer)) { badge = '<span class="cc-badge merged">족보에 반영됨</span>'; mergedMine++; }
+                    else if (inBank(m.sheet, m.c.question, m.c.answer)) { badge = '<span class="cc-badge merged">이미 있음</span>'; mergedMine++; }
                     else if (outboxKeys[key]) { badge = '<span class="cc-badge waiting">전송 대기</span>'; waiting++; }
                     else { badge = '<span class="cc-badge sent">서버로 보냄</span>'; }
+                    if (badge.indexOf('merged') < 0) done = false;
+                    if (done) hidden++;
                     if (badge.indexOf('merged') < 0) unmerged.push({ sheet: m.sheet, question: m.c.question, answer: m.c.answer, note: m.c.note || '' });
                     var q = tidy(m.c.question, true);
                     var ans = tidy(m.c.answer, false);
-                    return '<tr><td>' + esc(m.c.time || '') + '</td><td>' + esc(m.sheet) + '</td><td>' + esc(q) +
+                    return '<tr' + (done && !showInBank ? ' class="cc-inbank"' : '') + '><td>' + esc(m.c.time || '') + '</td><td>' + esc(m.sheet) + '</td><td>' + esc(q) +
                         '</td><td class="ans">' + esc(ans) + '</td><td>' + badge + '</td>' +
                         '<td class="cc-acts">' +
                         (badge.indexOf('merged') < 0 ? '<button class="cc-del cc-edit" type="button" data-i="' + idx + '" title="질문·답 고치기">수정</button>' : '') +
@@ -171,7 +209,7 @@
 
                 document.getElementById('cards').innerHTML = [
                     [mine.length, '이 브라우저에서 모은 문제'],
-                    [mergedMine, '그중 족보에 반영됨'],
+                    [mergedMine, '그중 족보에 있음'],
                     [waiting, '서버 전송 대기'],
                     [status ? status.merged_total : '-', '족보에 추가된 수집 문제 (전체)'],
                     [status ? status.pending_count : '-', '족보 반영 대기']
@@ -179,7 +217,11 @@
                     return '<div class="cc-card"><div class="n">' + esc(c[0]) + '</div><div class="t">' + esc(c[1]) + '</div></div>';
                 }).join('');
 
-                document.getElementById('mineCount').textContent = mine.length;
+                document.getElementById('mineCount').textContent = showInBank ? mine.length : mine.length - hidden;
+                document.getElementById('mineNote').innerHTML = hidden
+                    ? (showInBank ? '족보에 이미 있는 문제 ' + hidden + '개도 함께 보는 중이에요. ' : '족보에 이미 있는 문제 ' + hidden + '개는 목록에서 숨겼어요. ') +
+                      '<a href="#" id="toggleInBank">' + (showInBank ? '숨기기' : '보기') + '</a>'
+                    : '';
                 document.getElementById('mine').innerHTML = mine.length
                     ? table(['모은 때', '카테고리', '질문', '답', '상태', ''], mineRows)
                     : '<div class="cc-empty">아직 이 브라우저에서 모은 문제가 없어요.<br>족보 검색 화면의 📷 버튼으로 자동족보를 켜고 \'중단없이\'를 체크한 채 문제를 풀어 보세요.</div>';
@@ -202,11 +244,17 @@
             function applyFilter() {
                 var v = document.getElementById('filter').value.trim().toLowerCase();
                 document.querySelectorAll('.cc-table tbody tr').forEach(function (tr) {
-                    tr.style.display = !v || tr.textContent.toLowerCase().indexOf(v) >= 0 ? '' : 'none';
+                    tr.style.display = !tr.classList.contains('cc-inbank') && (!v || tr.textContent.toLowerCase().indexOf(v) >= 0) ? '' : 'none';
                 });
             }
 
             document.getElementById('filter').addEventListener('input', applyFilter);
+            document.getElementById('mineNote').addEventListener('click', function (e) {
+                if (!e.target || e.target.id !== 'toggleInBank') return;
+                e.preventDefault();
+                showInBank = !showInBank;
+                render(lastStatus);
+            });
 
             // 삭제: 잘못 읽힌 문제 등을 지운다. 아직 족보에 안 들어간 것은 서버 제출도 취소된다
             // 수정: 질문·답 칸을 입력칸으로 바꿔 직접 고친다 (족보에 이미 들어간 줄은 버튼이 없다)
@@ -297,7 +345,13 @@
                 .catch(function () { return null; })
                 .then(function (status) {
                     render(status || { merged: [], merged_total: 0, pending_count: 0, last_merge: null });
-                    if (status) backfillOnce(); // 족보 반영 여부를 안 뒤에 (이미 반영된 건 보낼 필요 없음)
+                    // 모은 문제가 있는 카테고리의 족보만 받아 맞대 본다 (받는 동안은 현황 파일 기준으로 먼저 보여줌)
+                    var sheets = Object.keys(readJson('qplay:collected:v1', {}));
+                    return (sheets.length ? loadBank(sheets) : Promise.resolve()).catch(function () { /* 족보를 못 받으면 현황 파일 기준 그대로 */ })
+                        .then(function () {
+                            render(lastStatus);
+                            if (status) backfillOnce(); // 족보 반영 여부를 안 뒤에 (이미 있는 건 보낼 필요 없음)
+                        });
                 });
             // 못 보낸 문제가 있으면 다시 보내고 상태 갱신
             if (window.QplayCollect && window.QplayCollect.pendingUploads() > 0) {
