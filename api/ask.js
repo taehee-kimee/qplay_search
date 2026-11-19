@@ -197,10 +197,10 @@ async function askClaude(sheet, question, choices = null, isOx = false, signal =
     let rule = '정답 낱말이나 짧은 구절 하나만 출력하고 설명은 하지 마라.';
     if (isOx) {
         content += '\n진술이 맞으면 O, 틀리면 X.';
-        rule = 'O 또는 X 한 글자만 출력하라.';
+        rule = 'O 또는 X 한 글자만 출력하라. 설명·이유는 절대 덧붙이지 마라.';
     } else if (choices) {
         content += '\n보기:\n' + Object.entries(choices).map(([k, v]) => `${k}. ${v}`).join('\n');
-        rule = '정답 보기의 번호 하나만 출력하라.';
+        rule = '정답 보기의 번호 숫자 하나만 출력하라. 설명·이유는 절대 덧붙이지 마라.';
     }
     const system = `너는 한국어 퀴즈 정답을 맞히는 도우미다. ${rule}${hint} 문제가 "아닌 것/않는 것/틀린 것"을 물으면 조건에 맞지 않는 보기를 골라라. 모르면 가장 그럴듯한 답을 하나 내라. 답은 한국어(한글)로 써라.`;
     // 모델 (2026-11-15 족보 300문제 실측):
@@ -229,7 +229,11 @@ async function askClaude(sheet, question, choices = null, isOx = false, signal =
         if (response.stop_reason === 'refusal') throw new Error('claude-refusal');
         const text = response.content.filter(b => b.type === 'text').map(b => b.text).join('').trim();
         const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-        let a = clean((lines[lines.length - 1] || '').replace(/^(정답|답)\s*[:：]\s*/, '').replace(/[*_`]/g, '').replace(/[.。]$/, ''), 60);
+        // 답을 첫 줄에 짧게 쓰고 그 아래 설명을 덧붙일 때가 있다 ("**1**" 다음 줄에 "…이소라만 1세대 패션모델…").
+        // 예전엔 마지막 줄을 읽어서 설명 속 숫자를 답으로 잘못 집거나 답을 못 찾아 실패했음 (2026-11-19) → 첫 줄이 짧으면 첫 줄이 답
+        const head = (lines[0] || '').replace(/[*_`]/g, '');
+        const pick = (isOx || choices) && lines.length > 1 && head.length <= 12 ? lines[0] : lines[lines.length - 1];
+        let a = clean((pick || '').replace(/^(정답|답)\s*[:：]\s*/, '').replace(/[*_`]/g, '').replace(/[.。]$/, ''), 60);
         if (n) a = fitLength(a, n);
         return a;
     };
