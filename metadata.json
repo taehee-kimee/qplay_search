@@ -1,12 +1,12 @@
 {
   "version": "5.0",
   "type": "category_split",
-  "total_items": 97121,
+  "total_items": 97341,
   "categories": [
     {
       "id": "ox_xo",
       "name": "ox,xo",
-      "count": 28321,
+      "count": 28323,
       "file": "categories/ox_xo.csv"
     },
     {
@@ -18,7 +18,7 @@
     {
       "id": "ollaolla",
       "name": "올라올라(꼬로록)",
-      "count": 31603,
+      "count": 31821,
       "file": "categories/ollaolla.csv"
     },
     {
